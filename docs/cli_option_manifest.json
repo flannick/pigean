@@ -5201,6 +5201,27 @@
     {
       "action": null,
       "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "multi_y_prob_col",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--multi-y-prob-col"
+      ],
+      "help": null,
+      "primary_flag": "--multi-y-prob-col",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 464,
+      "summary": "probability column for --multi-y-in",
+      "type": null,
+      "usage_references": 0
+    },
+    {
+      "action": null,
+      "category": "engineering",
       "default": "combined",
       "deprecation_timeline": null,
       "dest": "multi_y_response_col",
@@ -5214,8 +5235,8 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 464,
-      "summary": "which resolved multi-Y column is used as the beta-stage response: combined (default) or log_bf",
+      "source_line": 465,
+      "summary": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob",
       "type": null,
       "usage_references": 15
     },

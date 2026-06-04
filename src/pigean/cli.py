@@ -461,7 +461,8 @@ parser.add_option("","--multi-y-pheno-col",default=None)
 parser.add_option("","--multi-y-log-bf-col",default=None)
 parser.add_option("","--multi-y-combined-col",default=None)
 parser.add_option("","--multi-y-prior-col",default=None)
-parser.add_option("","--multi-y-response-col",choices=("combined", "log_bf"),default="combined")
+parser.add_option("","--multi-y-prob-col",default=None)
+parser.add_option("","--multi-y-response-col",choices=("combined", "log_bf", "prob"),default="combined")
 parser.add_option("","--multi-y-max-phenos-per-batch",type="int",default=None)
 parser.add_option("","--multi-y-vectorize-betas",action="store_true",default=False)
 parser.add_option("","--multi-y-trait-blacklist-in",default=None)
@@ -643,7 +644,8 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--multi-y-log-bf-col": "log BF column for --multi-y-in",
     "--multi-y-combined-col": "combined-support column for --multi-y-in",
     "--multi-y-prior-col": "prior-support column for --multi-y-in",
-    "--multi-y-response-col": "which resolved multi-Y column is used as the beta-stage response: combined (default) or log_bf",
+    "--multi-y-prob-col": "probability column for --multi-y-in",
+    "--multi-y-response-col": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob",
     "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
     "--multi-y-vectorize-betas": "expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems",
     "--multi-y-trait-blacklist-in": "file of trait labels to exclude from --multi-y-in before batching",
@@ -753,6 +755,7 @@ _SET_B_METHOD_FLAGS = {
     "--multi-y-log-bf-col",
     "--multi-y-combined-col",
     "--multi-y-prior-col",
+    "--multi-y-prob-col",
     "--multi-y-response-col",
     "--phewas-comparison-set",
     "--no-cross-val",
@@ -1553,6 +1556,7 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         ("multi_y_log_bf_col", "--multi-y-log-bf-col"),
         ("multi_y_combined_col", "--multi-y-combined-col"),
         ("multi_y_prior_col", "--multi-y-prior-col"),
+        ("multi_y_prob_col", "--multi-y-prob-col"),
         ("multi_y_response_col", "--multi-y-response-col"),
         ("multi_y_max_phenos_per_batch", "--multi-y-max-phenos-per-batch"),
         ("multi_y_vectorize_betas", "--multi-y-vectorize-betas"),
@@ -1899,16 +1903,6 @@ def _bootstrap_cli(argv=None):
     if parsed_options.gene_cor_file is None and parsed_options.gene_loc_file is None and not parsed_options.ols:
         warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
         parsed_options.ols = True
-    if (
-        parsed_options.multi_y_in is not None
-        and not _is_option_dest_explicit("linear", parsed_cli_specified_dests, parsed_config_specified_dests)
-    ):
-        _early_warn(
-            "Enabling --linear because --multi-y-in provides continuous trait support vectors; pass --no-linear to override"
-        )
-        parsed_options.linear = True
-        if not _is_option_dest_explicit("max_for_linear", parsed_cli_specified_dests, parsed_config_specified_dests):
-            parsed_options.max_for_linear = 1
     _normalize_phewas_stage_options(parsed_options, _early_warn)
     _normalize_gene_universe_options(parsed_options, _early_warn)
 

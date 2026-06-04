@@ -542,6 +542,8 @@ class PigeanCliTest(unittest.TestCase):
             "Combined",
             "--multi-y-prior-col",
             "Prior",
+            "--multi-y-prob-col",
+            "Prob",
             "--multi-y-response-col",
             "combined",
             "--multi-y-max-phenos-per-batch",
@@ -563,7 +565,9 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_log_bf_col"], "Direct")
         self.assertEqual(options["multi_y_combined_col"], "Combined")
         self.assertEqual(options["multi_y_prior_col"], "Prior")
+        self.assertEqual(options["multi_y_prob_col"], "Prob")
         self.assertEqual(options["multi_y_response_col"], "combined")
+        self.assertFalse(options["linear"])
         self.assertEqual(options["multi_y_max_phenos_per_batch"], 3)
         self.assertTrue(options["multi_y_vectorize_betas"])
         self.assertEqual(options["multi_y_trait_blacklist_in"], "blacklist.txt")

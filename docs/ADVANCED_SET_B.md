@@ -210,12 +210,18 @@ Required inputs:
   - optional `--multi-y-log-bf-col` (auto-detects `log_bf` then `Direct`)
   - optional `--multi-y-combined-col` (auto-detects `combined` then `Combined`)
   - optional `--multi-y-prior-col` (auto-detects `prior` then `Prior`)
+  - optional `--multi-y-prob-col` (auto-detects `prob`, `Prob`, `probability`, then `Probability`)
 
 Optional expert controls:
-- `--multi-y-response-col combined|log_bf`
+- `--multi-y-response-col combined|log_bf|prob`
   - selects the resolved multi-Y column used as the beta-stage response
   - defaults to `combined`
-  - there is no fallback: if `combined` is requested and no combined column is present, the run fails; pass `--multi-y-response-col log_bf` to use the log-BF/direct column instead
+  - `combined` and `log_bf` are treated as log-BF/support inputs and converted to probabilities internally
+  - `prob` requires `--multi-y-prob-col` or an auto-detected probability column; values outside `[0,1]` fail and values above the internal cap are capped before conversion to log-BF units
+  - there is no fallback: if the requested response column is missing, the run fails
+- `--linear`
+  - optional faster continuous-response beta-tilde approximation for both single-Y and multi-Y
+  - multi-Y no longer enables this automatically; omit `--linear` for the same default beta-stage semantics as repeated `--gene-stats-in` runs
 - `--multi-y-trait-blacklist-in <file>`
   - excludes matching trait labels before multi-Y batching
   - expects one trait label per line; for simple tabular files, the first column is used

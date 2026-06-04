@@ -294,6 +294,8 @@ def parse_gene_bfs_file(
         if prior_col is not None:
             gene_in_priors = {}
 
+        bf_value_count = 0
+        bf_unit_interval_count = 0
         for line in gene_bfs_fh:
             cols = line.strip("\n").split()
             if (
@@ -317,6 +319,10 @@ def parse_gene_bfs_file(
                     if cols[bf_col] != "NA":
                         warn_fn("Skipping unconvertible bf value %s for gene %s" % (cols[bf_col], gene))
                     continue
+                if np.isfinite(bf):
+                    bf_value_count += 1
+                    if 0.0 <= bf <= 1.0:
+                        bf_unit_interval_count += 1
             elif prob_col is not None:
                 try:
                     prob = float(cols[prob_col])
@@ -327,13 +333,17 @@ def parse_gene_bfs_file(
                             % (cols[prob_col], gene)
                         )
                     continue
-                if prob >= 1:
+                if not np.isfinite(prob):
+                    bail_fn("Probability for gene %s is not finite" % gene)
+                if prob < 0 or prob > 1:
+                    bail_fn("Probability %.3g for gene %s is outside [0,1]" % (prob, gene))
+                if prob > 0.99:
                     warn_fn("Probability %.3g exceeds maximum 0.99 for gene %s; capping to 0.99" % (prob, gene))
                     prob = 0.99
-                elif prob <= 0:
-                    warn_fn("Skipping probability %.3g outside of (0,1)" % (prob))
-                    continue
-                bf = np.log(prob / (1 - prob)) - background_log_bf
+                if prob == 0:
+                    bf = 0.0
+                else:
+                    bf = np.log(prob / (1 - prob)) - background_log_bf
 
             gene_in_bfs[gene] = bf
 
@@ -360,6 +370,12 @@ def parse_gene_bfs_file(
                         )
                     continue
                 gene_in_priors[gene] = prior
+
+        if bf_col is not None and prob_col is None and bf_value_count > 0 and bf_value_count == bf_unit_interval_count:
+            warn_fn(
+                "Declared log-BF gene-stats input contains only finite values in [0,1]; "
+                "if these are probabilities, use --gene-stats-prob-col"
+            )
 
     return ParsedGeneBfs(
         gene_in_bfs=gene_in_bfs,

@@ -17,6 +17,7 @@ _MULTI_Y_PHENO_CANDIDATES = ("Trait", "Pheno")
 _MULTI_Y_LOG_BF_CANDIDATES = ("log_bf", "Direct")
 _MULTI_Y_COMBINED_CANDIDATES = ("combined", "Combined")
 _MULTI_Y_PRIOR_CANDIDATES = ("prior", "Prior")
+_MULTI_Y_PROB_CANDIDATES = ("prob", "Prob", "probability", "Probability")
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class MultiYColumnResolution:
     log_bf_col_name: str
     combined_col_name: str | None
     prior_col_name: str | None
+    prob_col_name: str | None
 
 
 @dataclass
@@ -116,17 +118,18 @@ def _resolve_multi_y_columns(options):
         _MULTI_Y_PHENO_CANDIDATES,
         required=True,
     )
+    response_col = getattr(options, "multi_y_response_col", "combined")
     log_bf_col_name = _first_present_column(
         header_cols,
         options.multi_y_log_bf_col,
         _MULTI_Y_LOG_BF_CANDIDATES,
-        required=True,
+        required=response_col == "log_bf",
     )
     combined_col_name = _first_present_column(
         header_cols,
         options.multi_y_combined_col,
         _MULTI_Y_COMBINED_CANDIDATES,
-        required=False,
+        required=response_col == "combined",
     )
     prior_col_name = _first_present_column(
         header_cols,
@@ -134,12 +137,19 @@ def _resolve_multi_y_columns(options):
         _MULTI_Y_PRIOR_CANDIDATES,
         required=False,
     )
+    prob_col_name = _first_present_column(
+        header_cols,
+        getattr(options, "multi_y_prob_col", None),
+        _MULTI_Y_PROB_CANDIDATES,
+        required=response_col == "prob",
+    )
     return MultiYColumnResolution(
         id_col_name=id_col_name,
         pheno_col_name=pheno_col_name,
         log_bf_col_name=log_bf_col_name,
         combined_col_name=combined_col_name,
         prior_col_name=prior_col_name,
+        prob_col_name=prob_col_name,
     )
 
 
@@ -221,7 +231,41 @@ def _write_trait_gene_stats_file(
             fh.write("%s\n" % "\t".join(cols))
 
 
-def _select_multi_y_response_matrix(batch_Y, batch_combined, options, services):
+def _warn_if_log_bf_values_look_like_probabilities(values, label, services):
+    finite = np.asarray(values)[np.isfinite(values)]
+    if finite.size == 0:
+        return
+    if np.min(finite) >= 0.0 and np.max(finite) <= 1.0:
+        services.warn(
+            "%s is declared as log-BF/support input but all finite values are in [0,1]; "
+            "if these are probabilities, use the probability column interface instead"
+            % label
+        )
+
+
+def _probability_matrix_to_relative_log_bf(prob_values, *, background_log_bf, label, services, max_prob=0.99):
+    probs = np.asarray(prob_values, dtype=float).copy()
+    finite = np.isfinite(probs)
+    if not np.all(finite):
+        services.bail("%s contains non-finite probability values" % label)
+    if np.any(probs < 0.0) or np.any(probs > 1.0):
+        services.bail("%s must contain probabilities in [0,1]" % label)
+    high_mask = probs > max_prob
+    if np.any(high_mask):
+        services.warn(
+            "%s contains %d probabilities above %.3g; capping to %.3g"
+            % (label, int(np.sum(high_mask)), max_prob, max_prob)
+        )
+        probs[high_mask] = max_prob
+    # Preserve sparse semantics: absent/zero entries stay zero support rather than
+    # becoming background-prior probabilities.
+    out = np.zeros_like(probs, dtype=float)
+    positive = probs > 0.0
+    out[positive] = np.log(probs[positive] / (1.0 - probs[positive])) - background_log_bf
+    return out
+
+
+def _select_multi_y_response_matrix(batch_Y, batch_combined, batch_prob, options, services, *, background_log_bf=0.0):
     response = getattr(options, "multi_y_response_col", "combined")
     if response == "combined":
         if batch_combined is None:
@@ -229,6 +273,7 @@ def _select_multi_y_response_matrix(batch_Y, batch_combined, options, services):
                 "Option --multi-y-response-col combined requires a resolved combined column; "
                 "provide --multi-y-combined-col or pass --multi-y-response-col log_bf"
             )
+        _warn_if_log_bf_values_look_like_probabilities(batch_combined, "--multi-y-response-col combined", services)
         return batch_combined
     if response == "log_bf":
         if batch_Y is None:
@@ -236,7 +281,20 @@ def _select_multi_y_response_matrix(batch_Y, batch_combined, options, services):
                 "Option --multi-y-response-col log_bf requires a resolved log-BF column; "
                 "provide --multi-y-log-bf-col or pass --multi-y-response-col combined"
             )
+        _warn_if_log_bf_values_look_like_probabilities(batch_Y, "--multi-y-response-col log_bf", services)
         return batch_Y
+    if response == "prob":
+        if batch_prob is None:
+            services.bail(
+                "Option --multi-y-response-col prob requires a resolved probability column; "
+                "provide --multi-y-prob-col"
+            )
+        return _probability_matrix_to_relative_log_bf(
+            batch_prob,
+            background_log_bf=background_log_bf,
+            label="--multi-y-response-col prob",
+            services=services,
+        )
     services.bail("Unsupported --multi-y-response-col value: %s" % response)
 
 
@@ -268,6 +326,7 @@ def _record_multi_y_params(
             "multi_y_log_bf_col": columns.log_bf_col_name,
             "multi_y_combined_col": columns.combined_col_name,
             "multi_y_prior_col": columns.prior_col_name,
+            "multi_y_prob_col": columns.prob_col_name,
             "multi_y_response_col": getattr(options, "multi_y_response_col", "combined"),
             "multi_y_trait_blacklist_in": getattr(options, "multi_y_trait_blacklist_in", None),
             "multi_y_trait_blacklist_requested": trait_blacklist_requested,
@@ -313,6 +372,40 @@ def _initialize_multi_y_gene_universe(seed_state, options, services):
         gene_universe_genes=universe_genes,
         log_fn=services.log,
     )
+
+
+def _read_multi_y_file_batch(seed_state, options, *, begin, end, pheno_to_ind, col_info, services):
+    batch_Y, batch_combined, batch_priors = pigean_phewas.read_phewas_file_batch(
+        seed_state,
+        options.multi_y_in,
+        begin=begin,
+        cur_batch_size=end - begin,
+        pheno_to_ind=pheno_to_ind,
+        id_col=col_info["id_col"],
+        pheno_col=col_info["pheno_col"],
+        bf_col=col_info["bf_col"],
+        combined_col=col_info["combined_col"],
+        prior_col=col_info["prior_col"],
+        open_text_fn=open_text_with_retry,
+        warn_fn=services.warn,
+    )
+    batch_prob = None
+    if col_info.get("prob_col") is not None:
+        _ignore_y, batch_prob, _ignore_prior = pigean_phewas.read_phewas_file_batch(
+            seed_state,
+            options.multi_y_in,
+            begin=begin,
+            cur_batch_size=end - begin,
+            pheno_to_ind=pheno_to_ind,
+            id_col=col_info["id_col"],
+            pheno_col=col_info["pheno_col"],
+            bf_col=None,
+            combined_col=col_info["prob_col"],
+            prior_col=None,
+            open_text_fn=open_text_with_retry,
+            warn_fn=services.warn,
+        )
+    return batch_Y, batch_combined, batch_priors, batch_prob
 
 
 def _as_trait_gene_set_matrix(values, num_traits):
@@ -469,25 +562,22 @@ def _run_multi_y_vectorized_betas(
                     services.INFO,
                 )
                 batch_state = copy.deepcopy(seed_state)
-                (batch_Y, batch_combined, _batch_priors) = pigean_phewas.read_phewas_file_batch(
+                (batch_Y, batch_combined, _batch_priors, batch_prob) = _read_multi_y_file_batch(
                     batch_state,
-                    options.multi_y_in,
+                    options,
                     begin=begin,
-                    cur_batch_size=end - begin,
+                    end=end,
                     pheno_to_ind=pheno_to_ind,
-                    id_col=col_info["id_col"],
-                    pheno_col=col_info["pheno_col"],
-                    bf_col=col_info["bf_col"],
-                    combined_col=col_info["combined_col"],
-                    prior_col=col_info["prior_col"],
-                    open_text_fn=open_text_with_retry,
-                    warn_fn=services.warn,
+                    col_info=col_info,
+                    services=services,
                 )
                 batch_response = _select_multi_y_response_matrix(
                     batch_Y,
                     batch_combined,
+                    batch_prob,
                     options,
                     services,
+                    background_log_bf=getattr(batch_state, "background_log_bf", 0.0),
                 )
 
                 batch_state.calculate_gene_set_statistics(
@@ -678,10 +768,15 @@ def run_multi_y_pipeline(services, options, mode):
         services.bail("Option --multi-y-in requires --gene-set-stats-out")
 
     columns = _resolve_multi_y_columns(options)
-    if getattr(options, "multi_y_response_col", "combined") == "combined" and columns.combined_col_name is None:
+    response_col = getattr(options, "multi_y_response_col", "combined")
+    if response_col == "combined" and columns.combined_col_name is None:
         services.bail(
             "Option --multi-y-response-col combined requires a combined column; "
             "provide --multi-y-combined-col or pass --multi-y-response-col log_bf"
+        )
+    if response_col == "prob" and columns.prob_col_name is None:
+        services.bail(
+            "Option --multi-y-response-col prob requires a probability column; provide --multi-y-prob-col"
         )
     seed_state = pigean_main_support.build_runtime_state(options)
     mode_state = pigean_main_support.build_mode_state(mode, False)
@@ -708,6 +803,12 @@ def run_multi_y_pipeline(services, options, mode):
         log_fn=services.log,
         debug_level=services.DEBUG,
     )
+    col_info["prob_col"] = None
+    if columns.prob_col_name is not None:
+        delimiter = detect_table_delimiter(options.multi_y_in, open_text_fn=open_text_with_retry)
+        with open_text_with_retry(options.multi_y_in) as fh:
+            header_cols = split_table_line(fh.readline(), delimiter)
+        col_info["prob_col"] = resolve_column_index(columns.prob_col_name, header_cols)
     if len(phenos) == 0:
         services.bail("No phenotypes were found in --multi-y-in")
 
@@ -734,7 +835,8 @@ def run_multi_y_pipeline(services, options, mode):
     if len(phenos) == 0:
         services.bail("All phenotypes from --multi-y-in were removed by --multi-y-trait-blacklist-in")
 
-    num_value_cols = 1 + int(columns.combined_col_name is not None) + int(columns.prior_col_name is not None)
+    num_value_cols = int(columns.log_bf_col_name is not None) + int(columns.combined_col_name is not None) + int(columns.prior_col_name is not None) + int(columns.prob_col_name is not None)
+    num_value_cols = max(1, num_value_cols)
     phenos_per_batch = options.multi_y_max_phenos_per_batch
     if phenos_per_batch is None:
         phenos_per_batch = _estimate_phenos_per_batch(len(seed_state.genes), num_value_cols, options.max_gb)
@@ -790,25 +892,22 @@ def run_multi_y_pipeline(services, options, mode):
                     % (begin + 1, end, len(phenos)),
                     services.INFO,
                 )
-                (batch_Y, batch_combined, batch_priors) = pigean_phewas.read_phewas_file_batch(
+                (batch_Y, batch_combined, batch_priors, batch_prob) = _read_multi_y_file_batch(
                     seed_state,
-                    options.multi_y_in,
+                    options,
                     begin=begin,
-                    cur_batch_size=end - begin,
+                    end=end,
                     pheno_to_ind=pheno_to_ind,
-                    id_col=col_info["id_col"],
-                    pheno_col=col_info["pheno_col"],
-                    bf_col=col_info["bf_col"],
-                    combined_col=col_info["combined_col"],
-                    prior_col=col_info["prior_col"],
-                    open_text_fn=open_text_with_retry,
-                    warn_fn=services.warn,
+                    col_info=col_info,
+                    services=services,
                 )
                 batch_response = _select_multi_y_response_matrix(
                     batch_Y,
                     batch_combined,
+                    batch_prob,
                     options,
                     services,
+                    background_log_bf=getattr(seed_state, "background_log_bf", 0.0),
                 )
                 for batch_offset, trait in enumerate(phenos[begin:end]):
                     trait_safe = trait.replace("/", "_").replace(" ", "_")
@@ -828,6 +927,8 @@ def run_multi_y_pipeline(services, options, mode):
                     trait_options.multi_y_log_bf_col = None
                     trait_options.multi_y_combined_col = None
                     trait_options.multi_y_prior_col = None
+                    trait_options.multi_y_prob_col = None
+                    trait_options.multi_y_response_col = "combined"
                     trait_options.multi_y_max_phenos_per_batch = None
                     _clear_primary_y_inputs(trait_options)
                     trait_options.gene_stats_in = trait_gene_stats

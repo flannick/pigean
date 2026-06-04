@@ -104,6 +104,8 @@ class MultiYWorkflowTest(unittest.TestCase):
             multi_y_log_bf_col="Direct",
             multi_y_combined_col="Combined",
             multi_y_prior_col="Indirect",
+            multi_y_prob_col=None,
+            multi_y_response_col="combined",
         )
         columns = pigean_multi_y._resolve_multi_y_columns(options)
         self.assertEqual(columns.id_col_name, "Gene")
@@ -153,31 +155,76 @@ class MultiYWorkflowTest(unittest.TestCase):
         from pigean import multi_y as pigean_multi_y
 
         options = SimpleNamespace(multi_y_response_col="combined")
-        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)), warn=lambda _message: None)
         direct = np.array([[1.0, 2.0], [3.0, 4.0]])
         combined = np.array([[10.0, 20.0], [30.0, 40.0]])
-        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, options, services)
+        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, None, options, services)
         np.testing.assert_allclose(selected, combined)
 
     def test_multi_y_response_can_use_log_bf(self) -> None:
         from pigean import multi_y as pigean_multi_y
 
         options = SimpleNamespace(multi_y_response_col="log_bf")
-        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)), warn=lambda _message: None)
         direct = np.array([[1.0, 2.0], [3.0, 4.0]])
         combined = np.array([[10.0, 20.0], [30.0, 40.0]])
-        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, options, services)
+        selected = pigean_multi_y._select_multi_y_response_matrix(direct, combined, None, options, services)
         np.testing.assert_allclose(selected, direct)
 
     def test_multi_y_response_combined_fails_without_combined_column(self) -> None:
         from pigean import multi_y as pigean_multi_y
 
         options = SimpleNamespace(multi_y_response_col="combined")
-        services = SimpleNamespace(bail=lambda message: (_ for _ in ()).throw(ValueError(message)))
+        services = SimpleNamespace(
+            bail=lambda message: (_ for _ in ()).throw(ValueError(message)),
+            warn=lambda _message: None,
+        )
         with self.assertRaisesRegex(ValueError, "--multi-y-response-col combined requires"):
             pigean_multi_y._select_multi_y_response_matrix(
                 np.array([[1.0], [2.0]]),
                 None,
+                None,
+                options,
+                services,
+            )
+
+    def test_multi_y_response_prob_converts_to_relative_log_bf_and_caps(self) -> None:
+        from pigean import multi_y as pigean_multi_y
+
+        warnings = []
+        options = SimpleNamespace(multi_y_response_col="prob")
+        services = SimpleNamespace(
+            bail=lambda message: (_ for _ in ()).throw(ValueError(message)),
+            warn=warnings.append,
+        )
+        prob = np.array([[0.8, 1.0], [0.0, 0.5]])
+        selected = pigean_multi_y._select_multi_y_response_matrix(
+            None,
+            None,
+            prob,
+            options,
+            services,
+            background_log_bf=0.0,
+        )
+        np.testing.assert_allclose(
+            selected,
+            np.array([[np.log(0.8 / 0.2), np.log(0.99 / 0.01)], [0.0, 0.0]]),
+        )
+        self.assertTrue(any("capping to 0.99" in warning for warning in warnings))
+
+    def test_multi_y_response_prob_rejects_out_of_range_values(self) -> None:
+        from pigean import multi_y as pigean_multi_y
+
+        options = SimpleNamespace(multi_y_response_col="prob")
+        services = SimpleNamespace(
+            bail=lambda message: (_ for _ in ()).throw(ValueError(message)),
+            warn=lambda _message: None,
+        )
+        with self.assertRaisesRegex(ValueError, r"probabilities in \[0,1\]"):
+            pigean_multi_y._select_multi_y_response_matrix(
+                None,
+                None,
+                np.array([[1.2]]),
                 options,
                 services,
             )
@@ -277,6 +324,7 @@ class MultiYWorkflowTest(unittest.TestCase):
             "--multi-y-in",
             str(multi_y_path),
             "--gene-universe-from-x",
+            "--linear",
             "--hide-opts",
             "--deterministic",
             "--min-gene-set-size",
