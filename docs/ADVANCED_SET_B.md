@@ -218,6 +218,7 @@ Optional expert controls:
   - defaults to `combined`
   - `combined` and `log_bf` are treated as log-BF/support inputs and converted to probabilities internally
   - `prob` requires `--multi-y-prob-col` or an auto-detected probability column; values outside `[0,1]` fail and values above the internal cap are capped before conversion to log-BF units
+  - if `--multi-y-prob-col` is explicitly passed and `--multi-y-response-col` is omitted, the response defaults to `prob`
   - there is no fallback: if the requested response column is missing, the run fails
 - `--linear`
   - optional faster continuous-response beta-tilde approximation for both single-Y and multi-Y

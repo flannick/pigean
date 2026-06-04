@@ -1576,6 +1576,18 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
             )
         if _options.multi_y_max_phenos_per_batch is not None and _options.multi_y_max_phenos_per_batch <= 0:
             bail("Option --multi-y-max-phenos-per-batch must be > 0")
+        if (
+            _options.multi_y_prob_col is not None
+            and _options.multi_y_response_col != "prob"
+            and (
+                _options.multi_y_prob_col == _options.multi_y_combined_col
+                or _options.multi_y_prob_col == _options.multi_y_log_bf_col
+            )
+        ):
+            bail(
+                "Option --multi-y-prob-col maps the same column as a log-BF/support response; "
+                "use --multi-y-response-col prob or choose distinct columns"
+            )
         conflicting_inputs = []
         for value, flag in (
             (_options.gwas_in, "--gwas-in"),
@@ -1679,6 +1691,13 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
             _options.prune_gene_sets = default_prune
         if _options.weighted_prune_gene_sets is None:
             _options.weighted_prune_gene_sets = default_prune
+
+    if (
+        getattr(_options, "multi_y_in", None) is not None
+        and _is_option_dest_explicit("multi_y_prob_col", _cli_dests, _config_dests)
+        and not _is_option_dest_explicit("multi_y_response_col", _cli_dests, _config_dests)
+    ):
+        _options.multi_y_response_col = "prob"
 
     if (
         getattr(_options, "multi_y_in", None) is not None

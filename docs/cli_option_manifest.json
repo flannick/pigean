@@ -5236,7 +5236,7 @@
       "replacement": null,
       "scientific_semantic_impact": "no",
       "source_line": 465,
-      "summary": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob",
+      "summary": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob; explicit --multi-y-prob-col defaults this to prob unless overridden",
       "type": null,
       "usage_references": 15
     },

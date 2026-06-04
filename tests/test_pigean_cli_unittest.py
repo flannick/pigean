@@ -573,6 +573,73 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["multi_y_trait_blacklist_in"], "blacklist.txt")
         self.assertTrue(options["gene_universe_from_x"])
 
+    def test_multi_y_prob_col_defaults_response_to_prob_when_response_not_explicit(self) -> None:
+        proc = self._run(
+            "betas",
+            "--multi-y-in",
+            "traits.tsv",
+            "--multi-y-id-col",
+            "Gene",
+            "--multi-y-pheno-col",
+            "Trait",
+            "--multi-y-prob-col",
+            "Combined",
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            "out.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["multi_y_prob_col"], "Combined")
+        self.assertEqual(payload["options"]["multi_y_response_col"], "prob")
+
+    def test_multi_y_prob_col_keeps_explicit_response_when_columns_are_distinct(self) -> None:
+        proc = self._run(
+            "betas",
+            "--multi-y-in",
+            "traits.tsv",
+            "--multi-y-id-col",
+            "Gene",
+            "--multi-y-pheno-col",
+            "Trait",
+            "--multi-y-combined-col",
+            "Combined",
+            "--multi-y-prob-col",
+            "Probability",
+            "--multi-y-response-col",
+            "combined",
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            "out.tsv",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["options"]["multi_y_response_col"], "combined")
+
+    def test_multi_y_prob_col_rejects_same_column_with_non_prob_response(self) -> None:
+        proc = self._run(
+            "betas",
+            "--multi-y-in",
+            "traits.tsv",
+            "--multi-y-id-col",
+            "Gene",
+            "--multi-y-pheno-col",
+            "Trait",
+            "--multi-y-combined-col",
+            "Combined",
+            "--multi-y-prob-col",
+            "Combined",
+            "--multi-y-response-col",
+            "combined",
+            "--gene-universe-from-x",
+            "--gene-set-stats-out",
+            "out.tsv",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("--multi-y-prob-col maps the same column", (proc.stderr or "") + (proc.stdout or ""))
+
     def test_gene_stats_combined_write_filter_round_trips(self) -> None:
         proc = self._run(
             "gibbs",
