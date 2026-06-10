@@ -20,26 +20,22 @@ cp catalog/bundles.example.json catalog/bundles.json
 # edit URLs + SHA256
 ```
 
-## 4) Download minimal bundles for local smoke tests
+## 4) Verify the default model bundle
 
-```bash
-python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal --mode gene_list
-```
+The repository ships a default bundle at `bundles/model_large-2026.02.22/data/`.
+If you use an alternate bundle, override the resource paths on the command line.
 
 ## 5) Run a profile
 
 ```bash
-## edit config/profiles/common.factor.json first:
-## replace __BUNDLE_ROOT__ with your bundle root, e.g. /abs/path/to/pigean/bundles/current
-
 GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1]++' | paste -sd ',' -)
 
-../../.venv/bin/python legacy/priors.py \
+PYTHONPATH=src python -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
-  --positive-controls-list "$GENE_CSV" \
-  --gene-stats-out results/MODY.gene_stats.out \
-  --gene-set-stats-out results/MODY.gene_set_stats.out \
-  --params-out results/MODY.params.out
+  --gene-list "$GENE_CSV" \
+  --gene-stats-out results/MODY.gene_stats.out.gz \
+  --gene-set-stats-out results/MODY.gene_set_stats.out.gz \
+  --params-out results/MODY.params.out.gz
 ```
 
 ## 6) Publish bundles

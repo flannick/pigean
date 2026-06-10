@@ -3,13 +3,27 @@
 Bundle goals:
 - Keep large static resources out of git
 - Version resource sets immutably
-- Let configs point to stable symlinks in `bundles/current/`
+- Keep configs pointed at the checked-in, versioned bundle unless users explicitly override paths
 
-## Expected bundle groups
+## Repo-tracked bundle
 
-- `core_small`: maps and small loc files
-- `x_panels`: large `--X-in`/`--X-list` files
-- `phewas_large`: very large PheWAS stats files
+The current repository ships one default model bundle:
+
+```text
+bundles/model_large-2026.02.22/data/
+```
+
+Important files include:
+
+- `gene_set_list_mouse_2024.txt`
+- `gene_set_list_msigdb_nohp.txt`
+- `gene_set_list_ocr_human.txt`
+- `gene_set_list_string_notext_medium.txt`
+- `portal_gencode.gene.map`
+- `NCBI37.3.plink.gene.loc`
+- `NCBI37.3.plink.gene.exons.loc`
+
+The gene-set files are named `.txt`, but they are valid `--X-in` sparse gene-set-list inputs. A `.gmt` extension is not required.
 
 ## Build a bundle
 
@@ -34,4 +48,4 @@ python scripts/fetch_bundles.py \
   --mode gene_list
 ```
 
-This installs into `bundles/<name>-<version>/` and updates symlinks under `bundles/current/<name>`.
+External bundle installers may install into `bundles/<name>-<version>/`; command examples in this repo use the checked-in `bundles/model_large-2026.02.22/data/` paths.

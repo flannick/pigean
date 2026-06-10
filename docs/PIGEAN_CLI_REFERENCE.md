@@ -41,21 +41,23 @@ Typical user workflow:
 Full workflow from raw inputs:
 
 ```bash
+mkdir -p results
+
 PYTHONPATH=src python -m pigean gibbs \
-  --config config/profiles/gene_list.default.json \
-  --X-in bundles/current/model_small/data/gene_set_list_mouse_2024.txt \
-  --gene-map-in bundles/current/model_small/data/portal_gencode.gene.map \
-  --gene-loc-file bundles/current/model_small/data/NCBI37.3.plink.gene.loc \
-  --gene-loc-file-huge bundles/current/model_small/data/NCBI37.3.plink.gene.exons.loc \
+  --config config/profiles/gwas.default.json \
+  --X-in bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt \
+  --gene-map-in bundles/model_large-2026.02.22/data/portal_gencode.gene.map \
+  --gene-loc-file bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc \
+  --gene-loc-file-huge bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc \
   --gwas-in path/to/trait.sumstats.tsv.gz \
   --gwas-chrom-col CHROM \
   --gwas-pos-col POS \
   --gwas-p-col P \
   --gwas-n-col N \
-  --gene-stats-out results/trait.gene_stats.out \
-  --gene-set-stats-out results/trait.gene_set_stats.out \
+  --gene-stats-out results/trait.gene_stats.out.gz \
+  --gene-set-stats-out results/trait.gene_set_stats.out.gz \
   --pigean-rerun-bundle-out results/trait.pigean_rerun_bundle.tar.gz \
-  --params-out results/trait.params.out
+  --params-out results/trait.params.out.gz
 ```
 
 `--params-out` is the resolved run record. It includes learned/internal quantities such as `p`, `sigma2`, Gibbs diagnostics, and other stage-specific outputs, and it also includes the resolved CLI/config state under `option_*` rows so the effective run settings can be reconstructed after the fact.
@@ -69,7 +71,7 @@ PYTHONPATH=src python -m pigean huge \
   --gwas-pos-col POS \
   --gwas-p-col P \
   --gwas-n-col N \
-  --gene-loc-file-huge bundles/current/model_small/data/NCBI37.3.plink.gene.exons.loc \
+  --gene-loc-file-huge bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc \
   --huge-statistics-out results/trait.huge_statistics.tar.gz \
   --gene-stats-out results/trait.huge_gene_stats.out \
   --params-out results/trait.huge.params.out
@@ -79,9 +81,9 @@ Priors from precomputed gene stats:
 
 ```bash
 PYTHONPATH=src python -m pigean priors \
-  --X-in bundles/current/model_small/data/gene_set_list_mouse_2024.txt \
-  --gene-map-in bundles/current/model_small/data/portal_gencode.gene.map \
-  --gene-loc-file bundles/current/model_small/data/NCBI37.3.plink.gene.loc \
+  --X-in bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt \
+  --gene-map-in bundles/model_large-2026.02.22/data/portal_gencode.gene.map \
+  --gene-loc-file bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc \
   --gene-stats-in path/to/gene_stats.tsv \
   --gene-stats-id-col GENE \
   --gene-stats-log-bf-col log_bf \
@@ -262,7 +264,7 @@ Testing tiers:
   - exercises bundled GWAS + exomes + positive controls + case/control counts
   - uses `--filter-gene-set-metric-z 0` to disable QC-metric filtering on the intentionally tiny toy gene-set file
 - validation tier:
-  - uses the real mouse gene-set file `tests/data/model_small/gene_set_list_mouse_2024.txt`
+  - uses the real mouse gene-set file from `bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt` when present
   - uses bundled GWAS without the toy QC override
 
 Current reference tests:

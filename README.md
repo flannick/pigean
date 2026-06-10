@@ -109,15 +109,9 @@ Use this as the index for the repo documentation set.
 
 Minimal setup:
 
-1. Populate `catalog/bundles.json` from `catalog/bundles.example.json`.
-2. Download the required bundles:
-
-```bash
-python scripts/fetch_bundles.py --catalog catalog/bundles.json --profile minimal --mode gene_list
-```
-
-3. Edit `config/profiles/common.factor.json` and replace `__BUNDLE_ROOT__` with your bundle root.
-4. Then use `docs/PIGEAN_CLI_REFERENCE.md` for actual command shapes and workflow-specific flags.
+1. Use the repo-tracked model bundle under `bundles/model_large-2026.02.22/data/`, or install an alternate bundle and override the paths on the command line.
+2. Run commands from the repository root so the default profile paths resolve correctly.
+3. Use `docs/PIGEAN_CLI_REFERENCE.md` for actual command shapes and workflow-specific flags.
 
 Minimal example:
 
@@ -127,9 +121,9 @@ GENE_CSV=$(awk 'NF && $1 !~ /^#/ {print $1}' data/mody.gene.list | awk '!seen[$1
 PYTHONPATH=src python -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
   --gene-list "$GENE_CSV" \
-  --gene-stats-out results/MODY.gene_stats.out \
-  --gene-set-stats-out results/MODY.gene_set_stats.out \
-  --params-out results/MODY.params.out
+  --gene-stats-out results/MODY.gene_stats.out.gz \
+  --gene-set-stats-out results/MODY.gene_set_stats.out.gz \
+  --params-out results/MODY.params.out.gz
 ```
 
 For the practical run manual, use:
@@ -150,7 +144,7 @@ Two bundled T2D fixture tiers are available for repo-tracked testing:
   - intended for quick regression coverage of mixed input parsing and staged Y assembly
 - Validation tier:
   - uses the same compact bundled GWAS fixture
-  - uses the real mouse gene-set file `tests/data/model_small/gene_set_list_mouse_2024.txt`
+  - uses the real mouse gene-set file from the model bundle, `bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt`, when present
   - intended for slower but more faithful gene-set validation without the toy QC-filter override
 
 Run the toy tier:

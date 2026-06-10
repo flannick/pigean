@@ -6,8 +6,7 @@ Users should provide:
 1. `--config config/profiles/<profile>.default.json`
 2. exactly one runtime input file (`--gwas-in`, `--exomes-in`, `--huge-statistics-in`, or `--gene-list-in`)
 
-`config/profiles/common.factor.json` uses `__BUNDLE_ROOT__` placeholders.
-After downloading bundles, replace `__BUNDLE_ROOT__` with your bundle root (usually `<repo>/bundles/current`).
+`config/profiles/common.factor.json` points at the repo-tracked `bundles/model_large-2026.02.22/data/` resource bundle using paths relative to the profile file. Run from the repository root, or override resource paths such as `--X-in`, `--gene-map-in`, and `--gene-loc-file` on the command line.
 
 For `--X-list` behavior parity with separate `--X-in`, each line should include explicit batch labels:
 
@@ -43,7 +42,7 @@ Advanced configs can layer in:
 
 1. precomputed input ingestion (`--gene-stats-in`, `--gene-set-stats-in`)
 2. HuGE cache workflows (`--huge-statistics-in/out`)
-3. optional PheWAS output workflow
+3. optional deprecated/expert PheWAS output workflow
 4. specialized modes (`sim`, `pops`, `naive_pops`)
 
 For concise required-input/output blocks for each retained advanced workflow, see:

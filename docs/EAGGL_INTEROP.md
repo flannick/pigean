@@ -4,7 +4,7 @@ This document describes how to package PIGEAN outputs for direct EAGGL consumpti
 
 ## Bundle Handoff (`--eaggl-bundle-out`)
 
-`pigean.py` can write a single tarball containing the minimum default EAGGL inputs.
+`python -m pigean` can write a single tarball containing the minimum default EAGGL inputs.
 
 ### Command pattern
 
@@ -14,8 +14,8 @@ PYTHON=../../.venv/bin/python
 $PYTHON -m pigean gibbs \
   --config config/profiles/gene_list.default.json \
   --positive-controls-list INS,GCK,HNF1A \
-  --gene-stats-out results/pigean.gene_stats.out \
-  --gene-set-stats-out results/pigean.gene_set_stats.out \
+  --gene-stats-out results/pigean.gene_stats.out.gz \
+  --gene-set-stats-out results/pigean.gene_set_stats.out.gz \
   --eaggl-bundle-out results/pigean_to_eaggl.tar.gz
 ```
 

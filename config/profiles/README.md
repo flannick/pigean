@@ -1,14 +1,21 @@
 # Default profiles
 
-These profiles provide static bundle-backed resources.
+These profiles provide static bundle-backed resources for the PIGEAN repository.
 
-Before running, edit `config/profiles/common.factor.json`:
-- replace `__BUNDLE_ROOT__` with your installed bundle root (typically `<repo>/bundles/current`).
+The default profile paths point at the repo-tracked bundle:
 
-Use directly with `legacy/priors.py`:
+```text
+bundles/model_large-2026.02.22/data/
+```
+
+Run commands from the repository root, or override the resource paths on the command line.
+
+Use directly with `python -m pigean`:
 
 ```bash
-../../.venv/bin/python legacy/priors.py \
+PYTHONPATH=src python -m pigean gibbs \
   --config config/profiles/gwas.default.json \
   --gwas-in <file>
 ```
+
+The PIGEAN profiles must not include EAGGL-only factorization or PheWAS projection options. Downstream EAGGL runs should receive the PIGEAN outputs or an EAGGL bundle explicitly.

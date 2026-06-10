@@ -1,4 +1,3 @@
 {
-  "include": "common.factor.json",
-  "mode": "factor"
+  "include": "common.factor.json"
 }

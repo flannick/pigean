@@ -48,6 +48,31 @@ class PigeanCliTest(unittest.TestCase):
         )
 
 
+    def test_default_gwas_profile_is_pigean_only_and_points_to_existing_bundle(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        proc = self._run(
+            "gibbs",
+            "--config",
+            "config/profiles/gwas.default.json",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        self.assertNotIn("moved to eaggl", (proc.stderr or "").lower())
+        self.assertNotIn("Config mode 'factor'", proc.stderr or "")
+        payload = json.loads(proc.stdout)
+        opts = payload["options"]
+        for forbidden in (
+            "gene_set_phewas_stats_in",
+            "gene_phewas_bfs_in",
+            "gene_filter_value",
+            "gene_set_filter_value",
+        ):
+            self.assertIsNone(opts.get(forbidden), forbidden)
+        for path_value in [*opts["X_in"], opts["gene_map_in"], opts["gene_loc_file"], opts["gene_loc_file_huge"]]:
+            self.assertTrue(Path(path_value).exists(), path_value)
+            self.assertIn(str(repo_root / "bundles" / "model_large-2026.02.22" / "data"), path_value)
+
+
     def test_removed_betas_from_phewas_points_to_multi_y(self) -> None:
         proc = self._run("gibbs", "--betas-from-phewas")
         self.assertNotEqual(proc.returncode, 0)
