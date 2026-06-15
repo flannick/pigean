@@ -34,7 +34,8 @@ class DashboardPayloadTest(unittest.TestCase):
             root / "pigean.gene_stats.out.gz",
             "Gene\tcombined\tlog_bf\tprior\tN\tChrom\tStart\tEnd\n"
             "GENE1\t3.0\t1.2\t1.8\t5\t1\t100\t200\n"
-            "GENE2\t1.4\t0.4\t1.0\t4\t1\t300\t400\n",
+            "GENE2\t1.4\t0.4\t1.0\t4\t1\t300\t400\n"
+            "GENELOW\t0.2\t0.1\t0.1\t4\t1\t500\t600\n",
         )
         _write_gz(
             root / "pigean.gene_set_stats.out.gz",
@@ -98,7 +99,7 @@ class DashboardPayloadTest(unittest.TestCase):
             self._write_pigean_outputs(pdir)
             self._write_eaggl_outputs(edir)
             x_in = root / "sets.gmt"
-            x_in.write_text("SET1\tdesc\tGENE1\tGENE2\n", encoding="utf-8")
+            x_in.write_text("SET1\tdesc\tGENE1\tGENE2\tGENELOW\n", encoding="utf-8")
             parser = dashboard.build_parser()
             args = parser.parse_args([
                 "--pigean-run", f"run1:{pdir}",
@@ -115,6 +116,10 @@ class DashboardPayloadTest(unittest.TestCase):
         self.assertEqual(len(payload["eaggl_runs"]), 1)
         self.assertEqual(payload["pigean_runs"][0]["genes"][0]["gene"], "GENE1")
         self.assertIn("GENE1", payload["pigean_runs"][0]["gene_expansions"])
+        set_members = payload["pigean_runs"][0]["gene_set_expansions"]["SET1"]
+        self.assertEqual({row["gene"] for row in set_members}, {"GENE1", "GENE2", "GENELOW"})
+        low = next(row for row in set_members if row["gene"] == "GENELOW")
+        self.assertFalse(low["passes_dashboard_filter"])
         factor = payload["eaggl_runs"]["run1::gene_x_gene"]["factors"][0]
         self.assertEqual(factor["factor"], "Factor1")
         self.assertEqual(len(factor["genes"]), 1)

@@ -455,6 +455,24 @@ def normalize_gene_set_rows(rows: list[dict[str, str]], warnings: list[str], *, 
     return normalized if max_rows < 0 else normalized[:max_rows]
 
 
+def _gene_set_aliases(gene_set: str) -> list[str]:
+    aliases = [gene_set]
+    for sep in ("::", "|", ":"):
+        if sep in gene_set:
+            tail = gene_set.rsplit(sep, 1)[-1].strip()
+            if tail and tail not in aliases:
+                aliases.append(tail)
+    return aliases
+
+
+def _membership_for_gene_set(membership: dict[str, set[str]], gene_set: str) -> set[str]:
+    for alias in _gene_set_aliases(gene_set):
+        members = membership.get(alias)
+        if members:
+            return members
+    return set()
+
+
 def read_gene_set_membership(paths: list[Path], warnings: list[str]) -> dict[str, set[str]]:
     membership: dict[str, set[str]] = defaultdict(set)
     for path in paths:
@@ -471,10 +489,16 @@ def read_gene_set_membership(paths: list[Path], warnings: list[str]) -> dict[str
                     if not gene_set:
                         continue
                     start = 2 if len(parts) > 2 and parts[1].strip().lower() in {"", "na", "nan", "description"} else 1
+                    genes = []
                     for token in parts[start:]:
-                        gene = token.split(":", 1)[0].strip()
-                        if gene:
-                            membership[gene_set].add(gene)
+                        for raw_gene in token.split():
+                            gene = raw_gene.split(":", 1)[0].strip()
+                            if gene:
+                                genes.append(gene)
+                    if not genes:
+                        continue
+                    for alias in _gene_set_aliases(gene_set):
+                        membership[alias].update(genes)
         except OSError as exc:
             warnings.append(f"could not read X input {path}: {exc}")
     return dict(membership)
@@ -494,7 +518,7 @@ def build_gene_expansions(
         beta = row.get("beta_uncorrected") if row.get("beta_uncorrected") is not None else row.get("beta")
         if beta is not None and beta < beta_threshold:
             continue
-        for gene in membership.get(row["gene_set"], set()):
+        for gene in _membership_for_gene_set(membership, row["gene_set"]):
             if gene in gene_index:
                 expansions[gene].append({"gene_set": row["gene_set"], "label": row.get("label", ""), "beta": row.get("beta"), "beta_uncorrected": row.get("beta_uncorrected"), "n": row.get("n")})
     for gene in expansions:
@@ -512,15 +536,23 @@ def build_gene_set_expansions(
     *,
     max_rows_per_entry: int,
 ) -> dict[str, list[dict]]:
-    gene_by_id = {row["gene"]: row for row in genes if row.get("combined") is None or row.get("combined") >= combined_threshold}
+    gene_by_id = {row["gene"]: row for row in genes}
     expansions: dict[str, list[dict]] = {}
     for row in gene_sets:
         members = []
-        for gene in membership.get(row["gene_set"], set()):
+        for gene in _membership_for_gene_set(membership, row["gene_set"]):
             if gene in gene_by_id:
                 g = gene_by_id[gene]
-                members.append({"gene": gene, "combined": g.get("combined"), "log_bf": g.get("log_bf"), "prior": g.get("prior")})
-        members.sort(key=lambda item: item.get("combined") or -1e300, reverse=True)
+                combined = g.get("combined")
+                passes = combined is None or combined >= combined_threshold
+                members.append({
+                    "gene": gene,
+                    "combined": combined,
+                    "log_bf": g.get("log_bf"),
+                    "prior": g.get("prior"),
+                    "passes_dashboard_filter": passes,
+                })
+        members.sort(key=lambda item: (item.get("passes_dashboard_filter") is True, item.get("combined") or -1e300), reverse=True)
         if max_rows_per_entry >= 0:
             members = members[:max_rows_per_entry]
         if members:
@@ -535,11 +567,18 @@ def load_pigean_run(spec: PigeanRunSpec, args: argparse.Namespace, membership: d
         warnings.append(f"PIGEAN directory does not exist: {path}")
     gene_path = path / "pigean.gene_stats.out.gz"
     gene_set_path = path / "pigean.gene_set_stats.out.gz"
+    raw_gene_rows = read_tsv(gene_path, warnings) if gene_path.exists() else []
     genes = normalize_gene_rows(
-        read_tsv(gene_path, warnings) if gene_path.exists() else [],
+        raw_gene_rows,
         warnings,
         combined_threshold=args.gene_threshold,
         max_rows=args.max_genes_per_run,
+    )
+    provenance_genes = normalize_gene_rows(
+        raw_gene_rows,
+        warnings,
+        combined_threshold=-math.inf,
+        max_rows=-1,
     )
     if not gene_path.exists():
         warnings.append(f"missing PIGEAN gene stats: {gene_path}")
@@ -575,7 +614,7 @@ def load_pigean_run(spec: PigeanRunSpec, args: argparse.Namespace, membership: d
             max_rows_per_entry=args.max_provenance_rows_per_entry,
         ),
         "gene_set_expansions": build_gene_set_expansions(
-            genes,
+            provenance_genes,
             gene_sets,
             membership,
             args.gene_threshold,
