@@ -3,10 +3,10 @@
 This example runs a complete T2D PIGEAN/EAGGL workflow:
 
 1. Run PIGEAN from `dig-open-data` GWAS input.
-2. Run EAGGL `gene_by_gene` with learn-phi and aggregate per-phi outputs.
+2. Run EAGGL `gene_by_gene` with learn-phi, restart-consensus NMF, and aggregate per-phi outputs.
 3. Use EAGGL annotation bridge diagnostics to write a suggested annotation-exclude list.
 4. Re-run PIGEAN with the suggested exclusions.
-5. Re-run EAGGL with learn-phi after exclusions.
+5. Re-run EAGGL with learn-phi and restart-consensus NMF after exclusions.
 6. For the selected EAGGL runs, compute phenotype NNLS projection and PIGEAN factor-trait enrichment.
 7. Build factor graphs and a combined dashboard.
 
@@ -75,6 +75,7 @@ EAGGL0_FACTOR_PHI_GENE_CLUSTERS="$EAGGL0/factor_phi_gene_clusters.out.gz"
 EAGGL0_PHI_SELECTION_WIDE="$EAGGL0/phi_selection_metrics_wide.out.gz"
 EAGGL0_PHI_SELECTION_LONG="$EAGGL0/phi_selection_metrics_long.out.gz"
 EAGGL0_PARAMS="$EAGGL0/params.out.gz"
+EAGGL0_CONSENSUS_STATS="$EAGGL0/consensus_stats.out.gz"
 EAGGL0_FACTOR_GMT="$EAGGL0/factors_as_gene_sets.gmt.gz"
 EAGGL0_TRAIT_NNLS="$EAGGL0/trait_factor_links.nnls.out.gz"
 EAGGL0_FACTOR_TRAIT_ENRICHMENTS="$EAGGL0/factor_trait_pigean_enrichments.out.gz"
@@ -97,6 +98,7 @@ EAGGL1_FACTOR_PHI_GENE_CLUSTERS="$EAGGL1/factor_phi_gene_clusters.out.gz"
 EAGGL1_PHI_SELECTION_WIDE="$EAGGL1/phi_selection_metrics_wide.out.gz"
 EAGGL1_PHI_SELECTION_LONG="$EAGGL1/phi_selection_metrics_long.out.gz"
 EAGGL1_PARAMS="$EAGGL1/params.out.gz"
+EAGGL1_CONSENSUS_STATS="$EAGGL1/consensus_stats.out.gz"
 EAGGL1_FACTOR_GMT="$EAGGL1/factors_as_gene_sets.gmt.gz"
 EAGGL1_TRAIT_NNLS="$EAGGL1/trait_factor_links.nnls.out.gz"
 EAGGL1_FACTOR_TRAIT_ENRICHMENTS="$EAGGL1/factor_trait_pigean_enrichments.out.gz"
@@ -131,7 +133,7 @@ DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
   2> "$PIGEAN0/stderr.txt"
 ```
 
-## 2. Run EAGGL Learn-Phi Without Annotation Exclusions
+## 2. Run EAGGL Learn-Phi With Consensus NMF Without Annotation Exclusions
 
 ```bash
 "$PY" -m eaggl factor \
@@ -142,6 +144,9 @@ DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
   --discovery-model gene_by_gene \
   --phi-selection-objective composite \
   --learn-phi \
+  --factor-runs 10 \
+  --consensus-nmf \
+  --consensus-stats-out "$EAGGL0_CONSENSUS_STATS" \
   --max-num-factors 200 \
   --factor-output-scope all \
   --cluster-row-min-max-loading 0 \
@@ -210,7 +215,7 @@ EXCLUDE_DEFAULT="$EAGGL0_SUGGESTED_EXCLUDE"
   2> "$PIGEAN1/stderr.txt"
 ```
 
-## 4. Re-Run EAGGL Learn-Phi After Exclusions
+## 4. Re-Run EAGGL Learn-Phi With Consensus NMF After Exclusions
 
 ```bash
 "$PY" -m eaggl factor \
@@ -221,6 +226,9 @@ EXCLUDE_DEFAULT="$EAGGL0_SUGGESTED_EXCLUDE"
   --discovery-model gene_by_gene \
   --phi-selection-objective composite \
   --learn-phi \
+  --factor-runs 10 \
+  --consensus-nmf \
+  --consensus-stats-out "$EAGGL1_CONSENSUS_STATS" \
   --max-num-factors 200 \
   --factor-output-scope all \
   --cluster-row-min-max-loading 0 \
