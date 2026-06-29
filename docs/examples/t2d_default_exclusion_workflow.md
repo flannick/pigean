@@ -64,6 +64,7 @@ EAGGL0_FACTOR_METRICS="$EAGGL0/factor_metrics.out.gz"
 EAGGL0_GENE_CLUSTERS="$EAGGL0/gene_clusters.out.gz"
 EAGGL0_GENE_SET_CLUSTERS="$EAGGL0/gene_set_clusters.out.gz"
 EAGGL0_GENE_CLUSTERS_FULL="$EAGGL0/gene_clusters_full.out.gz"
+EAGGL0_GENE_CLUSTERS_FULL_VIA_GENE_SETS="$EAGGL0/gene_clusters_full_via_gene_sets.out.gz"
 EAGGL0_ANNOTATION_BRIDGE_METRICS="$EAGGL0/annotation_bridge_metrics.out.gz"
 EAGGL0_SUGGESTED_EXCLUDE="$EAGGL0/annotation_bridge_suggested_exclude.txt"
 EAGGL0_ANNOTATION_CONTRIBS="$EAGGL0/gene_factor_annotation_contribs.out.gz"
@@ -79,14 +80,15 @@ EAGGL0_CONSENSUS_STATS="$EAGGL0/consensus_stats.out.gz"
 EAGGL0_FACTOR_GMT="$EAGGL0/factors_as_gene_sets.gmt.gz"
 EAGGL0_TRAIT_NNLS="$EAGGL0/trait_factor_links.nnls.out.gz"
 EAGGL0_FACTOR_TRAIT_ENRICHMENTS="$EAGGL0/factor_trait_pigean_enrichments.out.gz"
-EAGGL0_GRAPH_HTML="$EAGGL0/factor_graph.full_direct.html"
-EAGGL0_GRAPH_JSON="$EAGGL0/factor_graph.full_direct.json"
+EAGGL0_GRAPH_HTML="$EAGGL0/factor_graph.full_via_gene_sets.html"
+EAGGL0_GRAPH_JSON="$EAGGL0/factor_graph.full_via_gene_sets.json"
 
 EAGGL1_FACTORS="$EAGGL1/factors.out.gz"
 EAGGL1_FACTOR_METRICS="$EAGGL1/factor_metrics.out.gz"
 EAGGL1_GENE_CLUSTERS="$EAGGL1/gene_clusters.out.gz"
 EAGGL1_GENE_SET_CLUSTERS="$EAGGL1/gene_set_clusters.out.gz"
 EAGGL1_GENE_CLUSTERS_FULL="$EAGGL1/gene_clusters_full.out.gz"
+EAGGL1_GENE_CLUSTERS_FULL_VIA_GENE_SETS="$EAGGL1/gene_clusters_full_via_gene_sets.out.gz"
 EAGGL1_ANNOTATION_BRIDGE_METRICS="$EAGGL1/annotation_bridge_metrics.out.gz"
 EAGGL1_SUGGESTED_EXCLUDE="$EAGGL1/annotation_bridge_suggested_exclude.txt"
 EAGGL1_ANNOTATION_CONTRIBS="$EAGGL1/gene_factor_annotation_contribs.out.gz"
@@ -102,8 +104,8 @@ EAGGL1_CONSENSUS_STATS="$EAGGL1/consensus_stats.out.gz"
 EAGGL1_FACTOR_GMT="$EAGGL1/factors_as_gene_sets.gmt.gz"
 EAGGL1_TRAIT_NNLS="$EAGGL1/trait_factor_links.nnls.out.gz"
 EAGGL1_FACTOR_TRAIT_ENRICHMENTS="$EAGGL1/factor_trait_pigean_enrichments.out.gz"
-EAGGL1_GRAPH_HTML="$EAGGL1/factor_graph.full_direct.html"
-EAGGL1_GRAPH_JSON="$EAGGL1/factor_graph.full_direct.json"
+EAGGL1_GRAPH_HTML="$EAGGL1/factor_graph.full_via_gene_sets.html"
+EAGGL1_GRAPH_JSON="$EAGGL1/factor_graph.full_via_gene_sets.json"
 
 DASH_HTML="$DASH/t2d_default_exclusion_dashboard.html"
 DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
@@ -170,6 +172,7 @@ DASH_JSON="$DASH/t2d_default_exclusion_dashboard.json"
   --gene-clusters-out "$EAGGL0_GENE_CLUSTERS" \
   --gene-set-clusters-out "$EAGGL0_GENE_SET_CLUSTERS" \
   --gene-clusters-full-out "$EAGGL0_GENE_CLUSTERS_FULL" \
+  --gene-clusters-full-via-gene-sets-out "$EAGGL0_GENE_CLUSTERS_FULL_VIA_GENE_SETS" \
   --annotation-bridge-metrics-out "$EAGGL0_ANNOTATION_BRIDGE_METRICS" \
   --annotation-bridge-suggested-exclude-out "$EAGGL0_SUGGESTED_EXCLUDE" \
   --gene-factor-annotation-contribs-out "$EAGGL0_ANNOTATION_CONTRIBS" \
@@ -252,6 +255,7 @@ EXCLUDE_DEFAULT="$EAGGL0_SUGGESTED_EXCLUDE"
   --gene-clusters-out "$EAGGL1_GENE_CLUSTERS" \
   --gene-set-clusters-out "$EAGGL1_GENE_SET_CLUSTERS" \
   --gene-clusters-full-out "$EAGGL1_GENE_CLUSTERS_FULL" \
+  --gene-clusters-full-via-gene-sets-out "$EAGGL1_GENE_CLUSTERS_FULL_VIA_GENE_SETS" \
   --annotation-bridge-metrics-out "$EAGGL1_ANNOTATION_BRIDGE_METRICS" \
   --annotation-bridge-suggested-exclude-out "$EAGGL1_SUGGESTED_EXCLUDE" \
   --gene-factor-annotation-contribs-out "$EAGGL1_ANNOTATION_CONTRIBS" \
@@ -404,7 +408,7 @@ This treats EAGGL factors as gene sets and computes PIGEAN `beta`, `beta_uncorre
 ```bash
 "$PY" -m eaggl.factor_graph \
   --eaggl-dir "$EAGGL0" \
-  --gene-clusters-in "$EAGGL0_GENE_CLUSTERS_FULL" \
+  --gene-clusters-in "$EAGGL0_GENE_CLUSTERS_FULL_VIA_GENE_SETS" \
   --gene-set-clusters-in "$EAGGL0_GENE_SET_CLUSTERS" \
   --trait-factor-links-in "$EAGGL0_TRAIT_NNLS" \
   --factor-trait-enrichments-in "$EAGGL0_FACTOR_TRAIT_ENRICHMENTS" \
@@ -422,7 +426,7 @@ This treats EAGGL factors as gene sets and computes PIGEAN `beta`, `beta_uncorre
 
 "$PY" -m eaggl.factor_graph \
   --eaggl-dir "$EAGGL1" \
-  --gene-clusters-in "$EAGGL1_GENE_CLUSTERS_FULL" \
+  --gene-clusters-in "$EAGGL1_GENE_CLUSTERS_FULL_VIA_GENE_SETS" \
   --gene-set-clusters-in "$EAGGL1_GENE_SET_CLUSTERS" \
   --trait-factor-links-in "$EAGGL1_TRAIT_NNLS" \
   --factor-trait-enrichments-in "$EAGGL1_FACTOR_TRAIT_ENRICHMENTS" \
@@ -460,6 +464,7 @@ The dashboard reads the aggregate learn-phi outputs directly through `--eaggl-ph
   --x-input "$X_MSIGDB" \
   --x-input "$X_OCR" \
   --x-input "$X_STRING" \
+  --default-gene-loading-source full_via_gene_sets \
   --html-out "$DASH_HTML" \
   --json-out "$DASH_JSON" \
   > "$DASH/stdout.txt" \

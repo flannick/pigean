@@ -137,6 +137,7 @@ mkdir -p "$T2D_PRE" "$MODY_PRE" "$EAGGL_PRE" "$T2D_POST" "$MODY_POST" "$EAGGL_PO
   --gene-clusters-out "$EAGGL_PRE/gene_clusters.out.gz" \
   --gene-set-clusters-out "$EAGGL_PRE/gene_set_clusters.out.gz" \
   --gene-clusters-full-out "$EAGGL_PRE/gene_clusters_full.out.gz" \
+  --gene-clusters-full-via-gene-sets-out "$EAGGL_PRE/gene_clusters_full_via_gene_sets.out.gz" \
   --annotation-bridge-metrics-out "$EAGGL_PRE/annotation_bridge_metrics.out.gz" \
   --annotation-bridge-suggested-exclude-out "$EAGGL_PRE/annotation_bridge_suggested_exclude.txt" \
   --gene-factor-annotation-contribs-out "$EAGGL_PRE/gene_factor_annotation_contribs.out.gz" \
@@ -242,6 +243,7 @@ EXCLUDE_T2D_MODY="$EAGGL_PRE/annotation_bridge_suggested_exclude.txt"
   --gene-clusters-out "$EAGGL_POST/gene_clusters.out.gz" \
   --gene-set-clusters-out "$EAGGL_POST/gene_set_clusters.out.gz" \
   --gene-clusters-full-out "$EAGGL_POST/gene_clusters_full.out.gz" \
+  --gene-clusters-full-via-gene-sets-out "$EAGGL_POST/gene_clusters_full_via_gene_sets.out.gz" \
   --annotation-bridge-metrics-out "$EAGGL_POST/annotation_bridge_metrics.out.gz" \
   --annotation-bridge-suggested-exclude-out "$EAGGL_POST/annotation_bridge_suggested_exclude.txt" \
   --gene-factor-annotation-contribs-out "$EAGGL_POST/gene_factor_annotation_contribs.out.gz" \
@@ -325,13 +327,13 @@ done
 for EAGGL_DIR in "$EAGGL_PRE" "$EAGGL_POST"; do
   "$PY" -m eaggl.factor_graph \
     --eaggl-dir "$EAGGL_DIR" \
-    --gene-clusters-in "$EAGGL_DIR/gene_clusters_full.out.gz" \
+    --gene-clusters-in "$EAGGL_DIR/gene_clusters_full_via_gene_sets.out.gz" \
     --gene-set-clusters-in "$EAGGL_DIR/gene_set_clusters.out.gz" \
     --trait-factor-links-in "$EAGGL_DIR/trait_factor_links.nnls.out.gz" \
     --factor-trait-enrichments-in "$EAGGL_DIR/factor_trait_pigean_enrichments.out.gz" \
     --color-by auto \
-    --html-out "$EAGGL_DIR/factor_graph.full_direct.html" \
-    --json-out "$EAGGL_DIR/factor_graph.full_direct.json" \
+    --html-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.html" \
+    --json-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.json" \
     > "$EAGGL_DIR/factor_graph.stdout.txt" \
     2> "$EAGGL_DIR/factor_graph.stderr.txt"
 done
@@ -364,6 +366,7 @@ The dashboard reads aggregate learn-phi outputs through `--eaggl-phi-sweep`; it 
   --x-input "$X_MSIGDB" \
   --x-input "$X_OCR" \
   --x-input "$X_STRING" \
+  --default-gene-loading-source full_via_gene_sets \
   --html-out "$DASH/t2d_mody_multitrait_dashboard.html" \
   --json-out "$DASH/t2d_mody_multitrait_dashboard.json" \
   > "$DASH/stdout.txt" \

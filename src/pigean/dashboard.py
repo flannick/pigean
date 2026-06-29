@@ -1014,8 +1014,8 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     )
     gene_loading_source_specs = [
         ("discovery", "Discovery genes", gene_clusters_path, path / "factor_graph.html"),
-        ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
         ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
+        ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
     ]
     gene_set_clusters_path = (
         _first_existing(aggregate_root, ["factor_phi_gene_set_clusters.out.gz", "factor_phi_gene_set_clusters.out", "factor_phi_gene_set_clusters.tsv.gz", "factor_phi_gene_set_clusters.tsv"])
@@ -1086,8 +1086,8 @@ def load_eaggl_run(spec: EagglRunSpec, args: argparse.Namespace) -> dict:
     selected_candidate = selected_flag in {"1", "1.0", "true", "t", "yes", "y"}
     if is_aggregate_phi and selected_candidate:
         for source_id, source_label, source_path, graph_path in (
-            ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
             ("full_via_gene_sets", "Full genes: via gene sets", path / "gene_clusters_full_via_gene_sets.out.gz", path / "factor_graph.full_via_gene_sets.html"),
+            ("full_direct", "Full genes: direct projection", path / "gene_clusters_full.out.gz", path / "factor_graph.full_direct.html"),
         ):
             if not source_path.exists():
                 continue
@@ -1367,7 +1367,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--default-gene-loading-source",
         choices=("discovery", "full_direct", "full_via_gene_sets"),
-        default="full_direct",
+        default="full_via_gene_sets",
         help="Initial EAGGL gene-loading source when multiple projections are available.",
     )
     parser.add_argument("--max-genes-per-run", type=int, default=5000)

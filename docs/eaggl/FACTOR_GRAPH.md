@@ -45,10 +45,10 @@ PYTHONPATH=src python -m eaggl.factor_graph \
   --no-html-interactive
 ```
 
-With `--eaggl-dir`, the tool looks for standard EAGGL outputs:
+With `--eaggl-dir`, the tool looks for standard EAGGL outputs. When multiple full-gene tables are present, it defaults to the gene-set-routed projection (`gene_clusters_full_via_gene_sets.out.gz`), then direct full-gene projection, then discovery genes:
 
 - `factors.out.gz`
-- `gene_clusters_full.out.gz` or `gene_clusters.out.gz`
+- `gene_clusters_full_via_gene_sets.out.gz`, `gene_clusters_full.out.gz`, or `gene_clusters.out.gz`
 - `trait_factor_links.out.gz` or `pheno_clusters.out.gz`
 
 Phenotype nodes are included when a trait-factor linkage file is present in `--eaggl-dir` or passed explicitly with `--trait-factor-links-in`.

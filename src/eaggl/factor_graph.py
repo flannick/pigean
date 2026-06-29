@@ -2076,7 +2076,7 @@ def discover_inputs(eaggl_dir: str | Path | None) -> dict[str, str | None]:
     root = Path(eaggl_dir)
     candidates = {
         "factors": ["factors.out.gz", "factors.out", "factors.tsv.gz", "factors.tsv"],
-        "genes": ["gene_clusters_full.out.gz", "gene_clusters.out.gz", "gene_clusters_full.out", "gene_clusters.out"],
+        "genes": ["gene_clusters_full_via_gene_sets.out.gz", "gene_clusters_full.out.gz", "gene_clusters.out.gz", "gene_clusters_full_via_gene_sets.out", "gene_clusters_full.out", "gene_clusters.out"],
         "gene_sets": ["gene_set_clusters.out.gz", "gene_set_clusters.out", "gene_set_clusters.tsv.gz", "gene_set_clusters.tsv"],
         "traits": ["trait_factor_links.out.gz", "trait_factor_links.out", "pheno_clusters.out.gz", "pheno_clusters.out"],
         "params": ["params.out.gz", "params.out", "params.tsv.gz", "params.tsv"],

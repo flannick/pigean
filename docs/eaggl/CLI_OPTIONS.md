@@ -243,8 +243,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-phi-metrics-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_metrics_out` | `None` | write per-factor diagnostics for each investigated phi-search candidate |
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
-| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a projected gene cluster table for all input genes, including genes filtered before factorization |
-| `--gene-clusters-full-via-gene-sets-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_via_gene_sets_out` | `None` | write a projected gene cluster table for all input genes using factor gene-set loadings as the projection basis |
+| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a diagnostic direct projected gene cluster table for all input genes, including genes filtered before factorization |
+| `--gene-clusters-full-via-gene-sets-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_via_gene_sets_out` | `None` | write the recommended/default projected gene cluster table for all input genes using factor gene-set loadings as the projection basis |
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |

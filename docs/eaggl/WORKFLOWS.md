@@ -151,23 +151,29 @@ $PYTHON -m eaggl factor \
   --factor-phewas-stats-out results/factor_phewas_stats.out.gz
 ```
 
-Projection-only full-gene output from gene factors:
+Full-gene projection policy for gene-by-gene workflows:
 
-```bash
-$PYTHON -m eaggl factor \
-  --factor-gene-clusters-in results/gene_clusters.out.gz \
-  --X-in /path/to/annotations.gmt \
-  --gene-set-stats-in /path/to/gene_set_stats.out.gz \
-  --gene-clusters-full-out results/gene_clusters_full.projected.out.gz
-```
+1. The recommended/default display projection is gene-set-routed full-gene projection, written with `--gene-clusters-full-via-gene-sets-out`.
+2. Direct full-gene projection, written with `--gene-clusters-full-out`, remains available as a diagnostic and comparison output.
+3. Dashboards and factor graphs prefer `gene_clusters_full_via_gene_sets.out.gz` when both full-gene outputs are present.
 
-Projection-only full-gene output from gene-set factors:
+Projection-only recommended full-gene output from gene-set factors:
 
 ```bash
 $PYTHON -m eaggl factor \
   --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
   --X-in /path/to/annotations.gmt \
   --gene-clusters-full-via-gene-sets-out results/gene_clusters_full.via_gene_sets.out.gz
+```
+
+Projection-only diagnostic direct full-gene output from gene factors:
+
+```bash
+$PYTHON -m eaggl factor \
+  --factor-gene-clusters-in results/gene_clusters.out.gz \
+  --X-in /path/to/annotations.gmt \
+  --gene-set-stats-in /path/to/gene_set_stats.out.gz \
+  --gene-clusters-full-out results/gene_clusters_full.direct.out.gz
 ```
 
 Projection-only direct and gene-set-mediated full-gene outputs in one command:
