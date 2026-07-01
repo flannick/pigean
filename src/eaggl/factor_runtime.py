@@ -5566,6 +5566,51 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         exp_gene_or_pheno_factors = exp_gene_or_pheno_factors[:,factor_mask]
         state.exp_gene_set_factors = state.exp_gene_set_factors[:,factor_mask]
 
+    if len(state.exp_lambdak) == 0:
+        log(
+            "No factors survived lambda/loading filters; skipping projection, labeling, and cluster finalization for this run",
+            INFO,
+        )
+        state.factor_anchor_relevance = np.zeros((0, 1), dtype=float)
+        state.factor_anchor_marginal_relevance = np.zeros((0, 1), dtype=float)
+        state.factor_relevance = np.zeros(0, dtype=float)
+        state.factor_marginal_relevance = np.zeros(0, dtype=float)
+        if factor_gene_set_x_pheno:
+            state.pheno_in_discovery_mask = gene_or_pheno_mask
+            state.pheno_factor_pheno_mask = state.pheno_in_discovery_mask
+            state.exp_pheno_factors = exp_gene_or_pheno_factors
+            state.pheno_prob_factor_vector = gene_or_pheno_prob_vector
+            state.gene_prob_factor_vector = None
+        else:
+            state.gene_in_discovery_mask = gene_or_pheno_mask
+            state.gene_factor_gene_mask = state.gene_in_discovery_mask
+            state.exp_gene_factors = exp_gene_or_pheno_factors
+            state.gene_prob_factor_vector = gene_or_pheno_prob_vector
+            state.pheno_prob_factor_vector = None
+        state.gene_set_prob_factor_vector = gene_set_prob_vector
+        state.gene_set_in_discovery_mask = discovery_plan.in_discovery_mask_full
+        state.gene_set_factor_gene_set_mask = state.gene_set_in_discovery_mask
+        state.gene_set_discovery_family_id = discovery_plan.discovery_family_id_full
+        state.gene_set_discovery_representative_mask = discovery_plan.discovery_representative_mask_full
+        state.gene_set_discovery_family_size = discovery_plan.discovery_family_size_full
+        state.gene_set_discovery_weight = discovery_plan.discovery_weight_full
+        state.gene_set_discovery_family_mean_similarity = discovery_plan.discovery_family_mean_similarity_full
+        state.gene_set_discovery_family_effective_size = discovery_plan.discovery_family_effective_size_full
+        state.factor_labels = []
+        state.factor_top_gene_sets = []
+        state.factor_anchor_top_gene_sets = []
+        return _build_factor_run_summary(
+            state,
+            run_index=0,
+            seed=None,
+            evidence=evidence_value,
+            likelihood=likelihood_value,
+            reconstruction_error=reconstruction_error_value,
+            factor_gene_set_x_pheno=factor_gene_set_x_pheno,
+        ) | ({
+            "blockwise_warm_start_payload": blockwise_warm_start_payload,
+        } if blockwise_warm_start_payload is not None else {})
+
     if factor_gene_set_x_pheno:
         state.pheno_in_discovery_mask = gene_or_pheno_mask
         state.pheno_factor_pheno_mask = state.pheno_in_discovery_mask

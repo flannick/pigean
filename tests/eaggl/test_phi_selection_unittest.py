@@ -121,5 +121,70 @@ class PhiSelectionScoringTest(unittest.TestCase):
         self.assertEqual(selected["selection_frontier_size"], 2)
 
 
+class PhiSelectionReducedTargetRegressionTest(unittest.TestCase):
+    def test_reduced_annotation_target_indices_do_not_index_candidate_matrix(self):
+        # The factor runtime stores target matrices in the reduced candidate
+        # space, but target_annotation_indices may still be full-X indices.
+        # Composite scoring must not apply a full index such as 7 to a two-row
+        # reduced annotation loading matrix.
+        inputs = PhiSelectionInputs(
+            discovery_model="gene_by_annotation",
+            gene_loadings=np.array(
+                [
+                    [0.8, 0.1],
+                    [0.2, 0.7],
+                ],
+                dtype=float,
+            ),
+            annotation_loadings=np.array(
+                [
+                    [0.9, 0.0],
+                    [0.0, 0.8],
+                ],
+                dtype=float,
+            ),
+            target_matrix=np.array(
+                [
+                    [1.0, 0.1],
+                    [0.2, 1.0],
+                ],
+                dtype=float,
+            ),
+            target_weight_matrix=np.ones((2, 2), dtype=float),
+            target_gene_indices=np.array([3, 9], dtype=int),
+            target_annotation_indices=np.array([7, 11], dtype=int),
+            gene_importance=np.array([1.0, 0.5], dtype=float),
+            annotation_importance=np.array([1.0, 0.5], dtype=float),
+        )
+        config = CompositePhiSelectionConfig(weights=dict(DEFAULT_COMPONENT_WEIGHTS))
+
+        wide, long_rows, per_factor_rows = score_phi_candidate(0.05, 2, inputs, config)
+
+        self.assertIn("phi_composite_score", wide)
+        self.assertTrue(0.0 <= float(wide["phi_composite_score"]) <= 1.0)
+        self.assertTrue(long_rows)
+        self.assertEqual(len(per_factor_rows), 2)
+
+    def test_zero_factor_candidate_scores_without_crashing(self):
+        inputs = PhiSelectionInputs(
+            discovery_model="gene_by_annotation",
+            gene_loadings=np.zeros((2, 0), dtype=float),
+            annotation_loadings=np.zeros((1, 0), dtype=float),
+            target_matrix=np.zeros((1, 2), dtype=float),
+            target_annotation_indices=np.array([7], dtype=int),
+            target_gene_indices=np.array([3, 9], dtype=int),
+        )
+        config = CompositePhiSelectionConfig(weights=dict(DEFAULT_COMPONENT_WEIGHTS))
+
+        wide, long_rows, per_factor_rows = score_phi_candidate(0.05, 0, inputs, config)
+
+        self.assertEqual(wide["num_factors"], 0)
+        self.assertEqual(float(wide["phi_composite_score"]), 0.0)
+        self.assertEqual(per_factor_rows, [])
+        unavailable = {row["component"]: row["available"] for row in long_rows}
+        self.assertFalse(unavailable["factor_size"])
+        self.assertFalse(unavailable["reconstruction"])
+
+
 if __name__ == "__main__":
     unittest.main()

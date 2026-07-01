@@ -351,11 +351,17 @@ def _reconstruction_and_coherence(inputs, Wc, Hc):
     Ht = Hc
     if inputs.target_gene_indices is not None:
         idx = np.asarray(inputs.target_gene_indices, dtype=int)
-        if Wc.shape[0] > np.max(idx, initial=-1):
+        if Wc.shape[0] == target.shape[1]:
+            # Candidate loadings are already in the target gene space.
+            Wt = Wc
+        elif Wc.shape[0] > np.max(idx, initial=-1):
             Wt = Wc[idx, :]
     if Hc is not None and inputs.target_annotation_indices is not None:
         idx = np.asarray(inputs.target_annotation_indices, dtype=int)
-        if Hc.shape[0] > np.max(idx, initial=-1):
+        if Hc.shape[0] == target.shape[0]:
+            # Candidate loadings are already in the target annotation space.
+            Ht = Hc
+        elif Hc.shape[0] > np.max(idx, initial=-1):
             Ht = Hc[idx, :]
     if Ht is None or target.shape[0] != Ht.shape[0] or target.shape[1] != Wt.shape[0]:
         return None, None, {"reconstruction_score": None, "coherence_score": None}, per_factor
