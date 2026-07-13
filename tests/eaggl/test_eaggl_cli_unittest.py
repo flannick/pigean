@@ -79,12 +79,40 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: python -m eaggl", proc.stdout)
-        self.assertNotIn("[factor|naive_factor|label]", proc.stdout)
+        self.assertIn("[factor|naive_factor|label]", proc.stdout)
 
-    def test_help_states_labeling_has_no_separate_mode(self) -> None:
+    def test_help_states_label_only_mode(self) -> None:
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("there is no separate label mode", proc.stdout)
+        self.assertIn("Label-only quickstart", proc.stdout)
+        self.assertIn("--label-gene-set-clusters-in", proc.stdout)
+
+    def test_label_mode_trait_factor_link_loading_col_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            links = root / "trait_factor_links.tsv"
+            out = root / "trait_factor_links.labeled.tsv"
+            links.write_text(
+                "trait\tfactor\tcustom_loading\n"
+                "T2D\tFactor1\t0.8\n"
+                "T2D\tFactor2\t0.1\n"
+                "CAD\tFactor1\t0.0\n"
+                "CAD\tFactor2\t0.9\n",
+                encoding="utf-8",
+            )
+            proc = self._run(
+                "label",
+                "--label-trait-factor-links-in",
+                str(links),
+                "--label-trait-factor-link-loading-col",
+                "custom_loading",
+                "--trait-factor-links-out",
+                str(out),
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = out.read_text(encoding="utf-8")
+            self.assertIn("nnls_loading", text)
+            self.assertIn("T2D\tFactor1\t0.8", text)
 
     def test_default_help_includes_consensus_factor_controls(self) -> None:
         proc = self._run("factor", "--help")

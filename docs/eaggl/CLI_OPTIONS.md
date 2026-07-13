@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `292`
+- Total options: `301`
 - `method_required`: `11`
-- `method_optional`: `184`
-- `engineering`: `80`
+- `method_optional`: `188`
+- `engineering`: `85`
 - `compat_alias`: `11`
 - `debug_only`: `6`
 - visibility `expert`: `245`
 - visibility `hidden`: `8`
-- visibility `normal`: `39`
+- visibility `normal`: `48`
 
 ## Method Required
 
@@ -104,9 +104,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
 | `--gene-sets-for-labeling` | `expert` | `yes` | `advanced_workflows` | `gene_sets_for_labeling` | `None` | restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
+| `--label-gene-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_clusters_in` | `None` | label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns |
+| `--label-gene-set-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_set_clusters_in` | `None` | label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table with Factor columns |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
+| `--label-pheno-clusters-in` | `normal` | `yes` | `core_help` | `label_pheno_clusters_in` | `None` | label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table with Factor columns |
+| `--label-trait-factor-links-in` | `normal` | `yes` | `core_help` | `label_trait_factor_links_in` | `None` | label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
@@ -243,8 +247,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-phi-metrics-out` | `expert` | `no` | `advanced_workflows` | `factor_phi_metrics_out` | `None` | write per-factor diagnostics for each investigated phi-search candidate |
 | `--factors-out` | `normal` | `no` | `core_help` | `factors_out` | `None` | write the main factor loading output table |
 | `--file-separator` | `expert` | `no` | `expert_help` | `file_separator` | `None` | - |
-| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a diagnostic direct projected gene cluster table for all input genes, including genes filtered before factorization |
-| `--gene-clusters-full-via-gene-sets-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_via_gene_sets_out` | `None` | write the recommended/default projected gene cluster table for all input genes using factor gene-set loadings as the projection basis |
+| `--gene-clusters-full-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_out` | `None` | write a projected gene cluster table for all input genes, including genes filtered before factorization |
+| `--gene-clusters-full-via-gene-sets-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_full_via_gene_sets_out` | `None` | write a projected gene cluster table for all input genes using factor gene-set loadings as the projection basis |
 | `--gene-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_clusters_out` | `None` | - |
 | `--gene-covs-out` | `expert` | `no` | `expert_help` | `gene_covs_out` | `None` | - |
 | `--gene-effectors-out` | `expert` | `no` | `expert_help` | `gene_effectors_out` | `None` | - |
@@ -288,6 +292,11 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--hide-progress` | `expert` | `no` | `core_help` | `hide_progress` | `False` | reduce progress logging noise during long runs |
 | `--ignore-genes` | `expert` | `no` | `expert_help` | `ignore_genes` | `["NA"]` | - |
 | `--ignore-negative-exp-beta` | `expert` | `no` | `expert_help` | `ignore_negative_exp_beta` | `-` | - |
+| `--label-gene-id-col` | `normal` | `no` | `core_help` | `label_gene_id_col` | `Gene` | label-only mode: choose the gene identifier column in --label-gene-clusters-in |
+| `--label-gene-set-id-col` | `normal` | `no` | `core_help` | `label_gene_set_id_col` | `Gene_Set` | label-only mode: choose the gene-set identifier column in --label-gene-set-clusters-in |
+| `--label-pheno-clusters-out` | `normal` | `no` | `core_help` | `label_pheno_clusters_out` | `None` | label-only mode: write a wide pheno_clusters.out(.gz)-style phenotype cluster table |
+| `--label-pheno-id-col` | `normal` | `no` | `core_help` | `label_pheno_id_col` | `None` | label-only mode: choose the phenotype identifier column; defaults to Pheno, Trait, or trait |
+| `--label-trait-factor-link-loading-col` | `normal` | `no` | `core_help` | `label_trait_factor_link_loading_col` | `nnls_loading` | label-only mode: choose the loading column used when pivoting long trait-factor links |
 | `--learn-phi-report-out` | `expert` | `no` | `advanced_workflows` | `learn_phi_report_out` | `None` | write per-candidate phi search diagnostics |
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |

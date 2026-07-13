@@ -79,7 +79,7 @@ def bail(message):
     raise CliUsageError(message)
 
 
-usage = "usage: python -m eaggl [factor|naive_factor] [options]"
+usage = "usage: python -m eaggl [factor|naive_factor|label] [options]"
 
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 get_comma_separated_args_as_set = pegs_callback_set_comma_separated_args_as_set
@@ -212,6 +212,15 @@ parser.add_option("","--run-factor-phewas",action="store_true",default=False) #r
 parser.add_option("","--factor-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file as a gene-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
 parser.add_option("","--factor-gene-set-clusters-in",default=None) #load an existing gene_set_clusters.out(.gz) file as a gene-set-factor basis for projection-only phenotype, gene, or gene-set outputs without refitting
 parser.add_option("","--factor-phewas-gene-clusters-in",default=None) #load an existing gene_clusters.out(.gz) file and run only the factor-phewas projection stage
+parser.add_option("","--label-gene-clusters-in",default=None) #label-only mode: read a gene_clusters.out(.gz)-style gene loading table
+parser.add_option("","--label-gene-set-clusters-in",default=None) #label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table
+parser.add_option("","--label-pheno-clusters-in",default=None) #label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table
+parser.add_option("","--label-trait-factor-links-in",default=None) #label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table
+parser.add_option("","--label-trait-factor-link-loading-col",default="nnls_loading") #label-only mode: loading column used when pivoting --label-trait-factor-links-in
+parser.add_option("","--label-gene-id-col",default="Gene") #label-only mode: gene identifier column for --label-gene-clusters-in
+parser.add_option("","--label-gene-set-id-col",default="Gene_Set") #label-only mode: gene-set identifier column for --label-gene-set-clusters-in
+parser.add_option("","--label-pheno-id-col",default=None) #label-only mode: phenotype identifier column; defaults to Pheno/Trait/trait
+parser.add_option("","--label-pheno-clusters-out",default=None) #label-only mode: write a wide pheno_clusters.out(.gz)-style phenotype cluster table
 parser.add_option("","--factor-phewas-from-gene-phewas-stats-in",dest="factor_phewas_legacy_input",default=None) #compatibility alias: implies --run-factor-phewas and sets the stage-specific gene phewas input
 parser.add_option("","--factor-phewas-mode",default="marginal_anchor_adjusted_binary",type=str) #factor-phenotype enrichment model surface
 parser.add_option("","--factor-phewas-modes",type="string",action="callback",callback=get_comma_separated_args,default=None) #comma-separated expert override to run multiple factor-phewas model surfaces in one pass
@@ -515,6 +524,15 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
     "--factor-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
     "--factor-gene-set-clusters-in": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
+    "--label-gene-clusters-in": "label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns",
+    "--label-gene-set-clusters-in": "label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table with Factor columns",
+    "--label-pheno-clusters-in": "label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table with Factor columns",
+    "--label-trait-factor-links-in": "label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table",
+    "--label-trait-factor-link-loading-col": "label-only mode: choose the loading column used when pivoting long trait-factor links",
+    "--label-gene-id-col": "label-only mode: choose the gene identifier column in --label-gene-clusters-in",
+    "--label-gene-set-id-col": "label-only mode: choose the gene-set identifier column in --label-gene-set-clusters-in",
+    "--label-pheno-id-col": "label-only mode: choose the phenotype identifier column; defaults to Pheno, Trait, or trait",
+    "--label-pheno-clusters-out": "label-only mode: write a wide pheno_clusters.out(.gz)-style phenotype cluster table",
     "--factor-phewas-mode": "choose the factor-phewas model surface; the default is thresholded binary enrichment with direct anchor adjustment",
     "--factor-phewas-modes": "expert override: run multiple factor-phewas model surfaces in one pass and append them into one output table",
     "--factor-phewas-anchor-covariate": "choose the anchor covariate for binary factor-phewas modes: direct, combined, or none",
@@ -824,6 +842,15 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--trait-factor-linkage-factor-gene-threshold",
     "--factor-gmt-out",
     "--trait-factor-links-output-detail",
+    "--label-gene-clusters-in",
+    "--label-gene-set-clusters-in",
+    "--label-pheno-clusters-in",
+    "--label-trait-factor-links-in",
+    "--label-trait-factor-link-loading-col",
+    "--label-gene-id-col",
+    "--label-gene-set-id-col",
+    "--label-pheno-id-col",
+    "--label-pheno-clusters-out",
     "--no-trait-linkage",
     "--X-in",
     "--X-list",
@@ -1032,7 +1059,8 @@ def _option_help_for_display(_primary_flag, _meta):
 def _apply_cli_help_layout(_parser, show_expert=False):
     _parser.description = (
         "EAGGL factor workflows: load PIGEAN handoff outputs, choose an anchor "
-        "strategy, then factor pathways, genes, and optional phenotype projections."
+        "strategy, then factor pathways, genes, and optional phenotype projections. "
+        "Use label mode to annotate precomputed factor loading tables without refitting."
     )
     _parser.epilog = (
         "Core quickstart:\n"
@@ -1041,7 +1069,9 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         "  python -m eaggl factor --eaggl-bundle-in /path/to/bundle.tar.gz "
         "--gene-phewas-stats-in /path/to/gene_phewas.tsv --run-factor-phewas "
         "--factor-phewas-stats-out factor_phewas.tsv\n\n"
-        "Optional labeling remains part of the factor command; there is no separate label mode.\n\n"
+        "Label-only quickstart:\n"
+        "  python -m eaggl label --label-gene-set-clusters-in gene_set_clusters.out.gz "
+        "--factors-out factors.labeled.out.gz\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."
     )
@@ -1257,7 +1287,7 @@ log = _noop_log
 warn = _noop_log
 
 def _enforce_eaggl_mode_ownership(_mode):
-    factor_modes = set(["factor", "naive_factor"])
+    factor_modes = set(["factor", "naive_factor", "label"])
     if _mode not in factor_modes:
         bail("Mode '%s' belongs to pigean.py; run with pigean.py instead of eaggl.py" % _mode)
 
@@ -1836,7 +1866,43 @@ def _bootstrap_cli(argv=None):
     parsed_expand_gene_sets = False
     parsed_factor_workflow = None
 
-    if parsed_mode == "factor" or parsed_mode == "naive_factor":
+    if parsed_mode == "label":
+        label_inputs = [
+            parsed_options.label_gene_clusters_in,
+            parsed_options.label_gene_set_clusters_in,
+            parsed_options.label_pheno_clusters_in,
+            parsed_options.label_trait_factor_links_in,
+        ]
+        if not any(value is not None for value in label_inputs):
+            bail(
+                "label mode requires at least one loading input: "
+                "--label-gene-clusters-in, --label-gene-set-clusters-in, "
+                "--label-pheno-clusters-in, or --label-trait-factor-links-in"
+            )
+        if (
+            parsed_options.label_pheno_clusters_in is not None
+            and parsed_options.label_trait_factor_links_in is not None
+        ):
+            bail("--label-pheno-clusters-in and --label-trait-factor-links-in are mutually exclusive")
+        if not any(
+            value is not None
+            for value in [
+                parsed_options.factors_out,
+                parsed_options.factor_metrics_out,
+                parsed_options.gene_clusters_out,
+                parsed_options.gene_set_clusters_out,
+                parsed_options.label_pheno_clusters_out,
+                parsed_options.trait_factor_links_out,
+                parsed_options.params_out,
+            ]
+        ):
+            bail(
+                "label mode requires at least one output path: --factors-out, "
+                "--factor-metrics-out, --gene-clusters-out, --gene-set-clusters-out, "
+                "--label-pheno-clusters-out/--trait-factor-links-out, or --params-out"
+            )
+        log("Running label-only EAGGL post-processing")
+    elif parsed_mode == "factor" or parsed_mode == "naive_factor":
         parsed_run_factor = True
         if parsed_mode == "naive_factor":
             parsed_run_naive_factor = True
@@ -1907,9 +1973,10 @@ def _bootstrap_cli(argv=None):
     expand_gene_sets = parsed_expand_gene_sets
     factor_workflow = parsed_factor_workflow
 
-    _derive_memory_controls_from_max_gb()
+    if mode != "label":
+        _derive_memory_controls_from_max_gb()
 
-    if options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
+    if mode != "label" and options.gene_cor_file is None and options.gene_loc_file is None and not options.ols:
         warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
         options.ols = True
 

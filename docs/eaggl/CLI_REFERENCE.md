@@ -24,6 +24,7 @@ PYTHONPATH=src python -m eaggl <mode> [...options]
 Common modes:
 - `factor`: canonical EAGGL factor workflow with F1-F4 workflow selection
 - `naive_factor`: simpler baseline factorization path using the same high-level contracts
+- `label`: label precomputed factor loading tables without refitting
 
 Typical user workflow:
 
@@ -32,7 +33,7 @@ Typical user workflow:
 3. fit the ARD nonnegative factor model
 4. optionally annotate factors with canonical trait-linkage weights
 5. optionally run factor-PheWAS as a secondary expert enrichment analysis
-6. optionally label the factors
+6. optionally label the factors during fitting or later with `label` mode
 
 ## Common command shapes
 
@@ -115,6 +116,25 @@ Before a large run, inspect the selected workflow and resolved defaults:
 ```bash
 PYTHONPATH=src python -m eaggl factor --print-effective-config [...workflow flags...]
 ```
+
+Label-only workflow from existing loadings:
+
+```bash
+PYTHONPATH=src python -m eaggl label \
+  --label-gene-clusters-in results/gene_clusters.out.gz \
+  --label-gene-set-clusters-in results/gene_set_clusters.out.gz \
+  --label-trait-factor-links-in results/trait_factor_links.out.gz \
+  --factors-out results/factors.labeled.out.gz \
+  --gene-clusters-out results/gene_clusters.labeled.out.gz \
+  --gene-set-clusters-out results/gene_set_clusters.labeled.out.gz \
+  --label-pheno-clusters-out results/pheno_clusters.labeled.out.gz \
+  --params-out results/label.params.out.gz
+```
+
+All supplied label-mode inputs must have the same `Factor1..FactorK` basis.
+If only genes, only gene sets, or only phenotypes are supplied, labels are derived
+from that available entity type. Long `trait_factor_links` inputs are pivoted by
+`nnls_loading` unless `--label-trait-factor-link-loading-col` is set.
 
 ## Workflow map
 

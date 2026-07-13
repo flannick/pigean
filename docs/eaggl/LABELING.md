@@ -1,24 +1,54 @@
 # EAGGL Optional Labeling
 
-Optional factor labeling is intentionally separate from core factorization.
+Optional factor labeling is separate from core factorization. The mental model is:
+factorization learns a basis; labeling summarizes an existing basis. EAGGL supports
+both doing this at factor-run finalization time and doing it later from saved
+loading tables.
 
-## Command Boundary Decision
+## Label-Only Mode
 
-EAGGL does not expose a separate `label` command.
+Use `python -m eaggl label` when the factor loadings already exist and you only
+want to add or refresh labels.
 
-Labeling remains an optional post-factor step inside `python -m eaggl factor`
-because:
+Minimal gene-set example:
 
-1. labels depend on the factor outputs already produced in the same run
-2. provider adapters are already isolated and lazy-loaded
-3. non-LLM runs avoid provider imports entirely
-4. splitting to a separate command would add command-surface complexity without removing meaningful runtime coupling
+```bash
+PYTHONPATH=src python -m eaggl label \
+  --label-gene-set-clusters-in results/gene_set_clusters.out.gz \
+  --factors-out results/factors.labeled.out.gz \
+  --gene-set-clusters-out results/gene_set_clusters.labeled.out.gz \
+  --params-out results/label.params.out.gz
+```
 
-This means the canonical usage remains:
+Supported loading inputs:
 
-1. run `python -m eaggl factor ...`
-2. optionally add labeling flags to that same factor command
-3. inspect labeled factor outputs from the normal factor output files
+1. `--label-gene-clusters-in`
+2. `--label-gene-set-clusters-in`
+3. `--label-pheno-clusters-in`
+4. `--label-trait-factor-links-in`
+
+At least one loading input is required. If multiple loading inputs are supplied,
+their raw `Factor1..FactorK` columns must match exactly. This prevents accidentally
+labeling gene, gene-set, and phenotype tables from different EAGGL runs.
+
+Phenotype inputs can be wide (`--label-pheno-clusters-in`) or long
+(`--label-trait-factor-links-in`). Long trait-factor links default to the
+`nnls_loading` column; override with `--label-trait-factor-link-loading-col`.
+
+Label-only outputs:
+
+1. `--factors-out`
+2. `--factor-metrics-out`
+3. `--gene-clusters-out`
+4. `--gene-set-clusters-out`
+5. `--label-pheno-clusters-out`
+6. `--trait-factor-links-out`
+7. `--params-out`
+
+Label-only mode does not refit factors, choose phi, run projections, or run
+PIGEAN. It annotates the supplied factor columns in place. Unless
+`--factor-output-scope` is explicitly supplied, label-only mode reports all
+supplied factors.
 
 ## Default Behavior
 
@@ -52,6 +82,8 @@ If one of the reserved providers is requested, EAGGL fails fast with a clear CLI
 4. `--label-gene-sets-only`
 5. `--label-include-phenos`
 6. `--label-individually`
+7. `--gene-sets-for-labeling`
+8. `--factor-top-loading-type`
 
 ## Provider Boundary
 

@@ -4,6 +4,7 @@ from pegs_cli_errors import PegsCliError, handle_cli_exception, handle_unexpecte
 
 from . import cli as eaggl_cli
 from . import dispatch as eaggl_dispatch
+from . import label as eaggl_label
 from . import main_support as eaggl_main_support
 
 
@@ -15,6 +16,12 @@ def main(argv=None):
     try:
         should_continue = eaggl_cli._bootstrap_cli(argv)
         if not should_continue:
+            return 0
+        if eaggl_cli.mode == "label":
+            eaggl_label.run_label_command(
+                eaggl_cli.options,
+                cli_specified_dests=eaggl_cli.cli_specified_dests,
+            )
             return 0
         run_main_pipeline(eaggl_cli.options)
         return 0

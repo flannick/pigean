@@ -6,8 +6,8 @@ This document maps each supported factoring workflow to:
 2. workflow-selection flags
 3. a minimal runnable command pattern
 
-All workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
-Optional labeling stays attached to the same factor command; EAGGL does not have a separate `label` mode. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
+Factor workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
+Optional labeling can run as part of the same factor command or later with `python -m eaggl label` from saved loading tables. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
 Simplified trait linkage is the primary annotation layer. It reports fixed-W projection loadings from probability-transformed trait support vectors onto the factor basis. Factor-as-gene-set regression statistics are produced by exporting factors with `--factor-gmt-out` and running PIGEAN `multi-y`, not by EAGGL.
 
 Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.

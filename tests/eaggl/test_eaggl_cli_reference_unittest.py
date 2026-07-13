@@ -753,6 +753,7 @@ class EagglCliReferenceTest(unittest.TestCase):
             "--label-gene-sets-only": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--label-include-phenos": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--label-individually": ["test_reference_factor_and_labeling_flags_round_trip"],
+            "--label-trait-factor-link-loading-col": ["test_label_mode_trait_factor_link_loading_col_round_trip"],
             "--gene-sets-for-labeling": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--gene-sets-for-labeling-id-col": ["test_reference_factor_and_labeling_flags_round_trip"],
             "--factor-top-loading-type": ["test_reference_factor_and_labeling_flags_round_trip"],
