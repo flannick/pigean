@@ -245,7 +245,7 @@ class MultiYWorkflowTest(unittest.TestCase):
             str(self.tmpdir / "multi_y_default_update_hyper.out"),
         )
         self.assertEqual(config["options"]["update_hyper"], "none")
-        self.assertEqual(config["options"]["update_hyper_min_gene_sets"], 1000)
+        self.assertEqual(config["options"]["update_hyper_min_gene_sets"], 100)
 
     def test_multi_y_explicit_update_hyper_is_preserved(self) -> None:
         x_path = self.tmpdir / "multi_y_explicit_update_hyper.gmt"

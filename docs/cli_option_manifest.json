@@ -7301,7 +7301,7 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "1000",
+      "default": "100",
       "deprecation_timeline": null,
       "dest": "update_hyper_min_gene_sets",
       "documentation_target": "expert_help",

@@ -241,7 +241,7 @@ Optional expert controls:
   - defaults to `none` for `--multi-y-in` workflows only; non-multi-Y workflows keep their existing mode-specific default
   - explicit user values are preserved
 - `--update-hyper-min-gene-sets <n>`
-  - defaults to `1000`
+  - defaults to `100`
   - if hyperparameter updates are requested but a hyper-learning batch has fewer than this many available gene sets, PIGEAN skips hyperparameter updating for that batch and prints a warning
   - applies to the gene sets actually used for hyperparameter learning after filtering, pruning, and any `--max-num-gene-sets-hyper` reduction
 

@@ -114,7 +114,7 @@ parser.add_option("","--sigma-soft-threshold-5",type='float',default=None) #the 
 parser.add_option("","--const-sigma",action='store_true') #assign constant variance across all gene sets independent of size (default is to scale inversely to size). Overrides sigma power and sets it to 2
 
 parser.add_option("","--update-hyper",type='string',default=None,dest="update_hyper") #update either both,p,sigma,none
-parser.add_option("","--update-hyper-min-gene-sets",type=int,default=1000) #minimum gene sets in a hyperparameter-learning batch; below this, requested hyper updates are disabled for that batch
+parser.add_option("","--update-hyper-min-gene-sets",type=int,default=100) #minimum gene sets in a hyperparameter-learning batch; below this, requested hyper updates are disabled for that batch
 parser.add_option("","--cross-val",action='store_true',dest="cross_val",default=None) #after initial learning of p and sigma, do cross validation to tune sigma further
 parser.add_option("","--no-cross-val",action='store_false',dest="cross_val",default=None) #after initial learning of p and sigma, do cross validation to tune sigma further
 parser.add_option("","--cross-val-num-explore-each-direction",type='int',default=3) #the number of orders of magnitude canges to try cross validation for

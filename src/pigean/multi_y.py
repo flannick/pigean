@@ -535,7 +535,7 @@ def _run_multi_y_vectorized_betas(
         {
             "multi_y_vectorized_hyper_updates_shared": update_hyper,
             "multi_y_vectorized_beta_parallel_axis": "traits",
-            "multi_y_update_hyper_min_gene_sets": getattr(options, "update_hyper_min_gene_sets", 1000),
+            "multi_y_update_hyper_min_gene_sets": getattr(options, "update_hyper_min_gene_sets", 100),
         },
         overwrite=True,
     )
@@ -669,7 +669,7 @@ def _run_multi_y_vectorized_betas(
                 avg_postp_m = np.zeros_like(avg_postp_uncorrected_m)
                 if np.sum(run_mask) > 0:
                     num_hyper_gene_sets = int(np.sum(run_mask))
-                    min_hyper_gene_sets = int(getattr(options, "update_hyper_min_gene_sets", 1000) or 0)
+                    min_hyper_gene_sets = int(getattr(options, "update_hyper_min_gene_sets", 100) or 0)
                     batch_update_hyper_sigma = bool(getattr(options, "update_hyper_sigma", False))
                     batch_update_hyper_p = bool(getattr(options, "update_hyper_p", False))
                     if (
