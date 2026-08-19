@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import aggregate as agg  # noqa: E402
+import compare as cmp_mod  # noqa: E402
 import runner  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -168,6 +169,16 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(p_agg)
     add_agg_args(p_agg)
 
+    p_cmp = sub.add_parser("compare", help="put several aggregated sweeps side by side")
+    p_cmp.add_argument(
+        "--sweeps",
+        nargs="+",
+        required=True,
+        metavar="NAME=DIR",
+        help="the sweep directories to compare, e.g. baseline=results/... pinned=results/...",
+    )
+    p_cmp.add_argument("--out", type=Path, help="also write the comparison as TSV")
+
     p_all = sub.add_parser("all", help="run the seeds, then aggregate")
     add_common(p_all)
     add_run_args(p_all)
@@ -224,8 +235,21 @@ def _do_aggregate(args) -> None:
     agg.aggregate_sweep(args.out_dir, tables=tables, stats=stats, min_runs=args.min_runs)
 
 
+def _do_compare(args) -> None:
+    sweeps = []
+    for item in args.sweeps:
+        if "=" not in item:
+            raise SystemExit("--sweeps expects NAME=DIR, got %r" % item)
+        name, _, path = item.partition("=")
+        sweeps.append((name, Path(path)))
+    cmp_mod.compare(sweeps, args.out)
+
+
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "compare":
+        _do_compare(args)
+        return 0
     if args.command in ("run", "all"):
         _do_run(args)
     if args.command in ("aggregate", "all"):
