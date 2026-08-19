@@ -1,0 +1,19 @@
+{
+  "name": "t2d_mouse_only",
+  "description": "Fast T2D sweep against the mouse_2024 library alone (~30s per seed). Use it to smoke-test the harness or to iterate on the aggregation, then switch to t2d_mouse_msigdb.json for the real read.",
+  "mode": "gibbs",
+  "seeds": [0, 1, 2],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params"],
+  "args": {
+    "X-in": ["bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt"],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz",
+    "gwas-chrom-col": "CHROM",
+    "gwas-pos-col": "POS",
+    "gwas-p-col": "P",
+    "gwas-n-col": "N"
+  }
+}

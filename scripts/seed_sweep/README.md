@@ -1,0 +1,218 @@
+# PIGEAN seed-replication sweeps
+
+Run one PIGEAN command under several random seeds, then fold the per-seed stats
+tables into a single table carrying a **mean, a standard deviation and a rank
+spread for every score**. That gives consensus rankings of genes and gene sets
+instead of whichever ranking one seed happened to produce, and it makes
+run-to-run instability measurable rather than anecdotal.
+
+Everything here is local. No Akleao pipeline, no Dock workflow.
+
+## Quick start
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py all \
+  --config scripts/seed_sweep/configs/t2d_mouse_msigdb.json \
+  --out-dir results/seed_sweep/t2d_mouse_msigdb \
+  --seeds 0,1,2 --strategy parallel --workers 3
+```
+
+Subcommands:
+
+| command | does |
+|---|---|
+| `run` | the seeded PIGEAN jobs only |
+| `aggregate` | rebuild the cross-seed tables from an existing sweep directory |
+| `all` | both |
+
+Useful flags: `--strategy sequential` (one run at a time), `--workers N`,
+`--seeds 0-9` (inclusive range), `--num-seeds 10`, `--resume` (skip seeds that
+already exited 0), `--dry-run`, `--threads-per-worker N`.
+
+## Watching the workers
+
+`--stream` merges every worker's output into the console, one tagged line per
+worker, while still writing each run's full log to `runs/seed_N/run.log`:
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py run \
+  --config scripts/seed_sweep/configs/t2d_mouse_msigdb.json \
+  --out-dir results/seed_sweep/t2d_mouse_msigdb \
+  --seeds 0,1,2 --workers 3 \
+  --stream --stream-grep 'Gibbs epoch [0-9]|Aggregated|Writing'
+```
+
+```
+[seed 0] Gibbs epoch 1/11: max_num_iter=890, burn=[10,400], post=[10,490]
+[seed 1] Gibbs epoch 1/11: max_num_iter=890, burn=[10,400], post=[10,490]
+[seed 0] Completed Gibbs epoch 1/11 (iter=80, remaining_total_iter=810)
+[seed 2] Completed Gibbs epoch 1/11 (iter=64, remaining_total_iter=826)
+```
+
+`--stream-grep` filters only what reaches the terminal; the log file always
+gets every line, so grepping never costs you the record. Without a grep the raw
+PIGEAN log is several megabytes per run and will bury the terminal — the
+epoch/restart lines above are what you actually want to watch, because
+epoch-count divergence between seeds is itself a reproducibility signal.
+
+Streaming is output-identical to the non-streaming path (verified by `cmp`);
+the only difference is that the runner tees the log itself instead of handing
+PIGEAN a `--log-file`, since that flag diverts progress off stderr entirely and
+would leave nothing to stream. Note the log lands at `run.log` (plain) rather
+than `run.log.gz` in this mode.
+
+## Layout of a sweep directory
+
+```
+<out-dir>/
+  manifest.json                 # config, strategy, per-seed rc and wall time
+  runs/seed_0/
+    gene_stats.tsv.gz
+    gene_set_stats.tsv.gz
+    gene_gene_set_stats.tsv.gz
+    params.tsv
+    command.txt  status.json  stdout.txt  stderr.txt  run.log.gz
+  runs/seed_1/ ...
+  aggregate/
+    gene_stats.seed_agg.tsv.gz
+    gene_set_stats.seed_agg.tsv.gz
+    gene_gene_set_stats.seed_agg.tsv.gz
+    stability_summary.tsv
+    stability_summary.json
+```
+
+## The aggregated table format
+
+Key columns first (`Gene`, or `Gene_Set`, or `Gene`+`gene_set`), then:
+
+| column | meaning |
+|---|---|
+| `n_runs`, `run_frequency` | how many seeds emitted this id at all |
+| `consensus_rank`, `consensus_rank_sd` | mean and sd of the id's rank on the table's primary metric (`combined` for genes, `beta` for gene sets) |
+| `primary_metric` | which metric `consensus_rank` was computed on |
+| `<metric>_mean` | mean of the score across seeds |
+| `<metric>_sd` | sample sd (ddof=1); `NA` when only one seed had it |
+| `<metric>_cv` | `sd / abs(mean)` — scale-free spread |
+| `<metric>_min`, `<metric>_max` | range, for spotting one outlier seed |
+| `<metric>_n` | seeds contributing to this metric |
+| `<metric>_rank_mean`, `<metric>_rank_sd` | mean and sd of the within-run rank (1 = highest) |
+
+Rows are sorted by the primary metric's mean, descending, so the top of the
+file *is* the consensus ranking.
+
+Every numeric column in the source table gets the full set, so the exact
+metric list follows whatever the run wrote — `combined`, `prior`, `log_bf`,
+`huge_score_gwas`, `beta`, `beta_uncorrected`, `avg_postp`, and so on. Nothing
+is hardcoded: columns are classified numeric vs. categorical by inspecting the
+values, so `label` and `filter_reason` come through as the modal value plus a
+`_n_values` count instead of being averaged.
+
+Trim the width with `--stats mean,sd,n,rank_mean,rank_sd`, and drop unstable
+ids entirely with `--min-runs 3`.
+
+### Reading the three tables
+
+* **`gene_stats`** — the main event. `combined_sd` and `combined_rank_sd` are
+  the numbers to quote for gene-level reproducibility.
+* **`gene_set_stats`** — note that most rows carry `beta = NA` because the run
+  filtered them; the stability numbers for `beta` are therefore computed on the
+  kept subset, and `n_runs` tells you whether a set was kept by every seed.
+* **`gene_gene_set_stats`** — its `beta` is the *gene set's* beta repeated on
+  every member row, not a pair-specific score, so per-pair score spread mostly
+  restates the gene-set table. The informative quantity here is
+  `run_frequency`: which (gene, gene set) pairs survive the write filter in
+  every seed and which come and go.
+
+## The stability summary
+
+`aggregate/stability_summary.tsv` is the "did it replicate?" answer, in long
+format (`table`, `metric`, `statistic`, `value`):
+
+* `spearman[seed_a|seed_b]` and `spearman_mean`/`spearman_min` — rank agreement
+  between each pair of runs over the ids they share.
+* `jaccard_top_K_mean`/`_min` for K in 10/50/100/500 — would two seeds hand a
+  reader the same top-K list. Ties at the K-th value are broken by id so the
+  comparison is fair; `jaccard_top_K_boundary_tied` flags when the cut lands
+  inside a block of equal values and the number is partly about the tie-break.
+* `cv_median`/`cv_p90` and `rank_sd_median`/`rank_sd_p90` — the id-level spread
+  distribution.
+* `id_presence_stability` — fraction of ids emitted by *every* run.
+
+Per-id sd answers "how noisy is this number". Top-K Jaccard answers "would a
+reader get the same list". Both are needed; the second is usually much worse
+than the first.
+
+A headline table is printed to the console at the end of every aggregation.
+
+## Sweep configs
+
+A config is a JSON object naming the mode and the PIGEAN flags. Flag keys are
+written without the leading `--` (underscores or dashes both work); a list
+value repeats the flag; `true` makes it a bare switch. Relative paths are
+resolved against the repo root, so configs stay portable.
+
+```json
+{
+  "name": "t2d_mouse_msigdb",
+  "mode": "gibbs",
+  "seeds": [0, 1, 2],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params"],
+  "args": {
+    "X-in": ["bundles/.../gene_set_list_mouse_2024.txt",
+             "bundles/.../gene_set_list_msigdb_nohp.txt"],
+    "gwas-in": "tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz"
+  }
+}
+```
+
+Shipped configs:
+
+* `configs/t2d_mouse_msigdb.json` — T2D against the mouse_2024 + msigdb_nohp
+  libraries, i.e. the portal's `mouse_msigdb` model. The real read.
+* `configs/t2d_mouse_only.json` — mouse library alone, ~30 s a seed. For
+  smoke-testing the harness.
+
+Both use the repo-tracked T2D GWAS fixture
+(`tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz`, the P < 1e-6
+subset of the portal T2D sumstats), so a sweep runs with nothing checked out
+beyond this repo. Point `gwas-in` at full sumstats for a production-scale read.
+
+## Two things the harness does on your behalf
+
+**Both `--deterministic` and `--seed N`.** `--seed` alone only pins the legacy
+global `random`/`numpy.random` state. Several pre-Gibbs paths — gene-set
+batching, hyper subsampling — draw from an unseeded `default_rng`, and without
+`--deterministic` those draws vary independently of the seed. Run-to-run spread
+would then be a mixture of the seed effect and un-pinned sampling, which is not
+the quantity anyone wants to report.
+
+**`PYTHONHASHSEED=0`.** PIGEAN iterates over sets in a few places. Unpinned hash
+randomization is a second uncontrolled source of run-to-run variation on top of
+the seed.
+
+## Checking the control
+
+Before reading any spread as a seed effect, confirm a *same-seed* rerun is
+identical — otherwise something in the stack is non-deterministic and the whole
+comparison is confounded:
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py run \
+  --config scripts/seed_sweep/configs/t2d_mouse_only.json \
+  --out-dir results/seed_sweep/control --seeds 0,1,2 --workers 3
+
+for s in 0 1 2; do
+  cmp <(gzcat results/seed_sweep/t2d_mouse_only/runs/seed_$s/gene_stats.tsv.gz) \
+      <(gzcat results/seed_sweep/control/runs/seed_$s/gene_stats.tsv.gz) \
+    && echo "seed $s: identical"
+done
+```
+
+## Sequential vs. parallel
+
+The strategy changes wall-clock and peak memory only — per-run outputs are
+identical either way, because each seed is its own `python -m pigean`
+subprocess. Parallel workers are threads blocked in `subprocess.run`, and each
+run's BLAS/OpenMP thread count is capped at `--threads-per-worker` (default 1)
+so W workers do not each spawn N threads and thrash the box. Use
+`--strategy sequential` when a single run is already using the whole machine.

@@ -1,0 +1,22 @@
+{
+  "name": "t2d_mouse_msigdb",
+  "description": "T2D seed-replication sweep. Bundled T2D GWAS fixture (P < 1e-6 subset of the portal T2D sumstats) against the full mouse_2024 + msigdb_nohp libraries from bundles/model_large-2026.02.22 -- the same two libraries as the portal 'mouse_msigdb' model. PIGEAN gibbs defaults everywhere else, so the sweep measures the shipped behaviour rather than a tuned variant.",
+  "mode": "gibbs",
+  "seeds": [0, 1, 2],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params"],
+  "args": {
+    "X-in": [
+      "bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt"
+    ],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz",
+    "gwas-chrom-col": "CHROM",
+    "gwas-pos-col": "POS",
+    "gwas-p-col": "P",
+    "gwas-n-col": "N"
+  }
+}
