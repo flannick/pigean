@@ -88,6 +88,9 @@ class SweepConfig:
         self.seeds = list(raw.get("seeds", []))
         self.outputs = list(raw.get("outputs", DEFAULT_OUTPUTS))
         self.description = raw.get("description", "")
+        # Filled in by the CLI when --set is used; recorded in the manifest so a
+        # sweep directory says which arm it is without reading the command line.
+        self.overrides: dict = {}
         if not isinstance(self.args, dict):
             raise ValueError("sweep config 'args' must be an object")
         unknown = [name for name in self.outputs if name not in OUTPUT_FLAGS]
@@ -458,6 +461,7 @@ def run_sweep(
         "python": python,
         "repo_root": str(repo_root),
         "args": config.args,
+        "overrides": config.overrides,
         "sweep_wall_seconds": round(elapsed, 2),
         "runs": statuses,
     }

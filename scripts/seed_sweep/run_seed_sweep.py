@@ -31,6 +31,38 @@ import runner  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _parse_set_overrides(pairs) -> dict:
+    """Turn repeated ``--set flag=value`` into config-arg overrides.
+
+    Lets one config serve several ablation arms instead of forcing a near
+    duplicate config file per arm. ``true``/``false`` become bare switches,
+    ``null`` removes a flag the config set, and a repeated key accumulates into
+    a list so multi-valued flags (``--X-in``) still work.
+    """
+    overrides: dict = {}
+    for pair in pairs or []:
+        if "=" not in pair:
+            raise SystemExit("--set expects flag=value, got %r" % pair)
+        key, _, raw = pair.partition("=")
+        key = key.strip().lstrip("-")
+        text = raw.strip()
+        lowered = text.lower()
+        if lowered in ("true", "yes"):
+            value = True
+        elif lowered in ("false", "no"):
+            value = False
+        elif lowered in ("null", "none"):
+            value = None
+        else:
+            value = text
+        if key in overrides:
+            existing = overrides[key]
+            overrides[key] = (existing if isinstance(existing, list) else [existing]) + [value]
+        else:
+            overrides[key] = value
+    return overrides
+
+
 def _parse_seeds(text: str) -> list[int]:
     """Accept ``0,1,2`` or an inclusive range ``0-9``."""
     seeds: list[int] = []
@@ -75,6 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
             help="BLAS/OMP threads per run; 0 leaves the environment untouched",
         )
         p.add_argument("--python", help="interpreter for the PIGEAN subprocesses (default: this one)")
+        p.add_argument(
+            "--set",
+            action="append",
+            dest="overrides",
+            metavar="FLAG=VALUE",
+            help="override or add one PIGEAN flag on top of the config (repeatable). "
+                 "true/false make a bare switch, null removes a flag the config set. "
+                 "Use this to run an ablation arm without cloning the config.",
+        )
         p.add_argument("--resume", action="store_true", help="skip seeds that already exited 0")
         p.add_argument("--dry-run", action="store_true", help="print commands without running them")
         p.add_argument(
@@ -148,6 +189,15 @@ def _resolve_seeds(args, config) -> list[int]:
 def _do_run(args) -> None:
     config = runner.SweepConfig.load(args.config)
     config.seeds = _resolve_seeds(args, config)
+    overrides = _parse_set_overrides(args.overrides)
+    if overrides:
+        for key, value in overrides.items():
+            if value is None:
+                config.args.pop(key, None)
+            else:
+                config.args[key] = value
+        config.overrides = overrides
+        print("overrides: %s" % ", ".join("%s=%s" % (k, v) for k, v in overrides.items()), flush=True)
     runner.run_sweep(
         config,
         args.out_dir,
