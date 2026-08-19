@@ -615,6 +615,27 @@ def aggregate_sweep(out_dir: Path, *, tables=None, stats=DEFAULT_STATS, min_runs
         )
 
     kept = [s for s in summaries if s]
-    write_stability_report(kept, agg_dir, log=log)
+
+    # Re-aggregating a subset of tables must not delete the other tables'
+    # entries from the shared report, so merge onto whatever is already there
+    # and let the fresh summaries win by table name.
+    merged = _merge_with_existing(kept, agg_dir / "stability_summary.json")
+    write_stability_report(merged, agg_dir, log=log)
     print_headline(kept, log=log)
     return summaries
+
+
+def _merge_with_existing(fresh, json_path: Path):
+    if not json_path.exists():
+        return fresh
+    try:
+        with open(json_path) as fh:
+            prior = json.load(fh)
+    except (OSError, ValueError):
+        return fresh
+    if not isinstance(prior, list):
+        return fresh
+    fresh_tables = {s["table"] for s in fresh}
+    carried = [s for s in prior if isinstance(s, dict) and s.get("table") not in fresh_tables]
+    by_name = {s["table"]: s for s in fresh + carried}
+    return [by_name[name] for name in TABLE_SPECS if name in by_name]
