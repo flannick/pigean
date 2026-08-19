@@ -37,6 +37,16 @@ from pathlib import Path
 # Serialises console writes so interleaved worker lines stay whole.
 _CONSOLE_LOCK = threading.Lock()
 
+
+def _log(message: str) -> None:
+    """Print and flush.
+
+    A sweep is usually launched into a redirect or a background task, where
+    bare print() is block-buffered and nothing appears until the process exits
+    -- which is exactly when progress output stops being useful.
+    """
+    print(message, flush=True)
+
 # Output flag -> file basename written into each run directory.
 OUTPUT_FLAGS = {
     "gene_stats": ("--gene-stats-out", "gene_stats.tsv.gz"),
@@ -179,7 +189,7 @@ def _remote_size(url: str):
         return None
 
 
-def download_once(url: str, cache_dir: Path, log=print) -> str:
+def download_once(url: str, cache_dir: Path, log=_log) -> str:
     """Fetch a remote input into ``cache_dir``, reusing a complete prior copy.
 
     PIGEAN reads https URLs natively, so a sweep *could* let every seed stream
@@ -222,7 +232,7 @@ def download_once(url: str, cache_dir: Path, log=print) -> str:
     return str(target)
 
 
-def materialize_remote_inputs(config: SweepConfig, cache_dir: Path, *, log=print) -> dict:
+def materialize_remote_inputs(config: SweepConfig, cache_dir: Path, *, log=_log) -> dict:
     """Download every remote value in the config once; return url -> local path."""
     mapping = {}
     for value in config.args.values():
@@ -279,7 +289,9 @@ def _run_streaming(cmd, run_dir: Path, cwd: str, env: dict, seed: int, pattern) 
         text=True,
         bufsize=1,
     )
-    with open(run_dir / "run.log", "w") as sink:
+    # buffering=1 (line buffered) so run.log can be tailed during the run
+    # rather than appearing all at once when the process exits.
+    with open(run_dir / "run.log", "w", buffering=1) as sink:
         _tee(proc.stdout, sink, prefix, pattern, echo=True)
     return proc.wait()
 
@@ -297,7 +309,7 @@ def run_one_seed(
     remote_map: dict | None = None,
     stream: bool = False,
     stream_pattern=None,
-    log=print,
+    log=_log,
 ) -> dict:
     run_dir = out_dir / "runs" / ("seed_%d" % seed)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -372,7 +384,7 @@ def run_sweep(
     stream_grep: str | None = None,
     cache_dir: Path | None = None,
     stream_remote: bool = False,
-    log=print,
+    log=_log,
 ) -> dict:
     python = python or sys.executable
     stream_pattern = re.compile(stream_grep) if stream_grep else None

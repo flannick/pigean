@@ -39,6 +39,12 @@ from pathlib import Path
 
 import numpy as np
 
+
+def _log(message: str) -> None:
+    """Print and flush; see the note in runner.py."""
+    print(message, flush=True)
+
+
 MISSING_TOKENS = {"", "NA", "N/A", "nan", "NaN", "None", "null", "-"}
 
 # Stats emitted per numeric column, in output order.
@@ -228,7 +234,7 @@ def _fmt(value):
     return str(value)
 
 
-def aggregate_table(run_dirs, spec, out_path, *, stats=DEFAULT_STATS, min_runs=1, log=print):
+def aggregate_table(run_dirs, spec, out_path, *, stats=DEFAULT_STATS, min_runs=1, log=_log):
     """Fold every run's copy of one stats table into a single mean/sd/rank table.
 
     Returns a summary dict describing cross-run stability for this table.
@@ -512,7 +518,7 @@ def _stability_summary(spec, run_labels, keys, present_runs, used_runs, accumula
     return summary
 
 
-def write_stability_report(summaries, out_dir: Path, log=print):
+def write_stability_report(summaries, out_dir: Path, log=_log):
     """Emit the stability diagnostics as both JSON and a long-format TSV."""
     json_path = out_dir / "stability_summary.json"
     with open(json_path, "w") as fh:
@@ -550,7 +556,7 @@ def write_stability_report(summaries, out_dir: Path, log=print):
     log("  wrote %s and %s" % (json_path, tsv_path))
 
 
-def print_headline(summaries, log=print):
+def print_headline(summaries, log=_log):
     """One screenful: does this trait reproduce across seeds, and where not."""
     log("")
     log("%-20s %-22s %8s %10s %10s %10s" % ("table", "metric", "spearman", "top100_J", "cv_med", "rank_sd_med"))
@@ -584,7 +590,7 @@ def print_headline(summaries, log=print):
     log("")
 
 
-def aggregate_sweep(out_dir: Path, *, tables=None, stats=DEFAULT_STATS, min_runs=1, log=print):
+def aggregate_sweep(out_dir: Path, *, tables=None, stats=DEFAULT_STATS, min_runs=1, log=_log):
     manifest_path = out_dir / "manifest.json"
     if manifest_path.exists():
         with open(manifest_path) as fh:
