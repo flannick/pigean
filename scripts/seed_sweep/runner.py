@@ -25,6 +25,9 @@ import json
 import os
 import re
 import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
 import sys
 import threading
 import time
@@ -102,6 +105,7 @@ def build_command(
     repo_root: Path,
     *,
     stream: bool = False,
+    remote_map: dict | None = None,
 ) -> list[str]:
     """Assemble the argv for one seeded run.
 
@@ -127,7 +131,10 @@ def build_command(
             elif item is False or item is None:
                 continue
             else:
-                cmd.extend([flag, _resolve_path_like(str(item), repo_root)])
+                text = str(item)
+                if remote_map and text in remote_map:
+                    text = remote_map[text]
+                cmd.extend([flag, _resolve_path_like(text, repo_root)])
 
     # Sweep-owned seeding. See the module docstring for why both flags.
     cmd.extend(["--deterministic", "--seed", str(seed)])
@@ -150,12 +157,79 @@ def build_command(
 
 def _resolve_path_like(value: str, repo_root: Path) -> str:
     """Expand a repo-relative path, leaving non-path values untouched."""
-    if os.path.isabs(value) or value.startswith("dig-open-data:"):
+    if os.path.isabs(value) or value.startswith("dig-open-data:") or is_remote(value):
         return value
     candidate = repo_root / value
     if candidate.exists():
         return str(candidate)
     return value
+
+
+def is_remote(value: str) -> bool:
+    return isinstance(value, str) and value.lower().startswith(("http://", "https://", "ftp://"))
+
+
+def _remote_size(url: str):
+    try:
+        request = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(request) as response:
+            length = response.headers.get("Content-Length")
+            return int(length) if length else None
+    except (urllib.error.URLError, ValueError, OSError):
+        return None
+
+
+def download_once(url: str, cache_dir: Path, log=print) -> str:
+    """Fetch a remote input into ``cache_dir``, reusing a complete prior copy.
+
+    PIGEAN reads https URLs natively, so a sweep *could* let every seed stream
+    its own copy. It should not: the T2D bottom-line sumstats is 8.3 GB, so
+    three seeds would pull 25 GB and twenty would pull 166 GB, and each run
+    would be gated on the network rather than on PIGEAN. Fetching once also
+    removes any doubt that every seed saw identical input bytes, which matters
+    when the whole point is attributing differences to the seed.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    target = cache_dir / os.path.basename(urllib.parse.urlparse(url).path)
+    expected = _remote_size(url)
+
+    if target.exists():
+        actual = target.stat().st_size
+        if expected is None or actual == expected:
+            log("cached input: %s (%s, %.1f GB)" % (target.name, url, actual / 1e9))
+            return str(target)
+        log(
+            "cached %s is %d bytes but remote is %d; re-fetching"
+            % (target.name, actual, expected)
+        )
+
+    partial = target.with_suffix(target.suffix + ".part")
+    log(
+        "fetching %s -> %s%s"
+        % (url, target, "" if expected is None else " (%.1f GB)" % (expected / 1e9))
+    )
+    started = time.time()
+    with urllib.request.urlopen(url) as response, open(partial, "wb") as fh:
+        while True:
+            chunk = response.read(8 << 20)
+            if not chunk:
+                break
+            fh.write(chunk)
+    # Rename only after the body is fully written, so an interrupted fetch can
+    # never be mistaken for a usable cache entry on the next run.
+    partial.replace(target)
+    log("fetched %s in %.0fs" % (target.name, time.time() - started))
+    return str(target)
+
+
+def materialize_remote_inputs(config: SweepConfig, cache_dir: Path, *, log=print) -> dict:
+    """Download every remote value in the config once; return url -> local path."""
+    mapping = {}
+    for value in config.args.values():
+        for item in value if isinstance(value, list) else [value]:
+            if is_remote(item) and item not in mapping:
+                mapping[item] = download_once(item, cache_dir, log=log)
+    return mapping
 
 
 def _run_env(repo_root: Path, threads_per_worker: int) -> dict:
@@ -220,6 +294,7 @@ def run_one_seed(
     threads_per_worker: int,
     resume: bool,
     dry_run: bool,
+    remote_map: dict | None = None,
     stream: bool = False,
     stream_pattern=None,
     log=print,
@@ -235,7 +310,9 @@ def run_one_seed(
             log("seed %d: reusing completed run at %s" % (seed, run_dir))
             return prior
 
-    cmd = build_command(config, seed, run_dir, python, repo_root, stream=stream)
+    cmd = build_command(
+        config, seed, run_dir, python, repo_root, stream=stream, remote_map=remote_map
+    )
     (run_dir / "command.txt").write_text(" ".join(cmd) + "\n")
 
     if dry_run:
@@ -293,6 +370,8 @@ def run_sweep(
     dry_run: bool = False,
     stream: bool = False,
     stream_grep: str | None = None,
+    cache_dir: Path | None = None,
+    stream_remote: bool = False,
     log=print,
 ) -> dict:
     python = python or sys.executable
@@ -316,6 +395,14 @@ def run_sweep(
         % (config.name, len(seeds), seeds, strategy, effective_workers)
     )
 
+    # Remote inputs are fetched once, before any seed starts, so the workers
+    # never race to download the same file into the same cache path.
+    remote_map = {}
+    if not dry_run and not stream_remote:
+        remote_map = materialize_remote_inputs(
+            config, cache_dir or (out_dir / "_inputs"), log=log
+        )
+
     started = time.time()
 
     def _work(seed: int) -> dict:
@@ -328,6 +415,7 @@ def run_sweep(
             threads_per_worker=threads_per_worker,
             resume=resume,
             dry_run=dry_run,
+            remote_map=remote_map,
             stream=stream,
             stream_pattern=stream_pattern,
             log=log,
@@ -353,6 +441,7 @@ def run_sweep(
         "workers": effective_workers,
         "threads_per_worker": threads_per_worker,
         "stream": stream,
+        "remote_inputs": remote_map,
         "outputs": config.outputs,
         "python": python,
         "repo_root": str(repo_root),

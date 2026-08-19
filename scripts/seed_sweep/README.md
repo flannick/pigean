@@ -167,15 +167,45 @@ resolved against the repo root, so configs stay portable.
 
 Shipped configs:
 
-* `configs/t2d_mouse_msigdb.json` — T2D against the mouse_2024 + msigdb_nohp
-  libraries, i.e. the portal's `mouse_msigdb` model. The real read.
-* `configs/t2d_mouse_only.json` — mouse library alone, ~30 s a seed. For
-  smoke-testing the harness.
+| config | GWAS | libraries | cost |
+|---|---|---|---|
+| `t2d_bottomline_mouse_msigdb.json` | real bottom-line T2D from S3 (8.3 GB gz) | mouse_2024 + msigdb_nohp | ~1 h a seed |
+| `t2d_mouse_msigdb.json` | repo-tracked T2D fixture | mouse_2024 + msigdb_nohp | ~70 s a seed |
+| `t2d_mouse_only.json` | repo-tracked T2D fixture | mouse_2024 | ~30 s a seed |
 
-Both use the repo-tracked T2D GWAS fixture
-(`tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz`, the P < 1e-6
-subset of the portal T2D sumstats), so a sweep runs with nothing checked out
-beyond this repo. Point `gwas-in` at full sumstats for a production-scale read.
+The two fixture configs use
+`tests/data/t2d_smoke/T2D.p_lt_1e-6.chrom_pos.sumstats.tsv.gz` (the P < 1e-6
+subset of the portal T2D sumstats), so they run with nothing checked out beyond
+this repo — good for iterating on the harness.
+
+`t2d_bottomline_mouse_msigdb.json` is the production read. It reproduces the
+command `dock/pigean-validation.workflow.yaml` runs for `model=mouse_msigdb`
+under the `dock_current` param set — `--update-hyper none`, `--sigma-power 0`,
+`--max-num-gene-sets 5000`, and the per-library `--p-noninf` priors from
+`dock/config/models.yaml` — so a difference against a Dock run is the seed and
+not the configuration.
+
+### Remote inputs
+
+Any config value may be an `http(s)` URL; PIGEAN reads those natively. The
+harness downloads each one **once** before any seed starts and rewrites the
+flag to the local copy:
+
+```
+fetching https://dig-open-bottom-line-analysis.s3.amazonaws.com/... (8.3 GB)
+fetched T2D.sumstats.tsv.gz in 604s
+```
+
+This is not just a speed-up. Three seeds streaming the T2D sumstats would pull
+25 GB and twenty would pull 166 GB, with every run gated on the network instead
+of on PIGEAN; and fetching once removes any doubt that all seeds saw identical
+input bytes, which is the whole premise of attributing differences to the seed.
+
+`--cache-dir` picks the location (default `<out-dir>/_inputs`) — point several
+sweeps at one directory to share the download. A complete prior copy is reused
+after a Content-Length check; an interrupted fetch stays a `.part` file and is
+never mistaken for a usable cache entry. `--stream-remote` opts out and lets
+each seed pull its own copy.
 
 ## Two things the harness does on your behalf
 

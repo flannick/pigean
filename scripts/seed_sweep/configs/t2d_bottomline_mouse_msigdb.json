@@ -1,0 +1,27 @@
+{
+  "name": "t2d_bottomline_mouse_msigdb",
+  "description": "T2D seed-replication sweep on the real bottom-line GWAS streamed from S3 (dig-open-bottom-line-analysis, Mixed/T2D.sumstats.tsv.gz, 8.3 GB gz). Reproduces the command that dock/pigean-validation.workflow.yaml runs for model=mouse_msigdb under the dock_current param set: --update-hyper none, --sigma-power 0, --max-num-gene-sets 5000, and the per-library p-noninf priors from dock/config/models.yaml (mouse_2024 0.0015, msigdb_nohp 0.0075). The only thing the sweep changes is the seed.",
+  "mode": "gibbs",
+  "seeds": [0, 1, 2],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params", "gene_effectors"],
+  "args": {
+    "X-in": [
+      "bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt"
+    ],
+    "p-noninf": [0.0015, 0.0075],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/refGene_hg19_TSS.subset.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "https://dig-open-bottom-line-analysis.s3.amazonaws.com/bottom-line/Mixed/T2D.sumstats.tsv.gz",
+    "gwas-chrom-col": "chromosome",
+    "gwas-pos-col": "position",
+    "gwas-p-col": "pValue",
+    "gwas-n-col": "n",
+    "update-hyper": "none",
+    "sigma-power": 0,
+    "max-num-gene-sets": 5000,
+    "debug-level": 3
+  }
+}

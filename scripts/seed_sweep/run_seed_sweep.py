@@ -78,6 +78,18 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--resume", action="store_true", help="skip seeds that already exited 0")
         p.add_argument("--dry-run", action="store_true", help="print commands without running them")
         p.add_argument(
+            "--cache-dir",
+            type=Path,
+            help="where remote (http/https) inputs are downloaded once and reused "
+                 "(default: <out-dir>/_inputs). Share one across sweeps to avoid refetching.",
+        )
+        p.add_argument(
+            "--stream-remote",
+            action="store_true",
+            help="let each seed stream remote inputs straight from the URL instead of "
+                 "caching them locally. Costs one full download per seed.",
+        )
+        p.add_argument(
             "--stream",
             action="store_true",
             help="interleave every worker's log on the console, each line tagged [seed N]; "
@@ -148,6 +160,8 @@ def _do_run(args) -> None:
         dry_run=args.dry_run,
         stream=args.stream,
         stream_grep=args.stream_grep,
+        cache_dir=args.cache_dir,
+        stream_remote=args.stream_remote,
     )
 
 
