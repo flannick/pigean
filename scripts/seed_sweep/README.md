@@ -24,6 +24,79 @@ Subcommands:
 | `run` | the seeded PIGEAN jobs only |
 | `aggregate` | rebuild the cross-seed tables from an existing sweep directory |
 | `all` | both |
+| `compare` | put several finished sweeps side by side |
+
+## Ablation arms
+
+`--set FLAG=VALUE` (repeatable) overrides or adds one PIGEAN flag on top of the
+config, so an arm is an override rather than a near-duplicate config file —
+which matters, because every line the two arms share has to stay identical for
+the comparison to mean anything. `true`/`false` give a bare switch, `null`
+removes a flag the config set, and a repeated key accumulates into a list.
+Overrides are recorded in the sweep's `manifest.json`, so a directory says
+which arm it is without the command line.
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py all \
+  --config scripts/seed_sweep/configs/t2d_bottomline_mouse_msigdb.json \
+  --out-dir results/seed_sweep/t2d_bl_strict \
+  --cache-dir results/seed_sweep/_cache \
+  --seeds 0,1,2 --set strict-stopping=true
+```
+
+Then read the arms against each other:
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py compare \
+  --sweeps baseline=results/seed_sweep/t2d_bottomline_mouse_msigdb \
+           pinned=results/seed_sweep/t2d_bl_pinned \
+           strict=results/seed_sweep/t2d_bl_strict \
+  --out results/seed_sweep/arm_comparison.tsv
+```
+
+`compare` leads with the **Gibbs sampling budget** across seeds, because that
+is the check that says whether a knob did what it claimed:
+
+```
+Gibbs sampling budget across seeds (min..max; 'pinned' = identical in every seed)
+                      baseline    no_stall    pinned
+epochs                1..3        0           0
+iters                 120..268    492..500    499
+chains                20..39      10          10
+verdict               varies      varies      pinned
+```
+
+An arm that silently failed to pin the budget would otherwise be read as
+evidence about the model.
+
+## Turning off Gibbs early stopping
+
+PIGEAN stops each seed at a different point, so seeds differ in *how much
+sampling they got*, not only in which draws they got — that is the mechanism
+behind most of the run-to-run spread this harness measures. Three exits have to
+be closed, and `--disable-stall-detection` only closes the first two:
+
+| exit | closed by |
+|---|---|
+| stall detectors + restart epochs | `--disable-stall-detection` (zeroes the stall windows, sets `max_num_restarts=0`) |
+| MCSE / R-hat stop (`_GIBBS_STOPPING_PRESETS`, `cli.py`) | `--min-num-post-burn-in` == `--max-num-post-burn-in` |
+| adaptive burn-in, free within `burn=[10,400]` | `--min-num-burn-in` == `--max-num-burn-in` |
+
+So the fully pinned arm is:
+
+```bash
+  --set disable-stall-detection=true --set max-num-iter=500 \
+  --set min-num-burn-in=100      --set max-num-burn-in=100 \
+  --set min-num-post-burn-in=400 --set max-num-post-burn-in=400
+```
+
+Collapsing each phase's min onto its max leaves no room to stop early. Confirm
+it worked with `compare` — the verdict must read `pinned`.
+
+This pins the *budget*, not convergence. It is the right diagnostic for
+attributing spread to the stopping rule, and not necessarily the right
+production setting; `--strict-stopping` (tighter thresholds, machinery intact)
+and a higher `--num-chains` are the candidate shippable fixes.
 
 Useful flags: `--strategy sequential` (one run at a time), `--workers N`,
 `--seeds 0-9` (inclusive range), `--num-seeds 10`, `--resume` (skip seeds that
