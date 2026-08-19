@@ -161,7 +161,7 @@ Key columns first (`Gene`, or `Gene_Set`, or `Gene`+`gene_set`), then:
 | column | meaning |
 |---|---|
 | `n_runs`, `run_frequency` | how many seeds emitted this id at all |
-| `consensus_rank`, `consensus_rank_sd` | mean and sd of the id's rank on the table's primary metric (`combined` for genes, `beta` for gene sets) |
+| `consensus_rank`, `consensus_rank_sd` | mean and sd of the id's rank on the table's primary metric (`combined` for genes, `beta_uncorrected` for gene sets) |
 | `primary_metric` | which metric `consensus_rank` was computed on |
 | `<metric>_mean` | mean of the score across seeds |
 | `<metric>_sd` | sample sd (ddof=1); `NA` when only one seed had it |
