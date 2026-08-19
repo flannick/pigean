@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import aggregate as agg  # noqa: E402
 import compare as cmp_mod  # noqa: E402
+import rankshift  # noqa: E402
 import runner  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -179,6 +180,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_cmp.add_argument("--out", type=Path, help="also write the comparison as TSV")
 
+    p_rs = sub.add_parser(
+        "rankshift",
+        help="how far ids move between seeds, stratified by consensus rank band",
+    )
+    add_common(p_rs)
+    p_rs.add_argument("--tables", help="comma-separated subset of: %s" % ",".join(agg.TABLE_SPECS))
+    p_rs.add_argument("--metrics", help="comma-separated metrics (default: per-table sensible set)")
+    p_rs.add_argument(
+        "--top-k",
+        type=int,
+        default=100,
+        help="consensus-rank cutoff for the worst-fall listing (default: 100)",
+    )
+    p_rs.add_argument("--limit", type=int, default=15, help="rows to print in that listing")
+
     p_all = sub.add_parser("all", help="run the seeds, then aggregate")
     add_common(p_all)
     add_run_args(p_all)
@@ -249,6 +265,15 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "compare":
         _do_compare(args)
+        return 0
+    if args.command == "rankshift":
+        rankshift.run(
+            args.out_dir,
+            tables=args.tables.split(",") if args.tables else None,
+            metrics=args.metrics.split(",") if args.metrics else None,
+            top_k=args.top_k,
+            limit=args.limit,
+        )
         return 0
     if args.command in ("run", "all"):
         _do_run(args)
