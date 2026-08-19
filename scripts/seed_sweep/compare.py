@@ -51,6 +51,25 @@ def _log(message: str) -> None:
     print(message, flush=True)
 
 
+def read_threshold_counts(sweep_dir: Path) -> dict:
+    """Per-arm threshold-count spread, e.g. how many genes clear prior > 1.
+
+    Reported as min..max across seeds because the spread is the arm-level
+    quality number: two arms can agree on ordering and still disagree on how
+    long the answer is.
+    """
+    summary = read_summary(sweep_dir)
+    out = {}
+    for entry in summary or []:
+        for label, counts in (entry.get("threshold_counts") or {}).items():
+            out[label] = (
+                str(counts["min"])
+                if counts["min"] == counts["max"]
+                else "%d..%d" % (counts["min"], counts["max"])
+            )
+    return out
+
+
 def read_summary(sweep_dir: Path):
     path = sweep_dir / "aggregate" / "stability_summary.json"
     if not path.exists():
@@ -141,6 +160,16 @@ def compare(sweeps: list[tuple[str, Path]], out_path: Path | None = None, log=_l
     for label in list(BUDGET_KEYS) + ["verdict"]:
         log("%-22s" % label + "".join("%-*s" % (width, budgets[n][label]) for n in names))
 
+    counts = {name: read_threshold_counts(path) for name, path in sweeps}
+    labels = sorted({label for c in counts.values() for label in c})
+    if labels:
+        log("")
+        log("Threshold counts across seeds (min..max)")
+        log("-" * (22 + width * len(names)))
+        log("%-22s" % "" + "".join("%-*s" % (width, n) for n in names))
+        for label in labels:
+            log("%-22s" % label + "".join("%-*s" % (width, counts[n].get(label, "-")) for n in names))
+
     for stat_key, stat_label in HEADLINE_STATS:
         log("")
         log("%s" % stat_label)
@@ -162,9 +191,11 @@ def compare(sweeps: list[tuple[str, Path]], out_path: Path | None = None, log=_l
     with open(out_path, "w", newline="") as fh:
         writer = csv.writer(fh, delimiter="\t", lineterminator="\n")
         writer.writerow(["arm", "table", "metric", "statistic", "value"])
-        for name, _ in sweeps:
+        for name, path in sweeps:
             for label in list(BUDGET_KEYS) + ["verdict"]:
                 writer.writerow([name, "", "", "budget_" + label, budgets[name][label]])
+            for label, value in read_threshold_counts(path).items():
+                writer.writerow([name, "", "", "count_" + label, value])
             for table, metric in HEADLINE_ROWS:
                 for stat_key, stat_label in HEADLINE_STATS:
                     value = _lookup(summaries[name], table, metric, stat_key)

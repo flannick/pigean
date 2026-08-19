@@ -53,6 +53,16 @@ DEFAULT_STATS = ALL_STATS
 
 TOP_K_LEVELS = (10, 50, 100, 500)
 
+# Per-table (metric, threshold) counts reported per run, with the across-seed
+# spread. "How many genes clear prior > 1" is a size-of-the-answer question that
+# no correlation or rank statistic asks: two runs can agree perfectly on ordering
+# and still hand back lists of different length. The spread across seeds is the
+# part that matters -- on real T2D it is 26 genes at defaults and 6 under
+# --strict-stopping.
+THRESHOLD_COUNTS = {
+    "gene_stats": [("prior", 1.0)],
+}
+
 
 class TableSpec:
     def __init__(self, name, filename, key_cols, primary_metrics, summary_metrics):
@@ -77,8 +87,15 @@ TABLE_SPECS = {
         "gene_set_stats",
         "gene_set_stats.tsv.gz",
         ["Gene_Set"],
-        ["beta", "beta_uncorrected", "beta_tilde_orig"],
-        ["beta", "beta_uncorrected", "beta_tilde_orig", "avg_postp", "p_active_beta_gt_eps"],
+        # beta_uncorrected leads deliberately. `beta` is the post-Gibbs corrected
+        # value and carries the sampler's noise, so ranking on it reports the
+        # sampler as much as the biology; `beta_uncorrected` is the marginal.
+        # Measured on real T2D, top-50 retention across seeds is 0.76 on `beta`
+        # and 0.92 on `beta_uncorrected` for the same runs -- leading with `beta`
+        # overstates the instability by a wide margin. `beta` stays reported
+        # because it is what the portal publishes.
+        ["beta_uncorrected", "beta", "beta_tilde_orig"],
+        ["beta_uncorrected", "beta", "beta_tilde_orig", "avg_postp", "p_active_beta_gt_eps"],
     ),
     "gene_gene_set_stats": TableSpec(
         "gene_gene_set_stats",
@@ -249,6 +266,7 @@ def aggregate_table(run_dirs, spec, out_path, *, stats=DEFAULT_STATS, min_runs=1
     # Per-run values of the summary metrics, kept for the pairwise diagnostics.
     per_run_metric_values = {}   # metric -> list (per run) of {key: value}
     run_labels = []
+    threshold_counts = {}        # "metric>threshold" -> {run label: count}
 
     used_runs = 0
     for run_dir in run_dirs:
@@ -309,6 +327,14 @@ def aggregate_table(run_dirs, spec, out_path, *, stats=DEFAULT_STATS, min_runs=1
                 if raw is None or raw in MISSING_TOKENS:
                     continue
                 store.setdefault(idx, Counter())[raw] += 1
+
+        for metric, threshold in THRESHOLD_COUNTS.get(spec.name, []):
+            if metric not in parsed:
+                continue
+            label = "%s>%g" % (metric, threshold)
+            threshold_counts.setdefault(label, {})[Path(run_dir).name] = sum(
+                1 for v in parsed[metric] if v is not None and v > threshold
+            )
 
         for metric in spec.summary_metrics:
             if metric in parsed:
@@ -384,9 +410,20 @@ def aggregate_table(run_dirs, spec, out_path, *, stats=DEFAULT_STATS, min_runs=1
 
     log("  wrote %s (%d ids from %d run(s), %d numeric column(s))" % (out_path, kept, used_runs, len(numeric_cols)))
 
-    return _stability_summary(
+    summary = _stability_summary(
         spec, run_labels, keys, present_runs, used_runs, accumulators, per_run_metric_values, primary
     )
+    if summary is not None and threshold_counts:
+        summary["threshold_counts"] = {
+            label: {
+                "per_run": counts,
+                "min": min(counts.values()),
+                "max": max(counts.values()),
+                "spread": max(counts.values()) - min(counts.values()),
+            }
+            for label, counts in threshold_counts.items()
+        }
+    return summary
 
 
 def _spearman(a, b):
@@ -534,6 +571,11 @@ def write_stability_report(summaries, out_dir: Path, log=_log):
             table = summary["table"]
             for name in ("n_runs", "n_ids_union", "n_ids_in_all_runs", "id_presence_stability"):
                 writer.writerow([table, "", name, _fmt(summary.get(name))])
+            for label, counts in summary.get("threshold_counts", {}).items():
+                for run_label, value in counts["per_run"].items():
+                    writer.writerow([table, label, "count[%s]" % run_label, _fmt(value)])
+                for stat in ("min", "max", "spread"):
+                    writer.writerow([table, label, "count_" + stat, _fmt(counts[stat])])
             for metric, entry in summary["metrics"].items():
                 for name in (
                     "n_common_ids",
@@ -575,6 +617,16 @@ def print_headline(summaries, log=_log):
                     _fmt(top100.get("mean")),
                     _fmt(entry.get("cv_median")),
                     _fmt(entry.get("rank_sd_median")),
+                )
+            )
+        for label, counts in summary.get("threshold_counts", {}).items():
+            log(
+                "%-20s %-22s ids per run: %s  (spread %d)"
+                % (
+                    summary["table"],
+                    label,
+                    ", ".join("%d" % v for v in counts["per_run"].values()),
+                    counts["spread"],
                 )
             )
         log(

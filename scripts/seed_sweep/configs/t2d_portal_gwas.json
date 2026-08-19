@@ -1,0 +1,27 @@
+{
+  "name": "t2d_portal_gwas",
+  "description": "C1 arm of the portal regression. Identical to t2d_bottomline_mouse_msigdb except the GWAS input: the portal-prepped sumstats (out/pigean/inputs/sumstats/portal/T2D/pigean.sumstats.gz) rather than the bottom-line file the dock workflows use. Its header is CHROM/POS/P/N and its per-variant N differs from the bottom-line file. Everything else -- libraries, gene map, gene locations, knobs -- is held fixed, so huge_score_gwas_uncorrected reads out the GWAS layer alone.",
+  "mode": "gibbs",
+  "seeds": [0],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params", "gene_effectors"],
+  "args": {
+    "X-in": [
+      "bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt"
+    ],
+    "p-noninf": [0.0015, 0.0075],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/refGene_hg19_TSS.subset.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "results/seed_sweep/_cache/pigean.sumstats.gz",
+    "gwas-chrom-col": "CHROM",
+    "gwas-pos-col": "POS",
+    "gwas-p-col": "P",
+    "gwas-n-col": "N",
+    "update-hyper": "none",
+    "sigma-power": 0,
+    "max-num-gene-sets": 5000,
+    "debug-level": 3
+  }
+}

@@ -183,6 +183,27 @@ values, so `label` and `filter_reason` come through as the modal value plus a
 Trim the width with `--stats mean,sd,n,rank_mean,rank_sd`, and drop unstable
 ids entirely with `--min-runs 3`.
 
+### Which gene-set metric to read
+
+`beta_uncorrected` leads, and drives `consensus_rank` and the table's sort order.
+`beta` is the post-Gibbs *corrected* value and carries the sampler's noise, so
+ranking on it reports the sampler as much as the biology; `beta_uncorrected` is
+the marginal. On real T2D the same runs give top-50 retention of 0.76 on `beta`
+and 0.92 on `beta_uncorrected` — leading with `beta` overstates the instability
+by a wide margin. `beta` stays reported everywhere, because it is what the
+portal publishes.
+
+### Threshold counts
+
+`THRESHOLD_COUNTS` in `aggregate.py` names (metric, threshold) pairs per table;
+the default is `gene_stats` / `prior > 1`. Each run's count is reported along
+with the min/max spread across seeds.
+
+This asks a question no correlation or rank statistic asks — *how long is the
+answer*. Two runs can agree perfectly on ordering and still hand back lists of
+different length. On real T2D the spread is 26 genes at shipped defaults and 6
+under `--strict-stopping`. `compare` shows it per arm as `min..max`.
+
 ### Reading the three tables
 
 * **`gene_stats`** — the main event. `combined_sd` and `combined_rank_sd` are
@@ -216,6 +237,33 @@ reader get the same list". Both are needed; the second is usually much worse
 than the first.
 
 A headline table is printed to the console at the end of every aggregation.
+
+## Rank shift and value disagreement
+
+```bash
+python scripts/seed_sweep/run_seed_sweep.py rankshift --out-dir <sweep>
+```
+
+A single median rank sd over 18k genes is close to meaningless: most sit in a
+long tail where the metric is flat and neighbours swap on noise, so the tail
+sets the median. `rankshift` stratifies by consensus rank band instead, and
+writes four tables into `aggregate/`:
+
+| file | answers |
+|---|---|
+| `rank_shift_bands.tsv` | how far ids move, per band — and `worst_rank`, which is what matters for an id ranked 1 |
+| `rank_shift_retention.tsv` | of the consensus top K, how many are top K in *every* seed |
+| `rank_shift_offenders.tsv` | the specific ids with the worst falls |
+| `rank_shift_disagreement.tsv` | mean **unsigned** pairwise `\|value_a - value_b\|` per band, absolute and relative |
+
+On real T2D, `gene_stats.combined` moves a median of 2 ranks in the top 50 and
+196 in the 1001+ band, and the whole-table figure of 186 describes only the
+tail. `blowouts` counts ids whose worst rank exceeded 10x their consensus rank —
+the "rank 1 in one seed, rank 2000 in another" case.
+
+Disagreement is banded for the same reason: `prior` disagrees by 0.129 in the
+top 50 against 0.033 over the whole table, so one figure would be dominated by
+genes nobody reads.
 
 ## Sweep configs
 
