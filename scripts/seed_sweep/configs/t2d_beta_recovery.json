@@ -1,0 +1,39 @@
+{
+  "name": "t2d_beta_recovery",
+  "description": "Phase 1 base for the non-inferiority gate work: recover corrected-beta magnitude. Identical to t2d_bottomline_mouse_msigdb except --write-gibbs-global-filtered-summaries, which adds beta_global_filtered / beta_uncorrected_global_filtered columns so ONE run reports gate 3 under both summary modes. Gate 3 (gene sets with beta > 0.1) is 13 here against the validated reference's 26, a -50% miss on a -10% floor, while the marginals are stronger than the reference -- so the corrected beta summarisation is the suspect. Arms are applied on top with --set.",
+  "mode": "gibbs",
+  "seeds": [
+    0
+  ],
+  "outputs": [
+    "gene_stats",
+    "gene_set_stats",
+    "gene_gene_set_stats",
+    "params",
+    "gene_effectors"
+  ],
+  "args": {
+    "X-in": [
+      "bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt"
+    ],
+    "p-noninf": [
+      0.0015,
+      0.0075
+    ],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/refGene_hg19_TSS.subset.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "https://dig-open-bottom-line-analysis.s3.amazonaws.com/bottom-line/Mixed/T2D.sumstats.tsv.gz",
+    "gwas-chrom-col": "chromosome",
+    "gwas-pos-col": "position",
+    "gwas-p-col": "pValue",
+    "gwas-n-col": "n",
+    "update-hyper": "none",
+    "sigma-power": 0,
+    "max-num-gene-sets": 5000,
+    "debug-level": 3,
+    "write-gibbs-global-filtered-summaries": true
+  }
+}
