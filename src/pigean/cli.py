@@ -483,7 +483,7 @@ parser.add_option("","--min-num-burn-in",type=int,default=10) #minimum number of
 parser.add_option("","--min-num-post-burn-in",type=int,dest="min_num_post_burn_in",default=10) #minimum number of post-burn-in iterations per outer Gibbs epoch
 parser.add_option("","--max-num-post-burn-in",type=int,dest="max_num_post_burn_in",default=None) #maximum number of post-burn-in iterations per outer Gibbs epoch
 parser.add_option("","--max-num-iter",type=int,default=500) #legacy per-epoch total outer Gibbs cap (post+burn); used as fallback if phase-specific bounds are not set
-parser.add_option("","--total-num-iter-gibbs",type=int,default=None) #total outer Gibbs iterations budget across all restart epochs; defaults to --max-num-iter
+parser.add_option("","--total-num-iter-gibbs",type=int,default=None) #total outer Gibbs iteration cap across all epochs; by default follows --max-num-iter (500)
 parser.add_option("","--r-threshold-burn-in",type=float,default=1.10) #R-hat threshold for outer Gibbs burn-in
 parser.add_option("","--gauss-seidel",action="store_true") #run gauss seidel for gibbs sampling
 parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true") #use a sample of the betas returned from the inner beta sampling within the gibbs samples; by default uses mean value which is smoother (more stable but more prone to not exploring full space)
@@ -496,7 +496,7 @@ parser.add_option("","--max-rel-mcse-beta",type=float,default=None) #maximum all
 parser.add_option("","--max-post-beta-rhat",type=float,default=None) #maximum allowed post-burn beta R-hat quantile before Gibbs can stop
 parser.add_option("","--max-rel-prior-beta-inconsistency",type=float,default=None) #maximum allowed relative mismatch between summarized priors and priors implied by summarized corrected betas
 parser.add_option("","--num-chains",type=int,default=10) #number of chains for gibbs sampling. Larger number uses more memory and compute but produces lower MCSE
-parser.add_option("","--max-num-restarts",type=int,default=10) #maximum number of additional Gibbs restart epochs to run and aggregate. Larger numbers increasing likelihood of reaching MCSE
+parser.add_option("","--max-num-restarts",type=int,default=0) #maximum number of additional Gibbs restart epochs to run and aggregate; --enable-stall-detection defaults this to 10 unless explicitly set
 
 # Secondary precision controls.
 parser.add_option("","--stall-min-post-burn-samples",type=int,dest="stall_min_post_burn_in",default=50) #minimum post-burn-in samples before applying stall detectors
@@ -521,7 +521,8 @@ parser.add_option("","--stall-delta-rhat",type=float,default=0.01) #minimum best
 parser.add_option("","--stall-delta-mcse",type=float,default=0.002) #minimum best-so-far D MCSE improvement required over stall-window checkpoints
 parser.add_option("","--stall-recent-window",type=int,default=4) #number of diagnostic checkpoints for recent-vs-full stall check
 parser.add_option("","--stall-recent-eps",type=float,default=0.05) #fractional tolerance for recent-vs-full stall check
-parser.add_option("","--disable-stall-detection",action="store_true",default=False) #disable stall detectors; force one epoch by setting --max-num-restarts 0 and --total-num-iter-gibbs --max-num-iter
+parser.add_option("","--disable-stall-detection",action="store_true",dest="disable_stall_detection",default=True) #disable stall-triggered epoch exits and restarts (default; retained for explicit/backward-compatible commands)
+parser.add_option("","--enable-stall-detection",action="store_false",dest="disable_stall_detection") #opt in to stall-triggered epoch exits/restarts; defaults --max-num-restarts to 10 unless explicitly set
 parser.add_option("","--diag-every",type=int,default=4) #run and print full Gibbs diagnostics every N iterations
 
 #beta sampling parameters
@@ -657,17 +658,27 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gibbs-summary-mode": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
     "--log-file": "write structured run logs to this file",
     "--max-abs-mcse-d": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
-    "--max-num-iter": "legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set",
+    "--max-num-iter": "maximum outer Gibbs iterations in one epoch (500 by default)",
+    "--min-num-burn-in": "minimum burn-in iterations before burn-in may end",
+    "--max-num-burn-in": "optional maximum burn-in iterations in one epoch",
+    "--min-num-post-burn-in": "minimum retained post-burn iterations before precision stopping may occur",
+    "--max-num-post-burn-in": "optional maximum retained post-burn iterations in one epoch",
+    "--max-num-restarts": "maximum additional Gibbs epochs allowed after stall-triggered exits",
     "--max-post-beta-rhat": "require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop",
     "--max-rel-mcse-beta": "stop Gibbs once active beta MCSE is below this relative threshold",
     "--max-rel-prior-beta-inconsistency": "require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop",
+    "--enable-stall-detection": "opt in to stall-triggered Gibbs epoch exits and restarts",
+    "--disable-stall-detection": "disable stall-triggered Gibbs epoch exits and restarts (the default)",
     "--num-chains": "number of parallel outer Gibbs chains to run",
     "--print-effective-config": "print the fully resolved mode/options JSON and exit",
     "--strict-stopping": "tighten Gibbs stopping thresholds relative to the default lenient preset",
     "--deterministic": "force deterministic random seed behavior (seed=0 unless --seed is set)",
     "--seed": "set explicit random seed for deterministic reproducibility checks",
     "--s2g-in": "load SNP-to-gene mappings used during HuGE score construction",
-    "--total-num-iter-gibbs": "total outer Gibbs iteration budget across all restart epochs",
+    "--total-num-iter-gibbs": "maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default",
+    "--stop-mcse-quantile": "quantile across monitored effects and genes used for precision stopping",
+    "--stop-patience": "number of consecutive passing precision checks required to stop",
+    "--diag-every": "number of outer iterations between convergence and precision diagnostics",
     "--update-hyper": "choose whether outer Gibbs updates p, sigma, both, or neither during adaptation",
     "--warm-start": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
     "--no-warm-start": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
@@ -824,6 +835,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
     "--params-out",
     "--s2g-in",
     "--strict-stopping",
+    "--enable-stall-detection",
     "--total-num-iter-gibbs",
     "--update-hyper",
     "--warm-start",
@@ -1717,14 +1729,17 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
     # Backward-compat defaults for simplified epoch controls.
     if _options.max_num_post_burn_in is None and _options.max_num_iter is not None:
         _options.max_num_post_burn_in = max(1, _options.max_num_iter - max(_options.min_num_burn_in, 0))
-    # Explicitly disable all stall-based early exits/restarts.
+    # Stall detection is independent of precision-based early stopping. The
+    # default is one uninterrupted epoch capped by --max-num-iter; users can
+    # opt into the adaptive stall/restart controller explicitly.
     if _options.disable_stall_detection:
         _options.burn_in_stall_window = 0
         _options.stall_window = 0
         _options.stall_recent_window = 0
-        # Emulate legacy single-epoch behavior: no restarts and one total Gibbs budget.
-        _options.max_num_restarts = 0
-        _options.total_num_iter_gibbs = _options.max_num_iter
+        if not _is_option_dest_explicit("total_num_iter_gibbs", _cli_dests, _config_dests):
+            _options.total_num_iter_gibbs = _options.max_num_iter
+    elif not _is_option_dest_explicit("max_num_restarts", _cli_dests, _config_dests):
+        _options.max_num_restarts = 10
 
     if _options.max_gb is None:
         _options.max_gb = 2.0

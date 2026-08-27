@@ -158,6 +158,29 @@ class GibbsSummaryTest(unittest.TestCase):
         self.assertTrue(min_post_burn_reached)
         self.assertEqual(streak, 2)
 
+    def test_precision_can_stop_without_a_stall(self) -> None:
+        decision = pigean_state._decide_gibbs_post_burn_action(
+            precision_achieved=True,
+            post_stall_detected=False,
+            post_burn_action_config={
+                "num_attempts": 1,
+                "max_num_attempt_restarts": 1,
+                "epoch_iter_num": 100,
+                "total_iter_num": 100,
+                "post_stall_plateau": False,
+                "post_stall_recent_worse": False,
+                "beta_rhat_q_post": 1.05,
+                "D_mcse_q": 0.02,
+                "prior_beta_rel_inconsistency_q": 0.10,
+                "post_stall_recent_beta_rhat_q": np.nan,
+                "post_stall_recent_D_mcse_q": np.nan,
+            },
+        )
+        self.assertTrue(decision["done"])
+        self.assertTrue(decision["stop_due_to_precision"])
+        self.assertFalse(decision["restart_due_to_stall"])
+        self.assertFalse(decision["stop_due_to_stall"])
+
     def test_raw_common_mask_summary_preserves_gene_local_beta_mass(self) -> None:
         stub_state = _StubState(
             X_orig=np.array([[1.0, 1.0]], dtype=float),
