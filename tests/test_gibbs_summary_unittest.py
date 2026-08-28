@@ -112,6 +112,7 @@ class GibbsSummaryTest(unittest.TestCase):
     def test_post_burn_precision_streak_requires_rhat_and_consistency(self) -> None:
         streak, min_post_burn_reached = pigean_state._update_gibbs_post_burn_precision_streak(
             stop_pass_streak=1,
+            active_beta_panel_saturated=False,
             beta_ratio_q=0.05,
             D_mcse_q=0.01,
             beta_rhat_q_post=1.40,
@@ -128,6 +129,7 @@ class GibbsSummaryTest(unittest.TestCase):
 
         streak, min_post_burn_reached = pigean_state._update_gibbs_post_burn_precision_streak(
             stop_pass_streak=1,
+            active_beta_panel_saturated=False,
             beta_ratio_q=0.05,
             D_mcse_q=0.01,
             beta_rhat_q_post=1.10,
@@ -144,6 +146,7 @@ class GibbsSummaryTest(unittest.TestCase):
 
         streak, min_post_burn_reached = pigean_state._update_gibbs_post_burn_precision_streak(
             stop_pass_streak=1,
+            active_beta_panel_saturated=False,
             beta_ratio_q=0.05,
             D_mcse_q=0.01,
             beta_rhat_q_post=1.10,
@@ -157,6 +160,109 @@ class GibbsSummaryTest(unittest.TestCase):
         )
         self.assertTrue(min_post_burn_reached)
         self.assertEqual(streak, 2)
+
+    def test_active_beta_panel_saturation_blocks_precision_streak(self) -> None:
+        streak, min_post_burn_reached = pigean_state._update_gibbs_post_burn_precision_streak(
+            stop_pass_streak=1,
+            active_beta_panel_saturated=True,
+            beta_ratio_q=0.05,
+            D_mcse_q=0.01,
+            beta_rhat_q_post=1.10,
+            prior_beta_rel_inconsistency_q=0.10,
+            max_rel_mcse_beta=0.20,
+            max_abs_mcse_d=0.05,
+            max_post_beta_rhat=1.25,
+            max_rel_prior_beta_inconsistency=0.50,
+            num_post_burn_D=20,
+            min_num_post_burn_in_for_epoch=10,
+        )
+        self.assertTrue(min_post_burn_reached)
+        self.assertEqual(streak, 0)
+
+    def test_active_beta_panel_saturation_blocks_burn_in_streak(self) -> None:
+        num_chains = 4
+        num_samples = 10
+        chain_means = np.array([0.30, 0.20, 0.10], dtype=float)
+        all_sum_betas_m = np.tile(chain_means * num_samples, (num_chains, 1))
+        all_sum_betas2_m = np.tile(np.square(chain_means) * num_samples, (num_chains, 1))
+        all_num_sum_m = np.full((num_chains, len(chain_means)), num_samples, dtype=float)
+        epoch_control = {
+            "burn_in_pass_streak": 1,
+            "burn_in_rhat_history": [],
+            "burn_stall_best_beta_rhat_history": [],
+            "burn_stall_snapshots": [],
+            "burn_stall_beta_indices": None,
+        }
+        burn_in_config = {
+            "active_beta_top_k": 2,
+            "active_beta_min_abs": 0.01,
+            "burn_in_rhat_quantile": 0.90,
+            "r_threshold_burn_in": 1.10,
+            "stall_window": 0,
+            "stall_min_burn_in": 50,
+            "stall_delta_rhat": 0.01,
+            "stall_recent_window": 4,
+            "stall_recent_eps": 0.0,
+            "burn_in_stall_window": 0,
+            "burn_in_stall_delta": 0.01,
+        }
+        result = pigean_state._evaluate_burn_in_diagnostics(
+            epoch_control=epoch_control,
+            burn_in_config=burn_in_config,
+            min_num_burn_in_for_epoch=10,
+            epoch_runtime={
+                "all_sum_betas_m": all_sum_betas_m,
+                "all_sum_betas2_m": all_sum_betas2_m,
+                "all_num_sum_m": all_num_sum_m,
+            },
+            num_samples=num_samples,
+        )
+        self.assertTrue(result["active_beta_panel_saturated"])
+        self.assertEqual(result["burn_in_pass_streak"], 0)
+
+        epoch_control.update(
+            burn_in_pass_streak=1,
+            burn_in_rhat_history=[],
+            burn_stall_best_beta_rhat_history=[],
+            burn_stall_snapshots=[],
+            burn_stall_beta_indices=None,
+        )
+        burn_in_config["active_beta_min_abs"] = 0.25
+        result = pigean_state._evaluate_burn_in_diagnostics(
+            epoch_control=epoch_control,
+            burn_in_config=burn_in_config,
+            min_num_burn_in_for_epoch=10,
+            epoch_runtime={
+                "all_sum_betas_m": all_sum_betas_m,
+                "all_sum_betas2_m": all_sum_betas2_m,
+                "all_num_sum_m": all_num_sum_m,
+            },
+            num_samples=num_samples,
+        )
+        self.assertFalse(result["active_beta_panel_saturated"])
+        self.assertEqual(result["burn_in_pass_streak"], 2)
+
+        epoch_control.update(
+            burn_in_pass_streak=1,
+            burn_in_rhat_history=[],
+            burn_stall_best_beta_rhat_history=[],
+            burn_stall_snapshots=[],
+            burn_stall_beta_indices=None,
+        )
+        burn_in_config["active_beta_min_abs"] = 1.0
+        result = pigean_state._evaluate_burn_in_diagnostics(
+            epoch_control=epoch_control,
+            burn_in_config=burn_in_config,
+            min_num_burn_in_for_epoch=10,
+            epoch_runtime={
+                "all_sum_betas_m": all_sum_betas_m,
+                "all_sum_betas2_m": all_sum_betas2_m,
+                "all_num_sum_m": all_num_sum_m,
+            },
+            num_samples=num_samples,
+        )
+        self.assertTrue(result["active_beta_panel_saturated"])
+        self.assertEqual(result["burn_in_pass_streak"], 0)
 
     def test_precision_can_stop_without_a_stall(self) -> None:
         decision = pigean_state._decide_gibbs_post_burn_action(

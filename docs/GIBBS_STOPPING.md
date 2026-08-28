@@ -59,6 +59,8 @@ PYTHONPATH=src python -m pigean gibbs \
 
 Burn-in can end before its cap when the across-chain effect R-hat summary passes its threshold for the required number of consecutive checkpoints.
 
+Burn-in cannot complete while the active-effect diagnostic panel fills its configured top-K capacity. A full panel may be a truncated transient rather than a stable representation of the active effects, so its pass streak is reset until the panel is no longer saturated.
+
 | Flag | Role | Default |
 |---|---|---:|
 | `--r-threshold-burn-in X` | Maximum burn-in R-hat summary. | 1.10 |
@@ -76,6 +78,8 @@ Precision is evaluated across the parallel outer chains after burn-in. A diagnos
 - consistency between directly summarized priors and priors implied by summarized corrected effects.
 
 The pass must repeat for `--stop-patience` consecutive diagnostic checkpoints, and the epoch must have at least `--min-num-post-burn-in` retained draws. This path is independent of stall detection and remains active under the default 500-iteration controller.
+
+Precision stopping is also blocked while the active-effect diagnostic panel is saturated at `--active-beta-top-k`. Sampling continues until the panel becomes unsaturated or the iteration budget is exhausted.
 
 | Flag | Role | Lenient default | Strict preset |
 |---|---|---:|---:|
