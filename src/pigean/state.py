@@ -3910,7 +3910,7 @@ class PigeanState(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
+    def run_gibbs(self, max_num_iter=100, total_num_iter=None, gibbs_reruns=1, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         from pigean import gibbs as pigean_gibbs
         from pigean import gibbs_callbacks as pigean_gibbs_callbacks
 
@@ -3926,6 +3926,7 @@ class PigeanState(object):
             callbacks,
             max_num_iter=max_num_iter,
             total_num_iter=total_num_iter,
+            gibbs_reruns=gibbs_reruns,
             max_num_restarts=max_num_restarts,
             num_chains=num_chains,
             num_mad=num_mad,
@@ -9281,15 +9282,28 @@ def _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_pos
 
 
 def _calculate_rhat_from_sums(sum_m, sum2_m, num):
-    if num <= 1:
+    num_m = np.asarray(num, dtype=float)
+    if num_m.ndim == 0:
+        num_m = np.full(sum_m.shape, float(num_m))
+    else:
+        num_m = np.broadcast_to(num_m, sum_m.shape)
+
+    num_chains = sum_m.shape[0]
+    if num_chains <= 1 or np.any(num_m <= 1):
         default_v = np.ones(sum_m.shape[1])
         return (default_v, default_v, default_v, default_v)
-    mean_m = sum_m / float(num)
+
+    mean_m = sum_m / num_m
     mean_v = np.mean(mean_m, axis=0)
-    var_m = (sum2_m - float(num) * np.power(mean_m, 2)) / (float(num) - 1)
-    B_v = (float(num) / (mean_m.shape[0] - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
-    W_v = (1.0 / float(mean_m.shape[0])) * np.sum(var_m, axis=0)
-    var_given_y_v = np.add((float(num) - 1) / float(num) * W_v, (1.0 / float(num)) * B_v)
+    var_m = (sum2_m - num_m * np.power(mean_m, 2)) / (num_m - 1.0)
+    within_df_m = num_m - 1.0
+    W_v = np.sum(within_df_m * var_m, axis=0) / np.sum(within_df_m, axis=0)
+    harmonic_num_v = float(num_chains) / np.sum(1.0 / num_m, axis=0)
+    B_v = (harmonic_num_v / float(num_chains - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
+    var_given_y_v = np.add(
+        (harmonic_num_v - 1.0) / harmonic_num_v * W_v,
+        (1.0 / harmonic_num_v) * B_v,
+    )
     var_given_y_v[var_given_y_v < 0] = 0
     R_v = np.ones(len(W_v))
     R_non_zero_mask = W_v > 0
@@ -10085,14 +10099,11 @@ def _summarize_gibbs_chain_aggregates(
     sum_Ds_missing_m=None,
     num_sum_priors_missing_m=None,
 ):
-    num_post_burn_in_Y = int(np.min(num_sum_Y_m))
-    num_post_burn_in_beta = int(np.min(num_sum_beta_m))
-
-    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
-    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
-    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
-    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
-    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
+    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_sum_Y_m)
+    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_sum_Y_m)
+    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_sum_Y_m)
+    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_sum_beta_m)
+    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_sum_beta_m)
 
     prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
     combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)

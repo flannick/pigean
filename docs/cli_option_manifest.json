@@ -2,14 +2,14 @@
   "categories": {
     "compat_alias": 19,
     "debug_only": 8,
-    "engineering": 117,
+    "engineering": 118,
     "experimental": 2,
     "method_optional": 195,
     "method_required": 20
   },
   "entrypoint": "src/pigean/cli.py",
   "module": "pigean.cli",
-  "num_options": 361,
+  "num_options": 362,
   "options": [
     {
       "action": null,
@@ -195,7 +195,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 514,
+      "source_line": 515,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -216,10 +216,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 513,
+      "source_line": 514,
       "summary": null,
       "type": "int",
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": "store_true",
@@ -405,7 +405,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 517,
+      "source_line": 518,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -447,7 +447,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 510,
+      "source_line": 511,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -468,7 +468,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 509,
+      "source_line": 510,
       "summary": null,
       "type": "float",
       "usage_references": 5
@@ -489,7 +489,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 512,
+      "source_line": 513,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -510,7 +510,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 511,
+      "source_line": 512,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -1329,7 +1329,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 545,
+      "source_line": 546,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1371,7 +1371,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 540,
+      "source_line": 541,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1392,7 +1392,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 539,
+      "source_line": 540,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1413,7 +1413,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 546,
+      "source_line": 547,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1434,7 +1434,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 543,
+      "source_line": 544,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1455,7 +1455,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 542,
+      "source_line": 543,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1476,7 +1476,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 541,
+      "source_line": 542,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1497,7 +1497,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 544,
+      "source_line": 545,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1539,7 +1539,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 526,
+      "source_line": 527,
       "summary": "number of outer iterations between convergence and precision diagnostics",
       "type": "int",
       "usage_references": 5
@@ -1560,7 +1560,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 524,
+      "source_line": 525,
       "summary": "disable stall-triggered Gibbs epoch exits and restarts (the default)",
       "type": null,
       "usage_references": 5
@@ -1602,10 +1602,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 525,
+      "source_line": 526,
       "summary": "opt in to stall-triggered Gibbs epoch exits and restarts",
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -2127,7 +2127,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 533,
+      "source_line": 534,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -3563,6 +3563,27 @@
     {
       "action": null,
       "category": "engineering",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "gibbs_reruns",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--gibbs-reruns"
+      ],
+      "help": null,
+      "primary_flag": "--gibbs-reruns",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 499,
+      "summary": "run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains",
+      "type": "int",
+      "usage_references": 20
+    },
+    {
+      "action": null,
+      "category": "engineering",
       "default": "raw_common_mask",
       "deprecation_timeline": null,
       "dest": "gibbs_summary_mode",
@@ -4458,7 +4479,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 534,
+      "source_line": 535,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4713,7 +4734,7 @@
       "source_line": 485,
       "summary": "maximum outer Gibbs iterations in one epoch (500 by default)",
       "type": "int",
-      "usage_references": 34
+      "usage_references": 37
     },
     {
       "action": null,
@@ -4731,7 +4752,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 530,
+      "source_line": 531,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4773,10 +4794,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 499,
+      "source_line": 500,
       "summary": "maximum additional Gibbs epochs allowed after stall-triggered exits",
       "type": "int",
-      "usage_references": 11
+      "usage_references": 13
     },
     {
       "action": null,
@@ -5046,7 +5067,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 529,
+      "source_line": 530,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -5679,7 +5700,7 @@
       "source_line": 498,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
-      "usage_references": 19
+      "usage_references": 24
     },
     {
       "action": null,
@@ -5697,7 +5718,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 531,
+      "source_line": 532,
       "summary": null,
       "type": "int",
       "usage_references": 11
@@ -6267,7 +6288,7 @@
       "source_line": 323,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 112
+      "usage_references": 113
     },
     {
       "action": null,
@@ -6369,7 +6390,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 532,
+      "source_line": 533,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -6957,7 +6978,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 521,
+      "source_line": 522,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -6978,7 +6999,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 520,
+      "source_line": 521,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -6999,7 +7020,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 519,
+      "source_line": 520,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7020,7 +7041,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 502,
+      "source_line": 503,
       "summary": null,
       "type": "int",
       "usage_references": 7
@@ -7041,7 +7062,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 523,
+      "source_line": 524,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7062,7 +7083,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 522,
+      "source_line": 523,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7083,7 +7104,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 518,
+      "source_line": 519,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7104,7 +7125,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 503,
+      "source_line": 504,
       "summary": "quantile across monitored effects and genes used for precision stopping",
       "type": "float",
       "usage_references": 4
@@ -7125,7 +7146,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 516,
+      "source_line": 517,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7146,7 +7167,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 504,
+      "source_line": 505,
       "summary": "number of consecutive passing precision checks required to stop",
       "type": "int",
       "usage_references": 7
@@ -7167,7 +7188,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 515,
+      "source_line": 516,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7188,7 +7209,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 507,
+      "source_line": 508,
       "summary": "tighten Gibbs stopping thresholds relative to the default lenient preset",
       "type": null,
       "usage_references": 9
@@ -7275,7 +7296,7 @@
       "source_line": 486,
       "summary": "maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default",
       "type": "int",
-      "usage_references": 11
+      "usage_references": 14
     },
     {
       "action": "store_true",
@@ -7398,7 +7419,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 508,
+      "source_line": 509,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -7419,7 +7440,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 535,
+      "source_line": 536,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -7594,7 +7615,7 @@
     }
   ],
   "visibilities": {
-    "expert": 317,
+    "expert": 318,
     "hidden": 9,
     "normal": 35
   }

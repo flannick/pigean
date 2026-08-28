@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `361`
+- Total options: `362`
 - `method_required`: `20`
 - `method_optional`: `195`
-- `engineering`: `117`
+- `engineering`: `118`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `317`
+- visibility `expert`: `318`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -317,6 +317,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-no-header` | `expert` | `no` | `expert_help` | `gene_universe_has_header` | `True` | declare that the explicit gene-universe file has no header row |
 | `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
 | `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
+| `--gibbs-reruns` | `expert` | `no` | `expert_help` | `gibbs_reruns` | `1` | run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains |
 | `--gibbs-summary-mode` | `normal` | `no` | `core_help` | `gibbs_summary_mode` | `raw_common_mask` | choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask |
 | `--gwas-beta-col` | `expert` | `no` | `expert_help` | `gwas_beta_col` | `None` | - |
 | `--gwas-chrom-col` | `expert` | `no` | `expert_help` | `gwas_chrom_col` | `None` | - |
