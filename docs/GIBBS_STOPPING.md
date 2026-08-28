@@ -1,4 +1,4 @@
-# Outer-Gibbs stopping and restarts
+# Outer-Gibbs stopping, reruns, and restarts
 
 PIGEAN treats iteration budget, precision stopping, and stall handling as three separate controls:
 
@@ -7,6 +7,8 @@ PIGEAN treats iteration budget, precision stopping, and stall handling as three 
 3. Stall detection is an optional recovery strategy that can end an epoch and start a new one when diagnostics stop improving.
 
 The default is one uninterrupted epoch capped at 500 outer iterations. Precision-based early stopping remains enabled. Stall-triggered exits and restarts are off unless requested.
+
+Independent reruns are a fourth, explicit control. They run several fixed-controller chain batches sequentially and summarize all of their chains together, reducing peak working width when many chains are wanted.
 
 ## Default behavior
 
@@ -25,11 +27,33 @@ This resolves to the following controller behavior:
 
 Use `--print-effective-config` to see the resolved values without starting the analysis. The run's `--params-out` file also records the effective controller and stopping settings.
 
+## Sequential independent reruns
+
+Use `--gibbs-reruns` to obtain more effective chains without widening the matrices used by one Gibbs batch:
+
+```bash
+PYTHONPATH=src python -m pigean gibbs \
+  --num-chains 20 \
+  --gibbs-reruns 3 \
+  ...input and output options...
+```
+
+This runs three independent 20-chain batches and reports one combined 60-chain result. Every batch starts from the same pre-Gibbs inputs, while the seeded random-number stream advances between batches. A fixed seed therefore reproduces the complete run without making the batches identical.
+
+The implementation retains chain sums, squared sums, and sample counts in memory, then computes the final means, MCSE, confidence intervals, activity probabilities, chain mask, and R-hat once across all effective chains. If burn-in or precision stopping leaves different retained sample counts across batches, pooled R-hat uses those per-chain counts rather than assuming equal lengths.
+
+Precision stopping remains active within each batch. Reaching precision ends that batch but does not cancel later explicitly requested reruns. The default total iteration capacity becomes `--max-num-iter` multiplied by `--gibbs-reruns`; an explicitly supplied `--total-num-iter-gibbs` must provide at least that capacity.
+
+Version 1 supports independent reruns only with the default fixed controller. `--gibbs-reruns` above 1 cannot be combined with `--enable-stall-detection` or a nonzero `--max-num-restarts`. Intermediate reruns are not checkpointed: native outputs are written after the combined summary is complete.
+
+The mental model is a set of chain shards. Increasing `--num-chains` makes one shard wider and can have superlinear runtime costs; increasing `--gibbs-reruns` adds shards sequentially, so peak memory and per-batch matrix width stay near the selected `--num-chains`. More shards improve Monte Carlo precision but do not guarantee convergence; inspect the combined R-hat alongside MCSE.
+
 ## Iteration and phase bounds
 
 | Flag | Role |
 |---|---|
 | `--max-num-iter N` | Maximum outer iterations in one epoch. It is 500 by default and also supplies the default total budget when stalls are disabled. |
+| `--gibbs-reruns N` | Number of independent fixed-controller chain batches. The default is 1. |
 | `--total-num-iter-gibbs N` | Maximum outer iterations summed across all epochs. An explicit value overrides the default derived from `--max-num-iter`. |
 | `--min-num-burn-in N` | Minimum burn-in draws in each epoch before burn-in may end. |
 | `--max-num-burn-in N` | Optional burn-in cap within each epoch. |
@@ -59,6 +83,8 @@ PYTHONPATH=src python -m pigean gibbs \
 
 Burn-in can end before its cap when the across-chain effect R-hat summary passes its threshold for the required number of consecutive checkpoints.
 
+Burn-in cannot complete while the active-effect diagnostic panel fills its configured top-K capacity. A full panel may be a truncated transient rather than a stable representation of the active effects, so its pass streak is reset until the panel is no longer saturated.
+
 | Flag | Role | Default |
 |---|---|---:|
 | `--r-threshold-burn-in X` | Maximum burn-in R-hat summary. | 1.10 |
@@ -76,6 +102,8 @@ Precision is evaluated across the parallel outer chains after burn-in. A diagnos
 - consistency between directly summarized priors and priors implied by summarized corrected effects.
 
 The pass must repeat for `--stop-patience` consecutive diagnostic checkpoints, and the epoch must have at least `--min-num-post-burn-in` retained draws. This path is independent of stall detection and remains active under the default 500-iteration controller.
+
+Precision stopping is also blocked while the active-effect diagnostic panel is saturated at `--active-beta-top-k`. Sampling continues until the panel becomes unsaturated or the iteration budget is exhausted.
 
 | Flag | Role | Lenient default | Strict preset |
 |---|---|---:|---:|
@@ -128,6 +156,15 @@ Stall detection is best treated as an opt-in exploratory controller. It may be u
 Do not assume that restarts always save time or preserve effect amplitudes. In matched tests, the adaptive controller shortened BMI runtime but deflated effect/prior amplitudes, while for T2D it closely preserved those amplitudes but took longer than the uninterrupted 500-iteration run. Sparse or delayed-activation traits can be especially sensitive to declaring a stall too early. For routine production runs, the uninterrupted default is therefore the safer reference.
 
 ## Common command patterns
+
+Sixty effective chains as three sequential 20-chain batches:
+
+```bash
+PYTHONPATH=src python -m pigean gibbs \
+  --num-chains 20 \
+  --gibbs-reruns 3 \
+  ...input and output options...
+```
 
 Default controller with stricter early stopping:
 

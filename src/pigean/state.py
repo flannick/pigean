@@ -3910,7 +3910,7 @@ class PigeanState(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
+    def run_gibbs(self, max_num_iter=100, total_num_iter=None, gibbs_reruns=1, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         from pigean import gibbs as pigean_gibbs
         from pigean import gibbs_callbacks as pigean_gibbs_callbacks
 
@@ -3926,6 +3926,7 @@ class PigeanState(object):
             callbacks,
             max_num_iter=max_num_iter,
             total_num_iter=total_num_iter,
+            gibbs_reruns=gibbs_reruns,
             max_num_restarts=max_num_restarts,
             num_chains=num_chains,
             num_mad=num_mad,
@@ -8090,6 +8091,7 @@ def _evaluate_burn_in_diagnostics(
         num_active_betas,
         beta_rhat_q,
         beta_rhat_max,
+        active_beta_panel_saturated,
     ) = _compute_burn_in_active_beta_rhat_stats(
         all_sum_betas_m=all_sum_betas_m,
         all_sum_betas2_m=all_sum_betas2_m,
@@ -8100,7 +8102,7 @@ def _evaluate_burn_in_diagnostics(
         burn_in_rhat_quantile=burn_in_rhat_quantile,
     )
 
-    if beta_rhat_q <= r_threshold_burn_in:
+    if not active_beta_panel_saturated and beta_rhat_q <= r_threshold_burn_in:
         burn_in_pass_streak += 1
     else:
         burn_in_pass_streak = 0
@@ -8161,6 +8163,7 @@ def _evaluate_burn_in_diagnostics(
         "beta_rhat_q": beta_rhat_q,
         "beta_rhat_max": beta_rhat_max,
         "num_active_betas": num_active_betas,
+        "active_beta_panel_saturated": active_beta_panel_saturated,
         "burn_stall_plateau": burn_stall_plateau,
         "burn_stall_recent_worse": burn_stall_recent_worse,
         "burn_stall_detected": burn_stall_detected,
@@ -8215,7 +8218,12 @@ def _compute_burn_in_active_beta_rhat_stats(
     burn_in_rhat_quantile,
 ):
     (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
-    active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
+    active_beta_mask_v, _, _, active_beta_panel_saturated = _get_active_beta_mask(
+        all_sum_betas_m,
+        all_num_sum_m,
+        active_beta_top_k,
+        active_beta_min_abs,
+    )
     num_active_betas = int(np.sum(active_beta_mask_v))
     if num_active_betas > 0:
         R_beta_active_v = R_beta_v[active_beta_mask_v]
@@ -8225,7 +8233,14 @@ def _compute_burn_in_active_beta_rhat_stats(
     else:
         beta_rhat_q = 1.0
         beta_rhat_max = 1.0
-    return (R_beta_v, active_beta_mask_v, num_active_betas, beta_rhat_q, beta_rhat_max)
+    return (
+        R_beta_v,
+        active_beta_mask_v,
+        num_active_betas,
+        beta_rhat_q,
+        beta_rhat_max,
+        active_beta_panel_saturated,
+    )
 
 
 def _handle_gibbs_burn_in_max_iter(
@@ -8307,6 +8322,7 @@ def _handle_gibbs_burn_in_diag_path(
     beta_rhat_q = burn_diag["beta_rhat_q"]
     beta_rhat_max = burn_diag["beta_rhat_max"]
     num_active_betas = burn_diag["num_active_betas"]
+    active_beta_panel_saturated = burn_diag["active_beta_panel_saturated"]
     burn_stall_plateau = burn_diag["burn_stall_plateau"]
     burn_stall_recent_worse = burn_diag["burn_stall_recent_worse"]
     burn_stall_detected = burn_diag["burn_stall_detected"]
@@ -8322,7 +8338,7 @@ def _handle_gibbs_burn_in_diag_path(
     burn_in_stall_delta = burn_in_config["burn_in_stall_delta"]
 
     log(
-        "Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        "Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; active_beta_panel_saturated=%s; burn_streak=%d/%d; stop_streak=%d/%d"
         % (
             num_samples,
             burn_in_rhat_quantile,
@@ -8330,6 +8346,7 @@ def _handle_gibbs_burn_in_diag_path(
             beta_rhat_max,
             num_active_betas,
             num_full_gene_sets,
+            str(active_beta_panel_saturated),
             burn_in_pass_streak,
             burn_in_patience,
             stop_pass_streak,
@@ -8337,7 +8354,7 @@ def _handle_gibbs_burn_in_diag_path(
         ),
         INFO,
     )
-    if burn_in_pass_streak >= burn_in_patience:
+    if not active_beta_panel_saturated and burn_in_pass_streak >= burn_in_patience:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -8349,7 +8366,7 @@ def _handle_gibbs_burn_in_diag_path(
             % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience),
             INFO,
         )
-    elif burn_stall_detected:
+    elif not active_beta_panel_saturated and burn_stall_detected:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -8362,7 +8379,7 @@ def _handle_gibbs_burn_in_diag_path(
             % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)),
             INFO,
         )
-    elif burn_window_plateau_detected:
+    elif not active_beta_panel_saturated and burn_window_plateau_detected:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -9265,15 +9282,28 @@ def _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_pos
 
 
 def _calculate_rhat_from_sums(sum_m, sum2_m, num):
-    if num <= 1:
+    num_m = np.asarray(num, dtype=float)
+    if num_m.ndim == 0:
+        num_m = np.full(sum_m.shape, float(num_m))
+    else:
+        num_m = np.broadcast_to(num_m, sum_m.shape)
+
+    num_chains = sum_m.shape[0]
+    if num_chains <= 1 or np.any(num_m <= 1):
         default_v = np.ones(sum_m.shape[1])
         return (default_v, default_v, default_v, default_v)
-    mean_m = sum_m / float(num)
+
+    mean_m = sum_m / num_m
     mean_v = np.mean(mean_m, axis=0)
-    var_m = (sum2_m - float(num) * np.power(mean_m, 2)) / (float(num) - 1)
-    B_v = (float(num) / (mean_m.shape[0] - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
-    W_v = (1.0 / float(mean_m.shape[0])) * np.sum(var_m, axis=0)
-    var_given_y_v = np.add((float(num) - 1) / float(num) * W_v, (1.0 / float(num)) * B_v)
+    var_m = (sum2_m - num_m * np.power(mean_m, 2)) / (num_m - 1.0)
+    within_df_m = num_m - 1.0
+    W_v = np.sum(within_df_m * var_m, axis=0) / np.sum(within_df_m, axis=0)
+    harmonic_num_v = float(num_chains) / np.sum(1.0 / num_m, axis=0)
+    B_v = (harmonic_num_v / float(num_chains - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
+    var_given_y_v = np.add(
+        (harmonic_num_v - 1.0) / harmonic_num_v * W_v,
+        (1.0 / harmonic_num_v) * B_v,
+    )
     var_given_y_v[var_given_y_v < 0] = 0
     R_v = np.ones(len(W_v))
     R_non_zero_mask = W_v > 0
@@ -9289,7 +9319,7 @@ def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_
     num_beta = len(beta_mean_v)
     active_mask_v = np.zeros(num_beta, dtype=bool)
     if num_beta == 0:
-        return (active_mask_v, beta_chain_means_m, beta_mean_v)
+        return (active_mask_v, beta_chain_means_m, beta_mean_v, False)
 
     top_k = min(max(active_beta_top_k, 1), num_beta)
     if top_k >= num_beta:
@@ -9303,7 +9333,8 @@ def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_
         if np.any(filtered_mask_v):
             active_mask_v = filtered_mask_v
 
-    return (active_mask_v, beta_chain_means_m, beta_mean_v)
+    active_beta_panel_saturated = top_k < num_beta and int(np.sum(active_mask_v)) >= top_k
+    return (active_mask_v, beta_chain_means_m, beta_mean_v, active_beta_panel_saturated)
 
 
 def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mean_betas, max_mb_X_h, log_fun):
@@ -9843,7 +9874,7 @@ def _compute_post_burn_beta_diagnostics(
     stop_mcse_quantile,
     beta_rel_mcse_denom_floor,
 ):
-    active_beta_mask, beta_chain_means_m, beta_mean_v = _get_active_beta_mask(
+    active_beta_mask, beta_chain_means_m, beta_mean_v, active_beta_panel_saturated = _get_active_beta_mask(
         diag_sum_betas_m,
         diag_num_sum_beta_m,
         active_beta_top_k,
@@ -9870,6 +9901,7 @@ def _compute_post_burn_beta_diagnostics(
         "active_beta_mask": active_beta_mask,
         "beta_mean_v": beta_mean_v,
         "num_active_betas": num_active_betas,
+        "active_beta_panel_saturated": active_beta_panel_saturated,
         "beta_mcse_v": beta_mcse_v,
         "num_post_burn_beta": num_post_burn_beta,
         "beta_rhat_q_post": beta_rhat_q_post,
@@ -10067,14 +10099,11 @@ def _summarize_gibbs_chain_aggregates(
     sum_Ds_missing_m=None,
     num_sum_priors_missing_m=None,
 ):
-    num_post_burn_in_Y = int(np.min(num_sum_Y_m))
-    num_post_burn_in_beta = int(np.min(num_sum_beta_m))
-
-    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
-    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
-    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
-    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
-    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
+    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_sum_Y_m)
+    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_sum_Y_m)
+    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_sum_Y_m)
+    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_sum_beta_m)
+    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_sum_beta_m)
 
     prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
     combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
@@ -11883,6 +11912,7 @@ def _log_gibbs_post_burn_diagnostics(
     prior_beta_rel_inconsistency_q,
     max_rel_prior_beta_inconsistency,
     num_active_betas,
+    active_beta_panel_saturated,
     num_full_gene_sets,
     num_chains_effective_for_diag,
     burn_in_pass_streak,
@@ -11892,7 +11922,7 @@ def _log_gibbs_post_burn_diagnostics(
 ):
     if stop_min_gene_d is None:
         log(
-            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; active_beta_panel_saturated=%s; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
             % (
                 epoch_iter_num,
                 total_iter_num,
@@ -11912,6 +11942,7 @@ def _log_gibbs_post_burn_diagnostics(
                 max_rel_prior_beta_inconsistency,
                 num_active_betas,
                 num_full_gene_sets,
+                str(active_beta_panel_saturated),
                 num_chains_effective_for_diag,
                 burn_in_pass_streak,
                 burn_in_patience,
@@ -11923,7 +11954,7 @@ def _log_gibbs_post_burn_diagnostics(
         return
 
     log(
-        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; active_beta_panel_saturated=%s; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
         % (
             epoch_iter_num,
             total_iter_num,
@@ -11946,6 +11977,7 @@ def _log_gibbs_post_burn_diagnostics(
             max_rel_prior_beta_inconsistency,
             num_active_betas,
             num_full_gene_sets,
+            str(active_beta_panel_saturated),
             num_chains_effective_for_diag,
             burn_in_pass_streak,
             burn_in_patience,
@@ -12101,6 +12133,7 @@ def _compute_gibbs_post_burn_diag_metrics(
     return {
         "num_chains_effective_for_diag": num_chains_effective_for_diag,
         "num_active_betas": beta_diag["num_active_betas"],
+        "active_beta_panel_saturated": beta_diag["active_beta_panel_saturated"],
         "beta_mcse_v": beta_diag["beta_mcse_v"],
         "beta_rhat_q_post": beta_diag["beta_rhat_q_post"],
         "beta_ratio_q": beta_diag["beta_ratio_q"],
@@ -12117,6 +12150,7 @@ def _compute_gibbs_post_burn_diag_metrics(
 
 def _update_gibbs_post_burn_precision_streak(
     stop_pass_streak,
+    active_beta_panel_saturated,
     beta_ratio_q,
     D_mcse_q,
     beta_rhat_q_post,
@@ -12130,7 +12164,8 @@ def _update_gibbs_post_burn_precision_streak(
 ):
     min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
     precision_pass = (
-        beta_ratio_q <= max_rel_mcse_beta
+        not active_beta_panel_saturated
+        and beta_ratio_q <= max_rel_mcse_beta
         and D_mcse_q <= max_abs_mcse_d
         and beta_rhat_q_post <= max_post_beta_rhat
         and prior_beta_rel_inconsistency_q <= max_rel_prior_beta_inconsistency
@@ -12171,6 +12206,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
 
     stop_pass_streak, min_post_burn_reached = _update_gibbs_post_burn_precision_streak(
         stop_pass_streak=stop_pass_streak,
+        active_beta_panel_saturated=diag_metrics["active_beta_panel_saturated"],
         beta_ratio_q=diag_metrics["beta_ratio_q"],
         D_mcse_q=diag_metrics["D_mcse_q"],
         beta_rhat_q_post=diag_metrics["beta_rhat_q_post"],
@@ -12201,6 +12237,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         prior_beta_rel_inconsistency_q=diag_metrics["prior_beta_rel_inconsistency_q"],
         max_rel_prior_beta_inconsistency=diag_config["max_rel_prior_beta_inconsistency"],
         num_active_betas=diag_metrics["num_active_betas"],
+        active_beta_panel_saturated=diag_metrics["active_beta_panel_saturated"],
         num_full_gene_sets=diag_config["num_full_gene_sets"],
         num_chains_effective_for_diag=diag_metrics["num_chains_effective_for_diag"],
         burn_in_pass_streak=burn_in_pass_streak,
