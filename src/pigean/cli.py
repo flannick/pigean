@@ -497,6 +497,7 @@ parser.add_option("","--max-rel-mcse-beta",type=float,default=None) #maximum all
 parser.add_option("","--max-post-beta-rhat",type=float,default=None) #maximum allowed post-burn beta R-hat quantile before Gibbs can stop
 parser.add_option("","--max-rel-prior-beta-inconsistency",type=float,default=None) #maximum allowed relative mismatch between summarized priors and priors implied by summarized corrected betas
 parser.add_option("","--num-chains",type=int,default=10) #number of chains for gibbs sampling. Larger number uses more memory and compute but produces lower MCSE
+parser.add_option("","--gibbs-reruns",type=int,default=1) #number of independent fixed-controller Gibbs chain batches to run sequentially and aggregate
 parser.add_option("","--max-num-restarts",type=int,default=0) #maximum number of additional Gibbs restart epochs to run and aggregate; --enable-stall-detection defaults this to 10 unless explicitly set
 
 # Secondary precision controls.
@@ -659,6 +660,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--hide-opts": "suppress printing resolved options at startup",
     "--hide-progress": "reduce progress logging noise during long runs",
     "--gibbs-summary-mode": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
+    "--gibbs-reruns": "run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains",
     "--log-file": "write structured run logs to this file",
     "--max-abs-mcse-d": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
     "--max-num-iter": "maximum outer Gibbs iterations in one epoch (500 by default)",
@@ -715,6 +717,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--eaggl-bundle-out",
     "--gene-set-stats-trace-out",
     "--gibbs-summary-mode",
+    "--gibbs-reruns",
     "--gene-stats-output-scope",
     "--output-detail",
     "--gene-stats-trace-out",
@@ -1726,6 +1729,13 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
         _options.update_hyper = "none"
 
     # Gibbs stopping defaults.
+    if _options.gibbs_reruns is None or _options.gibbs_reruns < 1:
+        bail("Option --gibbs-reruns must be >= 1")
+    if _options.gibbs_reruns > 1 and not _options.disable_stall_detection:
+        bail("Option --gibbs-reruns > 1 cannot be combined with --enable-stall-detection")
+    if _options.gibbs_reruns > 1 and _options.max_num_restarts != 0:
+        bail("Option --gibbs-reruns > 1 requires --max-num-restarts 0")
+
     _options.gibbs_stopping_preset = "strict" if _options.strict_stopping else "lenient"
     for opt_name, opt_value in _GIBBS_STOPPING_PRESETS[_options.gibbs_stopping_preset].items():
         _set_default_option(_options, opt_name, opt_value)
@@ -1740,9 +1750,18 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
         _options.stall_window = 0
         _options.stall_recent_window = 0
         if not _is_option_dest_explicit("total_num_iter_gibbs", _cli_dests, _config_dests):
-            _options.total_num_iter_gibbs = _options.max_num_iter
+            _options.total_num_iter_gibbs = _options.max_num_iter * _options.gibbs_reruns
     elif not _is_option_dest_explicit("max_num_restarts", _cli_dests, _config_dests):
         _options.max_num_restarts = 10
+    if (
+        _options.gibbs_reruns > 1
+        and _is_option_dest_explicit("total_num_iter_gibbs", _cli_dests, _config_dests)
+        and _options.total_num_iter_gibbs < _options.max_num_iter * _options.gibbs_reruns
+    ):
+        bail(
+            "Option --total-num-iter-gibbs must be at least --max-num-iter * --gibbs-reruns (%d)"
+            % (_options.max_num_iter * _options.gibbs_reruns)
+        )
 
     if _options.max_gb is None:
         _options.max_gb = 2.0

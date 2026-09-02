@@ -37,6 +37,7 @@ class PigeanCliTest(unittest.TestCase):
         options = json.loads(proc.stdout)["options"]
         self.assertTrue(options["disable_stall_detection"])
         self.assertEqual(options["max_num_restarts"], 0)
+        self.assertEqual(options["gibbs_reruns"], 1)
         self.assertEqual(options["max_num_iter"], 500)
         self.assertEqual(options["total_num_iter_gibbs"], 500)
         self.assertEqual(options["burn_in_stall_window"], 0)
@@ -65,6 +66,42 @@ class PigeanCliTest(unittest.TestCase):
             json.loads(explicit_proc.stdout)["options"]["min_gwas_inverse_variance_ratio"],
             0,
         )
+    def test_gibbs_reruns_expand_fixed_controller_budget(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gibbs-reruns",
+            "3",
+            "--num-chains",
+            "20",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["gibbs_reruns"], 3)
+        self.assertEqual(options["num_chains"], 20)
+        self.assertEqual(options["total_num_iter_gibbs"], 1500)
+        self.assertEqual(options["max_num_restarts"], 0)
+
+    def test_gibbs_reruns_reject_adaptive_controller(self) -> None:
+        proc = self._run("gibbs", "--gibbs-reruns", "2", "--enable-stall-detection")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("cannot be combined with --enable-stall-detection", (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_gibbs_reruns_reject_small_total_budget(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gibbs-reruns",
+            "2",
+            "--total-num-iter-gibbs",
+            "999",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("must be at least --max-num-iter * --gibbs-reruns", (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_gibbs_reruns_must_be_positive(self) -> None:
+        proc = self._run("gibbs", "--gibbs-reruns", "0")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("--gibbs-reruns must be >= 1", (proc.stderr or "") + (proc.stdout or ""))
 
     def test_adaptive_controller_remains_explicitly_available(self) -> None:
         proc = self._run("gibbs", "--enable-stall-detection", "--print-effective-config")

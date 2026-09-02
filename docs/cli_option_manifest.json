@@ -2,7 +2,7 @@
   "categories": {
     "compat_alias": 19,
     "debug_only": 8,
-    "engineering": 117,
+    "engineering": 118,
     "experimental": 2,
     "method_optional": 196,
     "method_required": 20
@@ -1605,7 +1605,7 @@
       "source_line": 526,
       "summary": "opt in to stall-triggered Gibbs epoch exits and restarts",
       "type": null,
-      "usage_references": 11
+      "usage_references": 15
     },
     {
       "action": null,
@@ -3563,6 +3563,27 @@
     {
       "action": null,
       "category": "engineering",
+      "default": "1",
+      "deprecation_timeline": null,
+      "dest": "gibbs_reruns",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--gibbs-reruns"
+      ],
+      "help": null,
+      "primary_flag": "--gibbs-reruns",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 499,
+      "summary": "run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains",
+      "type": "int",
+      "usage_references": 20
+    },
+    {
+      "action": null,
+      "category": "engineering",
       "default": "raw_common_mask",
       "deprecation_timeline": null,
       "dest": "gibbs_summary_mode",
@@ -4713,7 +4734,7 @@
       "source_line": 486,
       "summary": "maximum outer Gibbs iterations in one epoch (500 by default)",
       "type": "int",
-      "usage_references": 34
+      "usage_references": 37
     },
     {
       "action": null,
@@ -4776,7 +4797,7 @@
       "source_line": 500,
       "summary": "maximum additional Gibbs epochs allowed after stall-triggered exits",
       "type": "int",
-      "usage_references": 11
+      "usage_references": 13
     },
     {
       "action": null,
@@ -5700,7 +5721,7 @@
       "source_line": 499,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
-      "usage_references": 19
+      "usage_references": 24
     },
     {
       "action": null,
@@ -7296,7 +7317,7 @@
       "source_line": 487,
       "summary": "maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default",
       "type": "int",
-      "usage_references": 11
+      "usage_references": 14
     },
     {
       "action": "store_true",
