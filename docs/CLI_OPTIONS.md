@@ -7,8 +7,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 - Total options: `362`
 - `method_required`: `20`
-- `method_optional`: `195`
-- `engineering`: `118`
+- `method_optional`: `196`
+- `engineering`: `117`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
@@ -153,7 +153,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
-| `--min-n-ratio` | `expert` | `yes` | `expert_help` | `min_n_ratio` | `0.5` | - |
+| `--min-gwas-inverse-variance-ratio` | `expert` | `yes` | `expert_help` | `min_gwas_inverse_variance_ratio` | `0.5` | exclude variants whose inverse variance is below this fraction of the chromosome mean; set to 0 to disable |
+| `--min-n-ratio` | `expert` | `yes` | `expert_help` | `min_n_ratio` | `0.5` | exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable |
 | `--min-num-burn-in` | `expert` | `yes` | `expert_help` | `min_num_burn_in` | `10` | minimum burn-in iterations before burn-in may end |
 | `--min-num-gene-sets` | `expert` | `yes` | `expert_help` | `min_num_gene_sets` | `1` | - |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |

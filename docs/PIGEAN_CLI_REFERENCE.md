@@ -63,6 +63,23 @@ PYTHONPATH=src python -m pigean gibbs \
 
 `--params-out` is the resolved run record. It includes learned/internal quantities such as `p`, `sigma2`, Gibbs diagnostics, and other stage-specific outputs, and it also includes the resolved CLI/config state under `option_*` rows so the effective run settings can be reconstructed after the fact.
 
+### GWAS column resolution and variant QC
+
+PIGEAN infers every recognized GWAS column that was not named explicitly, even when some column flags were supplied. Explicit mappings always win. For example, specifying `--gwas-p-col pValue` does not prevent PIGEAN from discovering available beta, SE, N, frequency, chromosome, or position columns. The resolved mappings and the sample-size QC source are written to `--params-out`.
+
+When beta and an observed SE are available, PIGEAN reconstructs Z as `beta / SE`; p is used to reconstruct Z only when that observed pair is incomplete. Reported N is kept separately for sample-size and missingness QC and is not substituted for effect uncertainty. A negative SE is invalid as an uncertainty measure: PIGEAN emits an aggregate warning and uses its absolute magnitude. This preserves a usable uncertainty value while making potentially mislabelled signed-statistic columns visible to the user.
+
+The two variant-QC controls have separate meanings:
+
+| Flag | Meaning |
+|---|---|
+| `--min-n-ratio` | Exclude variants whose reported N is below this fraction of the chromosome mean. The default is `0.5`. If no N column or scalar N is available, inverse SE squared is retained as a compatibility fallback. Set to `0` to disable this gate. |
+| `--min-gwas-inverse-variance-ratio` | When an observed SE is available, exclude variants whose inverse variance, `1 / SE^2`, is below this fraction of the chromosome mean. The default is `0.5`; set it to `0` to disable this gate. Reconstructed SE values are not eligible for this separate gate. |
+
+Thus reported N measures participation/missingness, while inverse variance measures the effective information in the fitted effect. Keeping the gates separate avoids treating `1 / SE^2` as though it were literal sample size. The inverse-variance default is a conservative compatibility safeguard for variants whose reported N is normal but whose effect estimate is unusually imprecise. It is a relative QC heuristic rather than a universal information threshold: SE also depends on allele frequency, phenotype scaling, and model type.
+
+PIGEAN logs the input count, sample-size-eligible count, inverse-variance removals, final retained count, and forced credible-set positions for each chromosome and overall. If inverse-variance QC removes at least 25% of variants that passed sample-size QC, it emits a warning to review the GWAS SE scale/column mapping and the relationship between reported N and effective information.
+
 HuGE cache build:
 
 ```bash
