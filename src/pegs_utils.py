@@ -1183,7 +1183,7 @@ def infer_columns_from_table_file(filename, open_text_fn, *, log_fn=None, bail_f
         possible_chrom_headers = set(["chr", "chrom", "chromosome", "#chrom"])
         possible_pos_headers = set(["pos", "bp", "position", "base_pair_location"])
         possible_locus_headers = set(["variant"])
-        possible_p_headers = set(["p-val", "p_val", "pval", "p.value", "p-value", "p_value"])
+        possible_p_headers = set(["p-val", "p_val", "pval", "pvalue", "p.value", "p-value", "p_value"])
         possible_p_headers2 = set(["p"])
         possible_beta_headers = set(["beta", "effect"])
         possible_se_headers = set(["se", "std", "stderr", "standard_error"])
@@ -1289,9 +1289,7 @@ def infer_columns_from_table_file(filename, open_text_fn, *, log_fn=None, bail_f
                         possible_beta_cols[i] = False
                 if possible_se_cols[i]:
                     try:
-                        val = float(cols[i])
-                        if val < 0:
-                            possible_se_cols[i] = False
+                        _val = float(cols[i])
                     except ValueError:
                         possible_se_cols[i] = False
                 if possible_freq_cols[i]:
@@ -1369,14 +1367,15 @@ def needs_gwas_column_detection(
     gwas_se_col,
     gwas_n_col,
     gwas_n,
+    gwas_freq_col=None,
 ):
-    if (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None:
-        return True
-
-    has_se = gwas_se_col is not None or gwas_n_col is not None or gwas_n is not None
-    if (gwas_p_col is not None and gwas_beta_col is not None) or (gwas_p_col is not None and has_se) or (gwas_beta_col is not None and has_se):
-        return False
-    return True
+    missing_location = (gwas_pos_col is None or gwas_chrom_col is None) and gwas_locus_col is None
+    missing_n = gwas_n_col is None and gwas_n is None
+    missing_optional_column = any(
+        value is None
+        for value in (gwas_p_col, gwas_beta_col, gwas_se_col, gwas_freq_col)
+    )
+    return missing_location or missing_n or missing_optional_column
 
 
 def autodetect_gwas_columns(
@@ -1453,7 +1452,7 @@ def autodetect_gwas_columns(
         else:
             log_fn("Could not determine beta column from header %s; if desired specify with --gwas-beta-col" % header)
 
-    if gwas_n_col is None:
+    if gwas_n_col is None and gwas_n is None:
         if len(possible_n_cols) == 1:
             gwas_n_col = possible_n_cols[0]
             log_fn("Using %s for N column; change with --gwas-n-col if incorrect" % gwas_n_col)

@@ -125,6 +125,10 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "SE",
             "--gwas-n-col",
             "N",
+            "--min-n-ratio",
+            "0.4",
+            "--min-gwas-inverse-variance-ratio",
+            "0.2",
             "--exomes-in",
             "exomes.tsv",
             "--exomes-gene-col",
@@ -147,6 +151,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["gwas_beta_col"], "BETA")
         self.assertEqual(payload["options"]["gwas_se_col"], "SE")
         self.assertEqual(payload["options"]["gwas_n_col"], "N")
+        self.assertEqual(payload["options"]["min_n_ratio"], 0.4)
+        self.assertEqual(payload["options"]["min_gwas_inverse_variance_ratio"], 0.2)
         self.assertEqual(payload["options"]["exomes_in"], "exomes.tsv")
         self.assertEqual(payload["options"]["exomes_gene_col"], "GENE")
         self.assertEqual(payload["options"]["exomes_p_col"], "PVALUE")
@@ -330,6 +336,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gwas-beta-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--gwas-se-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--gwas-n-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_huge_cache_round_trip_runs"],
+            "--min-n-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
+            "--min-gwas-inverse-variance-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_inverse_variance_filter_defaults_to_half_mean_and_zero_disables"],
             "--exomes-in": ["test_logs_show_all_toy_fixture_inputs_are_read", "test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--exomes-gene-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
             "--exomes-p-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
