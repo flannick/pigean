@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `301`
+- Total options: `302`
 - `method_required`: `11`
-- `method_optional`: `188`
+- `method_optional`: `189`
 - `engineering`: `85`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `245`
+- visibility `expert`: `246`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -81,6 +81,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `euclidean` | choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--full-gene-projection-method` | `expert` | `yes` | `advanced_workflows` | `full_gene_projection_method` | `gene_set_loadings` | choose the basis for --gene-clusters-full-out: gene_set_loadings (default, gene-set-routed), direct_gene_gene (diagnostic), or auto |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
 | `--gene-covs-in` | `expert` | `yes` | `expert_help` | `gene_covs_in` | `None` | - |
