@@ -87,6 +87,24 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("Label-only quickstart", proc.stdout)
         self.assertIn("--label-gene-set-clusters-in", proc.stdout)
 
+    def test_full_gene_projection_defaults_to_gene_set_routed(self) -> None:
+        proc = self._run("factor", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["full_gene_projection_method"], "gene_set_loadings")
+
+        direct_proc = self._run(
+            "factor",
+            "--full-gene-projection-method",
+            "direct_gene_gene",
+            "--print-effective-config",
+        )
+        self.assertEqual(direct_proc.returncode, 0, msg=(direct_proc.stderr or "") + (direct_proc.stdout or ""))
+        self.assertEqual(
+            json.loads(direct_proc.stdout)["options"]["full_gene_projection_method"],
+            "direct_gene_gene",
+        )
+
     def test_label_mode_trait_factor_link_loading_col_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -213,6 +231,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-gene-clusters-out"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--gene-clusters-full-out"]["documentation_target"], "advanced_workflows")
+        self.assertEqual(metadata["--full-gene-projection-method"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--cluster-row-min-max-loading"]["documentation_target"], "advanced_workflows")
         self.assertEqual(metadata["--factor-phi-factors-out"]["public_visibility"], "expert")
         self.assertEqual(metadata["--factor-phi-gene-set-clusters-out"]["public_visibility"], "expert")
@@ -730,11 +749,28 @@ class EagglCliTest(unittest.TestCase):
             "annotations.tsv.gz",
             "--gene-clusters-full-out",
             "gene_clusters_full.tsv.gz",
+            "--full-gene-projection-method",
+            "direct_gene_gene",
         )
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("requires --gene-set-stats-in", err)
         self.assertIn("reconstruct beta-weighted gene-gene evidence", err)
+
+    def test_projection_only_full_gene_default_requires_gene_set_basis(self) -> None:
+        proc = self._run(
+            "factor",
+            "--factor-gene-clusters-in",
+            "gene_clusters.out.gz",
+            "--X-in",
+            "annotations.tsv.gz",
+            "--gene-clusters-full-out",
+            "gene_clusters_full.tsv.gz",
+        )
+        self.assertEqual(proc.returncode, 2)
+        err = (proc.stderr or "") + (proc.stdout or "")
+        self.assertIn("defaults to gene-set-routed projection", err)
+        self.assertIn("direct_gene_gene", err)
 
     def test_projection_only_cross_basis_allows_gene_set_stats_filter(self) -> None:
         proc = self._run(
@@ -793,6 +829,8 @@ class EagglCliTest(unittest.TestCase):
             "gene_clusters_full.tsv.gz",
             "--gene-set-stats-in",
             "gene_set_stats.tsv.gz",
+            "--full-gene-projection-method",
+            "direct_gene_gene",
             "--print-effective-config",
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
