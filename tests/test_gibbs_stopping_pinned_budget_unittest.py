@@ -180,6 +180,13 @@ class GibbsStoppingPinnedBudgetTest(unittest.TestCase):
                 "sampling they got" % (key, recorded),
             )
 
+        self.assertEqual(
+            {seed: budget["num_gibbs_epochs_completed"] for seed, budget in budgets.items()},
+            {seed: "1" for seed in SEEDS},
+            "the pinned single-epoch path must persist its finalized epoch, not the "
+            "zero count recorded before the attempt started",
+        )
+
     def test_disable_stall_detection_alone_leaves_both_phases_free(self) -> None:
         """The partial recipe is documented as insufficient; prove it still is.
 
