@@ -2051,14 +2051,6 @@ def run_outer_gibbs(
         callbacks=callbacks,
     )
 
-    # Epoch preparation records the count before an attempt starts. Refresh it
-    # after the loop so params.tsv reflects successfully finalized epochs rather
-    # than the count that preceded the final (or only) epoch.
-    state._record_param(
-        "num_gibbs_epochs_completed",
-        run_state.num_completed_epochs,
-        overwrite=True,
-    )
     if run_state.num_completed_epochs == 0:
         callbacks.bail_fn("Gibbs failed to complete any successful epochs within restart/iteration limits")
     callbacks.log_fn(
