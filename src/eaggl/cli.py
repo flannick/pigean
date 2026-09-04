@@ -189,6 +189,7 @@ parser.add_option("","--gene-set-clusters-out",default=None)
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
+parser.add_option("","--full-gene-projection-method",type="choice",choices=["gene_set_loadings","direct_gene_gene","auto"],default="gene_set_loadings") #projection basis for --gene-clusters-full-out; gene_set_loadings is the recommended default
 parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-gene mode only: write annotation bridge diagnostics for retained annotations
 parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
 parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair
@@ -579,6 +580,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-phi-gene-clusters-out": "write gene_clusters.out-style rows for each investigated phi-search candidate with a leading phi column",
     "--gene-clusters-full-out": "write a projected gene cluster table for all input genes, including genes filtered before factorization",
     "--gene-clusters-full-via-gene-sets-out": "write a projected gene cluster table for all input genes using factor gene-set loadings as the projection basis",
+    "--full-gene-projection-method": "choose the basis for --gene-clusters-full-out: gene_set_loadings (default, gene-set-routed), direct_gene_gene (diagnostic), or auto",
     "--annotation-bridge-metrics-out": "gene-by-gene mode only: write per-annotation bridge diagnostics from the rank-one gene-gene evidence decomposition",
     "--annotation-bridge-suggested-exclude-out": "gene-by-gene mode only: write annotation IDs suggested for bridge/profligacy review exclusion",
     "--gene-factor-annotation-contribs-out": "gene-by-gene mode only: write top annotation contributions explaining each gene-factor loading",
@@ -690,6 +692,7 @@ _EXPERT_METHOD_FLAGS = {
     "--factor-phewas-thresholded-combined-cutoff",
     "--factor-runs",
     "--factor-backend",
+    "--full-gene-projection-method",
     "--factor-prune-gene-sets-num",
     "--factor-prune-gene-sets-val",
     "--factor-prune-genes-num",
@@ -1611,6 +1614,17 @@ def _bootstrap_cli(argv=None):
                 )
         if parsed_options.gene_clusters_out is not None:
             bail("--gene-clusters-out is reserved for original fitted gene loadings; use --gene-clusters-full-out for projection-only gene loadings")
+        if (
+            parsed_options.gene_clusters_full_out is not None
+            and parsed_options.full_gene_projection_method == "gene_set_loadings"
+            and parsed_options.factor_gene_clusters_in is not None
+            and parsed_options.factor_gene_set_clusters_in is None
+        ):
+            bail(
+                "--gene-clusters-full-out defaults to gene-set-routed projection; provide "
+                "--factor-gene-set-clusters-in, or use --full-gene-projection-method direct_gene_gene "
+                "for direct projection from --factor-gene-clusters-in"
+            )
         if parsed_options.factor_gene_set_clusters_in is not None and projection_requests["gene_set"]:
             bail(
                 "--gene-set-clusters-out with --factor-gene-set-clusters-in would only rewrite the precomputed "

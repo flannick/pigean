@@ -125,6 +125,10 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "SE",
             "--gwas-n-col",
             "N",
+            "--min-n-ratio",
+            "0.4",
+            "--min-gwas-inverse-variance-ratio",
+            "0.2",
             "--exomes-in",
             "exomes.tsv",
             "--exomes-gene-col",
@@ -147,6 +151,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
         self.assertEqual(payload["options"]["gwas_beta_col"], "BETA")
         self.assertEqual(payload["options"]["gwas_se_col"], "SE")
         self.assertEqual(payload["options"]["gwas_n_col"], "N")
+        self.assertEqual(payload["options"]["min_n_ratio"], 0.4)
+        self.assertEqual(payload["options"]["min_gwas_inverse_variance_ratio"], 0.2)
         self.assertEqual(payload["options"]["exomes_in"], "exomes.tsv")
         self.assertEqual(payload["options"]["exomes_gene_col"], "GENE")
         self.assertEqual(payload["options"]["exomes_p_col"], "PVALUE")
@@ -312,6 +318,9 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--debug-level": ["test_reference_runtime_flags_round_trip"],
             "--max-gb": ["test_reference_runtime_flags_round_trip"],
             "--print-effective-config": ["test_reference_runtime_flags_round_trip", "test_reference_matrix_and_schema_flags_round_trip", "test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_precomputed_and_filter_flags_round_trip"],
+            "--max-num-iter": ["test_default_controller_uses_one_epoch_capped_at_500", "test_fixed_controller_preserves_explicit_iteration_and_precision_controls"],
+            "--strict-stopping": ["test_strict_stopping_selects_strict_precision_thresholds"],
+            "--enable-stall-detection": ["test_adaptive_controller_remains_explicitly_available", "test_stall_detection_preserves_explicit_restart_limit"],
             "--X-in": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_matrix_and_schema_flags_round_trip"],
             "--X-list": ["test_reference_matrix_and_schema_flags_round_trip"],
             "--Xd-in": ["test_reference_matrix_and_schema_flags_round_trip"],
@@ -327,6 +336,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gwas-beta-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--gwas-se-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--gwas-n-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_huge_cache_round_trip_runs"],
+            "--min-n-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
+            "--min-gwas-inverse-variance-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_inverse_variance_filter_defaults_to_half_mean_and_zero_disables"],
             "--exomes-in": ["test_logs_show_all_toy_fixture_inputs_are_read", "test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--exomes-gene-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
             "--exomes-p-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_logs_show_all_toy_fixture_inputs_are_read"],
@@ -353,6 +364,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gene-stats-log-bf-col": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--gene-stats-combined-col": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--gene-stats-prior-col": ["test_reference_precomputed_and_filter_flags_round_trip"],
+            "--multi-y-in": ["test_multi_y_effective_config_round_trips", "test_multi_y_requires_gene_set_stats_out"],
+            "--run-phewas": ["test_run_phewas_requires_gene_phewas_input", "test_legacy_run_phewas_alias_normalizes_to_run_flag"],
             "--gene-stats-output-scope": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--huge-statistics-out": ["test_huge_statistics_out_requires_gwas_in", "test_reference_huge_cache_round_trip_runs"],
             "--huge-statistics-in": ["test_huge_statistics_in_and_out_conflict", "test_reference_huge_cache_round_trip_runs"],

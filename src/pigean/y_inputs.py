@@ -100,6 +100,7 @@ def build_main_y_read_contract(options):
         signal_max_logp_ratio=options.signal_max_logp_ratio,
         credible_set_span=options.credible_set_span,
         min_n_ratio=options.min_n_ratio,
+        min_inverse_variance_ratio=options.min_gwas_inverse_variance_ratio,
         max_clump_ld=options.max_clump_ld,
         exomes_in=options.exomes_in,
         exomes_gene_col=options.exomes_gene_col,

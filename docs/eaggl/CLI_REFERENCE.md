@@ -47,6 +47,7 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out
 ```
 
@@ -58,6 +59,7 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out
 ```
 
@@ -71,6 +73,7 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out \
   --consensus-stats-out results/consensus.tsv
 ```
@@ -107,6 +110,7 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
+  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --trait-factor-links-out results/trait_factor_links.out \
   --params-out results/params.out
 ```
@@ -230,9 +234,10 @@ Operational notes:
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
 - projection-only gene-basis phenotype clusters and factor-PheWAS use the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`
 - projection-only gene-basis trait linkage requires `--gene-phewas-stats-in` and writes the long-form `trait_factor_links.out(.gz)` table
-- projection-only direct full-gene output from `--factor-gene-clusters-in` uses direct beta-weighted gene-gene evidence and therefore requires `--X-in` plus `--gene-set-stats-in`; write it with `--gene-clusters-full-out`; this is a diagnostic/alternative projection, not the default display projection
+- projection-only direct full-gene output from `--factor-gene-clusters-in` uses direct beta-weighted gene-gene evidence and therefore requires `--X-in` plus `--gene-set-stats-in`; request it with `--gene-clusters-full-out --full-gene-projection-method direct_gene_gene`; this is a diagnostic/alternative projection, not the default display projection
 - projection-only gene-set-basis trait linkage uses the raw `Factor1..FactorK` columns from `gene_set_clusters.out(.gz)` with `--gene-set-phewas-stats-in`; request this with `--project-phenos-from-gene-sets`
 - projection-only gene-set-routed full-gene output from precomputed gene-set factors requires `--factor-gene-set-clusters-in` plus `--X-in`; write it with `--gene-clusters-full-via-gene-sets-out`, or with `--gene-clusters-full-out` when a gene-set factor basis is the only factor input; dashboards and factor graphs prefer this output when present
+- `--gene-clusters-full-out` uses gene-set-routed projection by default (`--full-gene-projection-method gene_set_loadings`); use `--full-gene-projection-method direct_gene_gene` for a direct gene-gene diagnostic, or `auto` to preserve legacy dispatch
 - direct and gene-set-mediated full-gene projections can be written in one projection-only command by passing both `--factor-gene-clusters-in` and `--factor-gene-set-clusters-in` plus separate `--gene-clusters-full-out` and `--gene-clusters-full-via-gene-sets-out` paths
 - projection-only reuse expects the standard non-anchor `gene_clusters.out(.gz)` and `gene_set_clusters.out(.gz)` tables with one row per gene or gene set
 - if you request multiple factor-PheWAS models in one run, `factor_phewas_stats.out` appends them together and labels each row with `model_name`, `factor_model_scope`, `outcome_surface`, and `anchor_covariate`
@@ -452,6 +457,9 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 | `--factors-out` | main factor output table |
 | `--gene-set-clusters-out` | gene-set cluster output |
 | `--gene-clusters-out` | gene cluster output |
+| `--gene-clusters-full-out` | full-gene cluster output; uses gene-set-routed projection by default (override with `--full-gene-projection-method`) |
+| `--gene-clusters-full-via-gene-sets-out` | explicitly write the recommended gene-set-routed full-gene cluster output |
+| `--full-gene-projection-method` | choose the basis for `--gene-clusters-full-out`: `gene_set_loadings` (default), `direct_gene_gene` (diagnostic), or `auto` (legacy dispatch) |
 | `--trait-factor-links-out` | canonical long-form trait-factor linkage output |
 | `--factor-phewas-stats-out` | factor-level PheWAS output |
 | `--gene-pheno-stats-out` | gene-phenotype output |

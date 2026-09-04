@@ -161,7 +161,8 @@ def _iter_text_files(repo_root: Path):
     for path in repo_root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in skip_dirs for part in path.parts):
+        relative_parts = path.relative_to(repo_root).parts
+        if any(part in skip_dirs for part in relative_parts):
             continue
         if path.name in skip_files:
             continue

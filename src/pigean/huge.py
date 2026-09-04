@@ -174,6 +174,7 @@ def needs_gwas_column_detection_explicit(
     gwas_se_col,
     gwas_n_col,
     gwas_n,
+    gwas_freq_col=None,
 ):
     domain = _build_support_domain(
         pegs_needs_gwas_column_detection=pegs_needs_gwas_column_detection,
@@ -188,6 +189,7 @@ def needs_gwas_column_detection_explicit(
         gwas_se_col,
         gwas_n_col,
         gwas_n,
+        gwas_freq_col,
     )
 
 
@@ -612,7 +614,9 @@ def read_huge_input_credible_sets(
                 if pos not in seen_chrom_pos[chrom]:
                     assert(var_p_threshold is not None)
                     (p, beta, se, freq) = (var_p_threshold, 1, None, None)
-                    chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq))
+                    # Match the full GWAS-row tuple: SE-inferred flag and reported N
+                    # are unavailable for variants injected from credible sets.
+                    chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq, False, None))
                     seen_chrom_pos[chrom].add(pos)
                     if chrom not in added_chrom_pos:
                         added_chrom_pos[chrom] = set()
@@ -990,6 +994,89 @@ def compute_huge_variant_logbf_and_posteriors(
     return (var_log_bf, var_log_bf_detect, var_posterior, var_posterior_detect)
 
 
+def compute_huge_variant_qc_mask(
+    var_se2,
+    *,
+    var_n=None,
+    reported_n_available=False,
+    min_n_ratio=0.5,
+    min_inverse_variance_ratio=None,
+    inverse_variance_eligible=None,
+):
+    """Return variants passing sample-size and optional inverse-variance QC.
+
+    Reported N is the sample-size/missingness measure whenever it is available.
+    The historical inverse-SE-squared proxy remains the fallback when N is not
+    supplied. Inverse-variance filtering is independent of reported-N QC; its
+    product default is supplied by the CLI/state layer and zero disables it.
+    """
+    variants_keep = np.full(len(var_se2), True)
+    inverse_variance = 1 / var_se2
+    if inverse_variance_eligible is None:
+        inverse_variance_eligible = np.full(len(var_se2), True)
+    else:
+        inverse_variance_eligible = np.asarray(inverse_variance_eligible, dtype=bool)
+
+    if min_n_ratio is not None and min_n_ratio > 0:
+        if reported_n_available:
+            if var_n is None:
+                raise ValueError("var_n is required when reported_n_available is true")
+            qc_values = np.asarray(var_n, dtype=float)
+        else:
+            qc_values = inverse_variance
+        valid = np.isfinite(qc_values) & (qc_values > 0)
+        if np.any(valid):
+            variants_keep &= valid & (qc_values >= min_n_ratio * np.mean(qc_values[valid]))
+        else:
+            variants_keep[:] = False
+
+    if min_inverse_variance_ratio is not None and min_inverse_variance_ratio > 0:
+        valid = (
+            inverse_variance_eligible
+            & np.isfinite(inverse_variance)
+            & (inverse_variance > 0)
+        )
+        if np.any(valid):
+            variants_keep &= ~inverse_variance_eligible | (
+                valid
+                & (
+                    inverse_variance
+                    >= min_inverse_variance_ratio * np.mean(inverse_variance[valid])
+                )
+            )
+
+    return variants_keep
+
+
+def select_p_derived_z_mask(var_p, beta_was_provided, se_was_inferred):
+    """Select p-derived Z only when an observed beta/SE pair is unavailable."""
+    return (
+        ~np.isnan(var_p)
+        & (~np.asarray(beta_was_provided, dtype=bool) | np.asarray(se_was_inferred, dtype=bool))
+    )
+
+
+def normalize_reported_standard_error(se):
+    """Normalize a scalar SE to its non-negative magnitude and flag negatives."""
+    if se is not None and se < 0:
+        return abs(se), True
+    return se, False
+
+
+def summarize_huge_variant_qc(sample_size_keep, inverse_variance_keep, final_keep):
+    """Summarize independent QC gates, including positions forced back in."""
+    sample_size_keep = np.asarray(sample_size_keep, dtype=bool)
+    inverse_variance_keep = np.asarray(inverse_variance_keep, dtype=bool)
+    final_keep = np.asarray(final_keep, dtype=bool)
+    return {
+        "input_variants": int(len(final_keep)),
+        "sample_size_kept": int(np.sum(sample_size_keep)),
+        "inverse_variance_removed": int(np.sum(sample_size_keep & ~inverse_variance_keep)),
+        "final_kept": int(np.sum(final_keep)),
+        "forced_retained": int(np.sum(~inverse_variance_keep & final_keep)),
+    }
+
+
 def filter_huge_variants_for_signal_search(
     domain,
     var_pos,
@@ -1005,18 +1092,41 @@ def filter_huge_variants_for_signal_search(
     *,
     freq_col,
     min_n_ratio,
-    mean_n,
+    var_n,
+    reported_n_available,
+    min_inverse_variance_ratio,
+    inverse_variance_eligible,
     learn_params,
     chrom,
     added_chrom_pos,
 ):
-    variants_keep = np.full(len(var_pos), True)
-    qc_fail = 1 / var_se2 < min_n_ratio * mean_n
-    variants_keep[qc_fail] = False
+    sample_size_keep = compute_huge_variant_qc_mask(
+        var_se2,
+        var_n=var_n,
+        reported_n_available=reported_n_available,
+        min_n_ratio=min_n_ratio,
+        min_inverse_variance_ratio=0,
+    )
+    variants_keep = compute_huge_variant_qc_mask(
+        var_se2,
+        var_n=var_n,
+        reported_n_available=reported_n_available,
+        min_n_ratio=min_n_ratio,
+        min_inverse_variance_ratio=min_inverse_variance_ratio,
+        inverse_variance_eligible=inverse_variance_eligible,
+    )
+
+    variants_keep_before_forcing = variants_keep.copy()
 
     if not learn_params and chrom in added_chrom_pos:
         for cur_pos in added_chrom_pos[chrom]:
             variants_keep[var_pos == cur_pos] = True
+
+    variant_qc = summarize_huge_variant_qc(
+        sample_size_keep,
+        variants_keep_before_forcing,
+        variants_keep,
+    )
 
     var_pos = var_pos[variants_keep]
     var_p = var_p[variants_keep]
@@ -1047,4 +1157,5 @@ def filter_huge_variants_for_signal_search(
         var_posterior_detect,
         var_logp,
         var_freq,
+        variant_qc,
     )
