@@ -1,0 +1,35 @@
+{
+  "name": "t2d_controller_probe",
+  "description": "Base for the chain-budget probe: how much precision do we buy per unit of wall time? Jason measured 10 -> 50 chains costing ~12x runtime, and added --gibbs-reruns N (sequential pooled batches, NOT independent seeds) as a cheaper route to the same effective chain count. Candidates are laid on top of this with --set: c50 = --num-chains 50; c10r5 = --num-chains 10 --gibbs-reruns 5; c10r2 = --num-chains 10 --gibbs-reruns 2; c10 = --num-chains 10. Everything else is held equal, and deliberately: the four Gibbs phase bounds are pinned because main's post-merge default (max_num_restarts 0, stall detection off) still leaves burn-in and post-burn-in free between 10 and 490, so an unpinned probe would confound chain count with sampling budget. --min-gwas-inverse-variance-ratio 0 turns off the QC default that 8adff49 made visible, so this probe measures the controller and not the new HuGE input. --sigma-power -2 is the code default in gibbs mode; it is stated because the local sweep configs override it to 0.",
+  "mode": "gibbs",
+  "seeds": [0, 1, 2],
+  "outputs": ["gene_stats", "gene_set_stats", "gene_gene_set_stats", "params", "gene_effectors"],
+  "args": {
+    "X-in": [
+      "bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt"
+    ],
+    "p-noninf": [0.0015, 0.0075],
+    "gene-map-in": "bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+    "gene-loc-file": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+    "gene-loc-file-huge": "bundles/model_large-2026.02.22/data/refGene_hg19_TSS.subset.loc",
+    "exons-loc-file-huge": "bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+    "gwas-in": "https://dig-open-bottom-line-analysis.s3.amazonaws.com/bottom-line/Mixed/T2D.sumstats.tsv.gz",
+    "gwas-chrom-col": "chromosome",
+    "gwas-pos-col": "position",
+    "gwas-p-col": "pValue",
+    "gwas-n-col": "n",
+    "update-hyper": "none",
+    "sigma-power": -2,
+    "max-num-gene-sets": 5000,
+    "filter-gene-set-p": 0.005,
+    "min-gwas-inverse-variance-ratio": 0,
+    "output-detail": "full",
+    "max-num-iter": 500,
+    "min-num-burn-in": 100,
+    "max-num-burn-in": 100,
+    "min-num-post-burn-in": 400,
+    "max-num-post-burn-in": 400,
+    "debug-level": 3
+  }
+}
