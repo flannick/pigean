@@ -2303,90 +2303,9 @@ class EagglState(object):
         return _eaggl_factor_runtime.run_factor(self, **filtered_runtime_kwargs)
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):
-        """
-        Compute the sparse correlation matrix of (X * beta + Y) with dot-product thresholding,
-        mean adjustment, and normalization, for k beta vectors in parallel.
-
-        Parameters:
-        - X_sparse (scipy.sparse.csc_matrix): Sparse matrix X of shape (n, m).
-        - beta (np.array): Dense array of shape (k, m) for k beta vectors.
-        - dot_product_threshold (float): Threshold for absolute dot product values.
-        - Y (np.array, optional): Dense array of shape (k, n) or None. Defaults to None.
-
-        Returns:
-        - scipy.sparse.csc_matrix: Sparse block diagonal correlation matrix for k beta vectors.
-        """
-
-        # Handle Y as an optional argument
-        if Y is not None:
-            if beta.shape[0] != Y.shape[0] or X_sparse.shape[0] != Y.shape[1]:
-                raise DataValidationError("Y must have shape (k, n) where k matches beta's rows and n matches X's rows.")
-            Y = np.square(Y.flatten())
-
-        # Ensure beta is 2D
-        if beta.ndim == 1:
-            beta = beta[np.newaxis, :]  # Convert to shape (1, m) if beta is a single vector
-
-        k, m = beta.shape  # Number of beta vectors and features
-        n = X_sparse.shape[0]  # Number of rows (samples) in X
-
-        # Step 1: Scale X_sparse by each beta vector and construct block diagonal matrix
-        scaled_blocks = [X_sparse.multiply(beta[i, :]) for i in range(k)]
-        X_scaled = sparse.block_diag(scaled_blocks, format='csc')  # Shape: (k * n, k * m)
-
-        var_threshold = 0.05
-        prior_threshold = 0.1
-        X_scaled_sum = X_scaled.sum(axis=1).A1
-        keep_mask = np.logical_and((np.square(X_scaled_sum) / ((Y if Y is not None else 0) + np.square(X_scaled_sum) + 1e-20) > var_threshold), (X_scaled_sum > prior_threshold))
-
-        X_scaled = (X_scaled.T.multiply(keep_mask)).T
-        X_scaled.eliminate_zeros()
-
-        # Step 2: Compute uncentered second moment for all scaled X_sparse blocks
-
-        X_scaled_dot_X_scaled = X_scaled.dot(X_scaled.T).multiply(1.0 / m).tocsr()  # n x n
-
-        # Retain only the rows, columns, and values that pass the threshold
-        threshold_mask = np.abs(X_scaled_dot_X_scaled.data) < (dot_product_threshold / m)
-        X_scaled_dot_X_scaled.data[threshold_mask] = 0
-        X_scaled_dot_X_scaled.eliminate_zeros()
-
-        #We now have E[XBi*XBj]
-
-        #calculate E[Xbi] and E2[Xbi]
-
-        E_X_scaled = X_scaled.mean(axis=1).A1
-        E2_X_scaled = X_scaled_dot_X_scaled.diagonal()
-
-        # Identify block and local indices
-        if type(X_scaled_dot_X_scaled) is not sparse.csr_matrix:
-            X_scaled_dot_X_scaled = X_scaled_dot_X_scaled.tocsr()
-
-        #get indices of columns
-        rows = np.repeat(np.arange(len(X_scaled_dot_X_scaled.indptr) - 1), np.diff(X_scaled_dot_X_scaled.indptr))
-        cols = X_scaled_dot_X_scaled.indices  # Directly use indices for rows
-
-        #subtract E[betai]E[betaj]
-        X_scaled_dot_X_scaled.data -= E_X_scaled[rows] * E_X_scaled[cols]
-        if Y is not None:
-            X_scaled_dot_X_scaled.data += Y[rows] * Y[cols]
-        #divide by the variances
-        X_scaled_dot_X_scaled.data /= (np.sqrt((E2_X_scaled[rows] - np.square(E_X_scaled)[rows] + np.square(Y[rows] if Y is not None else 0)) * (E2_X_scaled[cols] - np.square(E_X_scaled)[cols] + np.square(Y[cols] if Y is not None else 0))) + 1e-20)
-
-        cor_threshold = 0.01
-        X_scaled_dot_X_scaled.data[X_scaled_dot_X_scaled.data <= cor_threshold] = 0
-        X_scaled_dot_X_scaled.eliminate_zeros()
-
-        # Step 5: Construct sparse block diagonal correlation matrix
-        X_scaled_dot_X_scaled = X_scaled_dot_X_scaled + sparse.diags(np.ones(k * n), format="csr")
-        X_scaled_dot_X_scaled = X_scaled_dot_X_scaled.multiply(sparse.diags(1.0 / X_scaled_dot_X_scaled.diagonal(), format="csr"))
-        sparse_corr_matrix = X_scaled_dot_X_scaled
-
-        # Step 6: Return sparse correlation matrix or list of matrices
-        if k == 1:
-            return sparse_corr_matrix
-        else:
-            return [sparse_corr_matrix[i * n:(i + 1) * n, i * n:(i + 1) * n] for i in range(k)]
+        """PSD annotation correlation operator; avoids unsafe pairwise thresholding."""
+        from pegs_shared.covariance import annotation_correlations
+        return annotation_correlations(X_sparse, beta, Y)
 
     def get_col_sums(self, X, num_nonzero=False, axis=0):
         if num_nonzero:

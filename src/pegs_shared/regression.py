@@ -7,6 +7,7 @@ import scipy.sparse as sparse
 
 from pegs_shared.cli import _default_bail
 from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
+from pegs_shared.covariance import marginal_inflation, validate_correlation
 
 
 NEUTRAL_BETA_TILDE_SE = 100.0
@@ -129,30 +130,19 @@ def compute_beta_tildes(
 
         if type(resid_correlation_matrix) is list:
             resid_correlation_matrix_list = resid_correlation_matrix
-            assert len(resid_correlation_matrix_list) == beta_tildes.shape[0]
+            if len(resid_correlation_matrix_list) != (beta_tildes.shape[0] if beta_tildes.ndim == 2 else 1):
+                raise ValueError("Need one residual correlation matrix per trait")
         else:
             resid_correlation_matrix_list = [resid_correlation_matrix]
 
         se_inflation_factors = np.zeros(beta_tildes.shape)
 
-        for i in range(len(resid_correlation_matrix_list)):
-            r_X = resid_correlation_matrix_list[i].dot(X)
-            if sparse.issparse(X):
-                r_X_col_means = r_X.multiply(X).sum(axis=0).A1 / X.shape[0]
-            else:
-                r_X_col_means = np.sum(r_X * X, axis=0) / X.shape[0]
-
-            cor_variances = r_X_col_means - np.square(r_X_col_means)
-            cor_variances[cor_variances < variances] = variances[cor_variances < variances]
-            cur_se_inflation_factors = np.sqrt(cor_variances / variances)
-
+        for i, matrix in enumerate(resid_correlation_matrix_list):
+            inflation = marginal_inflation(X, matrix)
             if len(resid_correlation_matrix_list) == 1:
-                se_inflation_factors = cur_se_inflation_factors
-                if len(beta_tildes.shape) == 2:
-                    se_inflation_factors = np.tile(se_inflation_factors, beta_tildes.shape[0]).reshape(beta_tildes.shape)
-                break
+                se_inflation_factors = np.broadcast_to(inflation, beta_tildes.shape).copy()
             else:
-                se_inflation_factors[i, :] = cur_se_inflation_factors
+                se_inflation_factors[i, :] = inflation
 
     return finalize_regression_fn(beta_tildes, ses, se_inflation_factors)
 
@@ -266,7 +256,7 @@ def compute_logistic_beta_tildes(
             Y[good_rows, :],
             scale_factors=scale_factors,
             mean_shifts=mean_shifts,
-            resid_correlation_matrix=resid_correlation_matrix,
+            resid_correlation_matrix=([r for r, good in zip(resid_correlation_matrix, good_rows) if good] if isinstance(resid_correlation_matrix, list) else resid_correlation_matrix),
             convert_to_dichotomous=False,
             rel_tol=rel_tol,
             X_stacked=None,
@@ -298,6 +288,7 @@ def compute_logistic_beta_tildes(
         log_fun("Appending pseudo counts", trace_level)
         Y_means = np.mean(Y, axis=1)[:, np.newaxis]
         Y = np.hstack((Y, Y_means))
+        len_Y = Y.shape[1]
         X = sparse.csc_matrix(sparse.vstack((X, sparse.csr_matrix(np.ones((1, X.shape[1]))))))
 
         if X_stacked is not None:
@@ -355,7 +346,9 @@ def compute_logistic_beta_tildes(
         (Y_pred_zero, R_zero) = __compute_Y_R_zero(alpha_tildes[compute_mask])
 
         Y_sum_per_chain = np.sum(Y, axis=1)
-        Y_sum = np.tile(Y_sum_per_chain, X.shape[1])
+        # Coefficients are flattened trait-major (all gene sets for one
+        # trait). Each trait total must follow that same ordering.
+        Y_sum = np.repeat(Y_sum_per_chain, X.shape[1])
 
         X_r_X_beta = X_stacked[:, compute_mask].power(2).multiply(R).sum(axis=0).A1.ravel()
         X_r_X_alpha = R.sum(axis=0).A1.ravel() + R_zero * num_zero[compute_mask]
@@ -435,22 +428,14 @@ def compute_logistic_beta_tildes(
 
     se_inflation_factors = None
     if resid_correlation_matrix is not None:
-        if type(resid_correlation_matrix) is list:
-            raise NotImplementedError("Vectorized correlations not yet implemented for logistic regression")
-
-        if append_pseudo:
-            resid_correlation_matrix = sparse.hstack((resid_correlation_matrix, np.zeros(resid_correlation_matrix.shape[0])[:, np.newaxis]))
-            new_bottom_row = np.zeros((1, resid_correlation_matrix.shape[1]))
-            new_bottom_row[0, -1] = 1
-            resid_correlation_matrix = sparse.vstack((resid_correlation_matrix, new_bottom_row)).tocsc()
-
-        cor_variances = copy.copy(variances)
-        r_X = resid_correlation_matrix.dot(X)
-        r_X = (X != 0).multiply(r_X)
-
-        cor_variances = sparse.hstack([r_X.multiply(X)] * num_chains).multiply(V).sum(axis=0).A1 - sparse.hstack([r_X] * num_chains).multiply(V).sum(axis=0).A1 / (V.sum(axis=0).A1 + p_const * (1 - p_const) * (len_Y - (X_stacked != 0).sum(axis=0).A1))
-        variances[variances == 0] = 1
-        se_inflation_factors = np.sqrt(cor_variances / variances)
+        matrices = resid_correlation_matrix if isinstance(resid_correlation_matrix, list) else [resid_correlation_matrix] * num_chains
+        if len(matrices) != num_chains:
+            raise ValueError('Need one residual correlation matrix per trait')
+        se_inflation_factors = np.concatenate([
+            marginal_inflation(X, matrix,
+                beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
+                alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo)
+            for i, matrix in enumerate(matrices)])
 
     if num_chains > 1:
         beta_tildes = beta_tildes.reshape(num_chains, X.shape[1])
@@ -734,11 +719,13 @@ def compute_multivariate_beta_tildes(
     final_ses = classical_ses.copy()
 
     if resid_correlation_matrix is not None:
+        if not isinstance(resid_correlation_matrix, list):
+            resid_correlation_matrix = [resid_correlation_matrix] * n_phenos
         if len(resid_correlation_matrix) != n_phenos:
             raise ValueError("resid_correlation_matrix must be a list of length == n_phenos.")
 
         for p in range(n_phenos):
-            R_p = resid_correlation_matrix[p]
+            R_p = validate_correlation(resid_correlation_matrix[p], n_obs)
             if sparse.issparse(R_p):
                 XR_p = R_p.dot(X_design)
             else:
@@ -746,7 +733,10 @@ def compute_multivariate_beta_tildes(
 
             XtR_pX = X_design.T @ XR_p
             var_betas_p = XtX_inv @ XtR_pX @ XtX_inv
-            final_ses[p, :] = np.sqrt(np.diag(var_betas_p))
+            variance = sigma2[p] * np.diag(var_betas_p)
+            if np.any(variance < 0):
+                raise ValueError("Residual correlation gives negative joint variance")
+            final_ses[p, :] = np.sqrt(variance)
 
     if covs is not None or add_intercept:
         n_factors = X.shape[1]

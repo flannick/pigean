@@ -486,6 +486,48 @@ class MultiYWorkflowTest(unittest.TestCase):
         self.assertIn("multi_y_vectorized_beta_parallel_axis\t1\ttraits", params_text)
         self.assertIn("multi_y_num_traits_completed\t1\t2", params_text)
 
+    def test_explicit_correlation_cli_identity_batch_and_nonidentity(self):
+        from scipy import sparse
+        x = self.tmpdir / "correlation.gmt"
+        y = self.tmpdir / "correlation.tsv"
+        self._write_x(x)
+        self._write_multi_y(y)
+        genes = self.tmpdir / "corr.genes"
+        genes.write_text("GENE5\nGENE4\nGENE3\nGENE2\nGENE1\n")
+        matrix = self.tmpdir / "corr.npz"
+        manifest = self.tmpdir / "corr.manifest.tsv"
+        def write_manifest(scale):
+            manifest.write_text("trait\tmatrix\tgenes\tresponse_scale\n" + "".join(
+                f"{t}\t{matrix.name}\t{genes.name}\t{scale}\n" for t in ["TRAIT_A", "TRAIT_B"]))
+        for linear in [True, False]:
+            write_manifest("linear" if linear else "binary")
+            common = self._common_args(x, y)
+            if not linear:
+                common.remove("--linear")
+            common += ["--multi-y-vectorize-betas", "--max-for-linear", "1", "--ols",
+                       "--no-filter-negative", "--prune-gene-sets", "1.1",
+                       "--weighted-prune-gene-sets", "1.1", "--output-detail", "full"]
+            results = []
+            for mode, batch in [("baseline", 2), ("identity", 2), ("identity", 1), ("correlated", 2)]:
+                sparse.save_npz(matrix, sparse.csr_matrix(np.eye(5) if mode != "correlated" else .7*np.eye(5)+.3*np.ones((5,5))))
+                out = self.tmpdir / f"corr.{linear}.{mode}.{batch}.out"
+                args = common + ["--multi-y-max-phenos-per-batch", str(batch), "--gene-set-stats-out", str(out)]
+                if mode != "baseline":
+                    args += ["--multi-y-gene-correlation-list", str(manifest), "--params-out", str(out)+".params"]
+                proc = self._run("betas", *args)
+                self.assertEqual(proc.returncode, 0, proc.stdout+proc.stderr)
+                if mode != "baseline":
+                    provenance = Path(str(out)+".params").read_text()
+                    self.assertIn("matrix_sha256", provenance)
+                    self.assertIn("multi_y_residual_correlation:TRAIT_A", provenance)
+                    self.assertIn("multi_y_residual_correlation:TRAIT_B", provenance)
+                with out.open() as f:
+                    rows = list(csv.DictReader(f, delimiter="\t"))
+                results.append({(r['trait'],r['Gene_Set']): r for r in rows})
+            for result in results[1:3]:
+                self.assertEqual(results[0], result)
+            self.assertNotEqual(results[0], results[3])
+
     def test_multi_y_gibbs_aggregates_gene_and_gene_set_outputs(self) -> None:
         from pigean import multi_y as pigean_multi_y  # imported lazily after PYTHONPATH setup
         from pigean import dispatch as pigean_dispatch
