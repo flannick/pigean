@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `362`
+- Total options: `364`
 - `method_required`: `20`
 - `method_optional`: `196`
-- `engineering`: `117`
+- `engineering`: `119`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `318`
+- visibility `expert`: `320`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -340,6 +340,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
 | `--multi-y-combined-col` | `expert` | `no` | `expert_help` | `multi_y_combined_col` | `None` | combined-support column for --multi-y-in |
+| `--multi-y-gene-correlation-list` | `expert` | `no` | `expert_help` | `multi_y_gene_correlation_list` | `None` | trait-labelled residual correlations for vectorized multi-Y marginal inference |
 | `--multi-y-id-col` | `expert` | `no` | `expert_help` | `multi_y_id_col` | `None` | gene ID column for --multi-y-in |
 | `--multi-y-log-bf-col` | `expert` | `no` | `expert_help` | `multi_y_log_bf_col` | `None` | log BF column for --multi-y-in |
 | `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |

@@ -2,7 +2,7 @@
 \usepackage[paperwidth=8.5in,paperheight=11in,margin=1in]{geometry}
 \usepackage{xr}
 \usepackage{amsmath}
-\externaldocument{paper}
+\IfFileExists{paper.aux}{\externaldocument{paper}}{}
 
 % For section headers starting with S
 \renewcommand{\thesection}{S.\arabic{section}}
@@ -21,6 +21,7 @@
 \DeclareMathOperator{\Var}{\mathrm{Var}}
 \DeclareMathOperator{\Cov}{\mathrm{Cov}}
 \usepackage{graphicx}
+\emergencystretch=3em
 
 \title{Supporting Information}
 \author{}
@@ -325,7 +326,7 @@ diffuse bridge, rank highly both globally and within its source, and come from a
 source/anchor group that empirically behaves like a broad bridge source. Broad sources
 are identified by a robust source broadness score based on high source bridge burden,
 high global bridge burden, and low source quality, rather than by hardcoded library
-names. Thus `flag_review` is diagnostic, while `flag_suggest_exclude` is the single
+names. Thus \texttt{flag\_review} is diagnostic, while \texttt{flag\_suggest\_exclude} is the single
 conservative rule used to write the suggested-exclude text file. The same rule is used
 before and after exclusion refits; additional suggested exclusions after a refit reflect
 changes in the fitted PIGEAN/EAGGL model rather than a separate exclusion mode.
@@ -617,14 +618,14 @@ h_{it}
 This regression is fit one factor at a time, i.e. as a marginal anchor-adjusted binary model. The coefficient $\beta_{tk}$ is interpreted as the factor-specific enrichment of phenotype $t$ beyond what is already captured by the anchor trait's direct support.
 
 \paragraph{Interpretation.}
-Unlike the canonical linkage weights in Eqs.~\eqref{eq:eaggl_trait_linkage_marginal} and \eqref{eq:eaggl_trait_linkage_joint}, the coefficients in Eq.~\eqref{eq:eaggl_factor_pheno_regression} are incremental effects. They answer the question:
+Unlike the canonical NNLS linkage coefficients in Eq.~\eqref{eq:eaggl_trait_linkage_nnls}, the coefficients in Eq.~\eqref{eq:eaggl_factor_pheno_regression} are incremental effects. They answer the question:
 \begin{quote}
 ``Is phenotype $t$ enriched in factor $k$ beyond the anchor trait's direct gene support?''
 \end{quote}
 This is an inferential or hypothesis-testing quantity rather than a descriptive loading.
 
 \paragraph{Recommended default and scope.}
-The binary thresholded model is the default because it is defensible under sparse thresholded phenotype input and easier to interpret than a joint all-factor fit. EAGGL reports robust uncertainty by default, typically using HC3-type standard errors or chromosome-clustered uncertainty when location information is available. The resulting p-values are still approximate, because the thresholded phenotype-hit process is derived from a combined-support quantity that already reflects gene-set-mediated indirect support.
+The binary thresholded model is the default because it is defensible under sparse thresholded phenotype input and easier to interpret than a joint all-factor fit. EAGGL reports independent-observation HC3 standard errors by default. The native binary fitter does not currently implement chromosome-clustered uncertainty; HC3 does not correct covariance between genes. See Section~\ref{sec:gene_dependence_robustness} for the distinction from exported factor-GMT inference and dependence sensitivity checks. The resulting p-values are still approximate, because the thresholded phenotype-hit process is derived from a combined-support quantity that already reflects gene-set-mediated indirect support.
 
 An expert may instead fit: (i) a marginal binary model without an anchor covariate; (ii) a joint all-factor binary model with direct anchor adjustment; or (iii) legacy continuous direct/combined regressions. Using combined anchor support as the covariate is also an expert-only approximation, because then both the outcome and the covariate inherit related gene-set-mediated structure.
 
@@ -634,11 +635,13 @@ When multiple factor-specific enrichment models are requested in one run, EAGGL 
 
 The two phenotype summaries serve complementary roles:
 \begin{itemize}
-\item \textbf{Canonical trait linkage} gives bounded marginal and joint support-normalized projection coefficients describing how strongly the retained high-confidence phenotype profile links to each factor. This is the primary annotation layer for interpreting factors with external phenotypes.
+\item \textbf{Canonical trait linkage} gives nonnegative fixed-basis NNLS projection coefficients describing how strongly the retained high-confidence phenotype profile links to each factor. This is the primary annotation layer for interpreting factors with external phenotypes.
 \item \textbf{Factor-specific enrichment regression} tests whether that phenotype profile is unusually concentrated in one factor beyond what is already captured by the anchor trait and optional covariates. This is a secondary, expert-oriented summary.
 \end{itemize}
 
 Consequently, the main phenotype labels and top-phenotype annotations for a factor should be based on canonical trait-linkage weights, whereas regression coefficients and associated significance measures should be interpreted as downstream enrichment diagnostics rather than as the primary phenotype annotation of the factor.
+
+\input{gene_dependence_robustness.tex}
 
 \subsection{Repeated restarts, consensus factorization, and structural selection of $\phi$}
 
@@ -693,10 +696,7 @@ L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k).
 \]
 Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself. When users provide a designated labeling library, EAGGL restricts the annotation candidates in $\mathcal{S}_k$ to that library before ranking terms for the label; if a factor has no positive-loading annotation in the designated library, the label falls back to the full annotation set so that every factor remains labeled. This filtering changes only the post hoc label summary and not the fitted factors or output loadings.
 
-\end{document}
-
-\subsection{Simplified trait-factor linkage}
-
-For downstream trait interpretation, EAGGL reports two factor-to-trait summaries. First, each factor is treated as a weighted gene set after setting small gene loadings below a configurable threshold to zero. The resulting factor gene sets are scored against trait support surfaces, yielding factor-level \texttt{beta}, \texttt{beta\_uncorrected}, \texttt{beta\_tilde}, standard error, $z$, and $p$ columns in \texttt{trait\_factor\_links.out}. Second, EAGGL converts each trait support vector to probabilities and projects it onto the factor basis with the same fixed-W projection operator used for gene/gene-set projection, reporting the coefficient as \texttt{nnls\_loading}. These two quantities replace the older capture and lift columns in the default trait-factor linkage output.
-
+\paragraph{Geometric cluster summaries.}
 Cluster output tables contain the raw factor loading for each row, a cosine column for each factor, and a Euclidean-distance column for each factor. For row loading vector $v_i$, the reported \texttt{Cosine\_Factor}$k$ value is $v_{ik}/\|v_i\|_2$, i.e. the cosine similarity between the row's full factor-loading vector and the one-hot indicator for factor $k$. The reported \texttt{Euclidean\_Factor}$k$ value is $\|v_i-e_k\|_2$, where $e_k$ is the one-hot indicator for factor $k$.
+
+\end{document}

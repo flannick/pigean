@@ -406,6 +406,8 @@ Notes:
 
 ### Factor-PheWAS controls
 
+Native binary enrichment uses HC3 with `--factor-phewas-se robust`; this does not correct covariance between genes, and the native binary fitter does not implement chromosome-clustered uncertainty. Exported factor-GMT PIGEAN statistics follow a separate inference path. See the [gene-dependence methods and robustness checks](gene_dependence_robustness.tex).
+
 | Flag | Meaning |
 |---|---|
 | `--factor-phewas-mode` | choose the factor-PheWAS model class; default is marginal binary enrichment with direct anchor adjustment |

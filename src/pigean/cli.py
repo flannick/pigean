@@ -265,6 +265,7 @@ parser.add_option("","--gene-loc-file",default=None)
 parser.add_option("","--gene-loc-file-huge",default=None)
 parser.add_option("","--exons-loc-file-huge",default=None)
 parser.add_option("","--gene-cor-file",default=None)
+parser.add_option("","--multi-y-gene-correlation-list",default=None,help="Trait-labelled residual-correlation NPZ manifest; requires --multi-y-vectorize-betas")
 parser.add_option("","--gene-cor-file-gene-col",type=int,default=1)
 parser.add_option("","--gene-cor-file-cor-start-col",type=int,default=10)
 
@@ -655,6 +656,7 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--multi-y-prob-col": "probability column for --multi-y-in",
     "--multi-y-response-col": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob",
     "--multi-y-max-phenos-per-batch": "expert override for the number of traits loaded per native multi-Y batch",
+    "--multi-y-gene-correlation-list": "trait-labelled residual correlations for vectorized multi-Y marginal inference",
     "--multi-y-vectorize-betas": "expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems",
     "--multi-y-trait-blacklist-in": "file of trait labels to exclude from --multi-y-in before batching",
     "--hide-opts": "suppress printing resolved options at startup",
@@ -729,6 +731,7 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--max-read-entries-at-once",
     "--multi-y-max-phenos-per-batch",
     "--multi-y-vectorize-betas",
+    "--multi-y-gene-correlation-list",
     "--multi-y-trait-blacklist-in",
     "--pre-filter-batch-size",
     "--pre-filter-small-batch-size",
@@ -1583,6 +1586,7 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         ("multi_y_response_col", "--multi-y-response-col"),
         ("multi_y_max_phenos_per_batch", "--multi-y-max-phenos-per-batch"),
         ("multi_y_vectorize_betas", "--multi-y-vectorize-betas"),
+        ("multi_y_gene_correlation_list", "--multi-y-gene-correlation-list"),
         ("multi_y_trait_blacklist_in", "--multi-y-trait-blacklist-in"),
     )
     if _options.multi_y_in is None:
@@ -1961,7 +1965,7 @@ def _bootstrap_cli(argv=None):
         parsed_config_specified_dests,
     )
 
-    if parsed_options.gene_cor_file is None and parsed_options.gene_loc_file is None and not parsed_options.ols:
+    if parsed_options.gene_cor_file is None and parsed_options.gene_loc_file is None and parsed_options.multi_y_gene_correlation_list is None and not parsed_options.ols:
         warn("Switching to run --ols since --gene-cor-file and --gene-loc-file are unspecified")
         parsed_options.ols = True
     _normalize_phewas_stage_options(parsed_options, _early_warn)

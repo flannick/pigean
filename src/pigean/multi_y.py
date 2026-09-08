@@ -506,6 +506,11 @@ def _run_multi_y_vectorized_betas(
     col_info,
     phenos_per_batch,
 ):
+    correlation_manifest = getattr(options, "multi_y_gene_correlation_list", None)
+    if correlation_manifest and (getattr(options, "gene_cor_file", None) or getattr(options, "gene_loc_file", None)):
+        services.bail("Do not combine --multi-y-gene-correlation-list with other gene-correlation inputs")
+    if correlation_manifest and options.linear and options.max_for_linear < 1:
+        services.bail("Linear correlation inputs require --max-for-linear 1 to prevent automatic switching to logistic")
     if getattr(options, "use_sampling_for_betas", None) not in (None, 0):
         services.bail("Option --multi-y-vectorize-betas does not yet support --use-sampling-for-betas")
     if getattr(options, "independent_betas_only", False):
@@ -584,12 +589,23 @@ def _run_multi_y_vectorized_betas(
                     background_log_bf=getattr(batch_state, "background_log_bf", 0.0),
                 )
 
+                if correlation_manifest:
+                    from pigean.multi_y_covariance import load_batch_correlations
+                    correlations, provenance = load_batch_correlations(
+                        correlation_manifest, batch_traits, batch_state.genes,
+                        response_scale="linear" if options.linear else "binary",
+                        memory_bytes=int(options.max_gb * 1024**3 / 4))
+                    batch_state.y_corr_sparse = correlations
+                    seed_state._record_params({"multi_y_residual_correlation:" + item["trait"]: item for item in provenance}, overwrite=True)
+                elif columns.combined_col_name is not None and options.multi_y_response_col in ("combined", "auto"):
+                    services.warn("Combined factor-GMT inference has no annotation-induced covariance input; independent or location-based uncertainty does not establish calibration for shared annotations.")
+
                 batch_state.calculate_gene_set_statistics(
                     Y=batch_response.T,
                     max_gene_set_p=None,
                     run_logistic=not options.linear,
                     max_for_linear=options.max_for_linear,
-                    run_corrected_ols=not options.ols,
+                    run_corrected_ols=not options.ols and not correlation_manifest,
                     use_sampling_for_betas=options.use_sampling_for_betas,
                     correct_betas_mean=options.correct_betas_mean,
                     correct_betas_var=options.correct_betas_var,
@@ -764,6 +780,8 @@ def _run_multi_y_vectorized_betas(
 
 
 def run_multi_y_pipeline(services, options, mode):
+    if getattr(options, "multi_y_gene_correlation_list", None) and not getattr(options, "multi_y_vectorize_betas", False):
+        services.bail("--multi-y-gene-correlation-list requires --multi-y-vectorize-betas (batch size one is supported)")
     if mode not in {"betas", "gibbs"}:
         services.bail("Option --multi-y-in is only supported for modes betas and gibbs")
     if getattr(options, "multi_y_vectorize_betas", False) and mode != "betas":

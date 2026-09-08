@@ -328,9 +328,9 @@ def calculate_phewas_block(
             nnz = 0
             for cor_matrix in cor_matrices if type(cor_matrices) is list else [cor_matrices]:
                 total += np.prod(cor_matrix.shape)
-                nnz += cor_matrix.nnz
+                nnz += getattr(cor_matrix, "storage_nnz", getattr(cor_matrix, "nnz", 0))
             pigean_main_support.log(
-                "Sparsity of correlation matrix is %d/%d=%.3g (size %.3gMb)" % (nnz, total, float(nnz) / total, nnz * 8 / (1024 * 1024)),
+                "Correlation representation storage is %d entries (dense size %d; ratio %.3g; values %.3gMb)" % (nnz, total, float(nnz) / total, nnz * 8 / (1024 * 1024)),
                 pigean_main_support.DEBUG,
             )
 
