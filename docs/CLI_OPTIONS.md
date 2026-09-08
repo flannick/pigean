@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `364`
+- Total options: `366`
 - `method_required`: `20`
-- `method_optional`: `196`
+- `method_optional`: `198`
 - `engineering`: `119`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `320`
+- visibility `expert`: `322`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -115,6 +115,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gwas-high-p` | `expert` | `yes` | `expert_help` | `gwas_high_p` | `0.01` | - |
 | `--gwas-high-p-posterior` | `expert` | `yes` | `expert_help` | `gwas_high_p_posterior` | `0.01` | - |
 | `--gwas-ignore-p-threshold` | `expert` | `yes` | `expert_help` | `gwas_ignore_p_threshold` | `None` | - |
+| `--gwas-inverse-variance-reference` | `expert` | `yes` | `expert_help` | `gwas_inverse_variance_reference` | `winsorized_mean` | choose the chromosome inverse-variance reference; the default upper-winsorized mean resists a high-information tail, while mean restores legacy behavior |
+| `--gwas-inverse-variance-reference-quantile` | `expert` | `yes` | `expert_help` | `gwas_inverse_variance_reference_quantile` | `0.9` | set the upper winsorization quantile used by the default inverse-variance reference |
 | `--gwas-low-p` | `expert` | `yes` | `expert_help` | `gwas_low_p` | `5e-08` | - |
 | `--gwas-low-p-posterior` | `expert` | `yes` | `expert_help` | `gwas_low_p_posterior` | `0.75` | - |
 | `--gwas-n` | `expert` | `yes` | `expert_help` | `gwas_n` | `None` | - |
@@ -153,7 +155,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
-| `--min-gwas-inverse-variance-ratio` | `expert` | `yes` | `expert_help` | `min_gwas_inverse_variance_ratio` | `0.5` | exclude variants whose inverse variance is below this fraction of the chromosome mean; set to 0 to disable |
+| `--min-gwas-inverse-variance-ratio` | `expert` | `yes` | `expert_help` | `min_gwas_inverse_variance_ratio` | `0.5` | exclude variants whose inverse variance is below this fraction of the chromosome reference; set to 0 to disable |
 | `--min-n-ratio` | `expert` | `yes` | `expert_help` | `min_n_ratio` | `0.5` | exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable |
 | `--min-num-burn-in` | `expert` | `yes` | `expert_help` | `min_num_burn_in` | `10` | minimum burn-in iterations before burn-in may end |
 | `--min-num-gene-sets` | `expert` | `yes` | `expert_help` | `min_num_gene_sets` | `1` | - |

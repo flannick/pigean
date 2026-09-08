@@ -418,7 +418,9 @@ parser.add_option("","--no-correct-betas-mean",default=None,action='store_false'
 parser.add_option("","--correct-betas-var",default=False,action='store_true',dest="correct_betas_var") #don't correct gene set variables (var Z) for confounding variables (which still may exist even if all genes are corrected)
 
 parser.add_option("","--min-n-ratio",type=float,default=0.5) #ignore SNPs with reported N below this fraction of the chromosome mean; falls back to inverse SE squared when N is unavailable
-parser.add_option("","--min-gwas-inverse-variance-ratio",type=float,default=0.5) #ignore SNPs with inverse variance below this fraction of the chromosome mean (large-SE filter); set to 0 to disable
+parser.add_option("","--min-gwas-inverse-variance-ratio",type=float,default=0.5) #ignore SNPs with inverse variance below this fraction of the chromosome reference (large-SE filter); set to 0 to disable
+parser.add_option("","--gwas-inverse-variance-reference",type="choice",choices=["winsorized_mean", "mean"],default="winsorized_mean") #reference statistic used by --min-gwas-inverse-variance-ratio; winsorized_mean limits distortion from the highest-information tail
+parser.add_option("","--gwas-inverse-variance-reference-quantile",type=float,default=0.9) #upper winsorization quantile when the inverse-variance reference is winsorized_mean
 parser.add_option("","--max-clump-ld",type=float,default=0.5) #maximum ld threshold to use for clumping (when MAF is passed in)
 parser.add_option("","--signal-window-size",type=float,default=250000) #window size to initially include variants in a signal
 parser.add_option("","--signal-min-sep",type=float,default=100000) #extend the region until the distance to the last significant snp is greater than the signal_min_sep
@@ -580,7 +582,9 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gene-loc-file-huge": "gene location table used during HuGE score construction",
     "--gwas-in": "load GWAS summary statistics as the primary HuGE input",
     "--min-n-ratio": "exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable",
-    "--min-gwas-inverse-variance-ratio": "exclude variants whose inverse variance is below this fraction of the chromosome mean; set to 0 to disable",
+    "--min-gwas-inverse-variance-ratio": "exclude variants whose inverse variance is below this fraction of the chromosome reference; set to 0 to disable",
+    "--gwas-inverse-variance-reference": "choose the chromosome inverse-variance reference; the default upper-winsorized mean resists a high-information tail, while mean restores legacy behavior",
+    "--gwas-inverse-variance-reference-quantile": "set the upper winsorization quantile used by the default inverse-variance reference",
     "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
     "--eaggl-bundle-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
