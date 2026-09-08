@@ -1912,7 +1912,7 @@ class PigeanState(object):
             window_fun_intercept,
         )
 
-    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
+    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, inverse_variance_reference="winsorized_mean", inverse_variance_reference_quantile=0.9, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
             gene_loc_file=gene_loc_file,
@@ -1928,8 +1928,12 @@ class PigeanState(object):
             bail("--min-n-ratio must be non-negative")
         if min_inverse_variance_ratio is not None and min_inverse_variance_ratio < 0:
             bail("--min-gwas-inverse-variance-ratio must be non-negative")
+        if inverse_variance_reference not in ("winsorized_mean", "mean"):
+            bail("--gwas-inverse-variance-reference is invalid")
+        if not 0 < inverse_variance_reference_quantile <= 1:
+            bail("--gwas-inverse-variance-reference-quantile must be in (0, 1]")
 
-        self._record_params({"gwas_low_p": gwas_low_p, "gwas_high_p": gwas_high_p, "gwas_low_p_posterior": gwas_low_p_posterior, "gwas_high_p_posterior": gwas_high_p_posterior, "detect_low_power": detect_low_power, "detect_high_power": detect_high_power, "detect_adjust_huge": detect_adjust_huge, "closest_gene_prob": closest_gene_prob, "max_closest_gene_prob": max_closest_gene_prob, "scale_raw_closest_gene": scale_raw_closest_gene, "cap_raw_closest_gene": cap_raw_closest_gene, "cap_region_posterior": cap_region_posterior, "scale_region_posterior": scale_region_posterior, "max_signal_p": max_signal_p, "signal_window_size": signal_window_size, "signal_min_sep": signal_min_sep, "max_closest_gene_dist": max_closest_gene_dist, "min_n_ratio": min_n_ratio, "min_gwas_inverse_variance_ratio": min_inverse_variance_ratio})
+        self._record_params({"gwas_low_p": gwas_low_p, "gwas_high_p": gwas_high_p, "gwas_low_p_posterior": gwas_low_p_posterior, "gwas_high_p_posterior": gwas_high_p_posterior, "detect_low_power": detect_low_power, "detect_high_power": detect_high_power, "detect_adjust_huge": detect_adjust_huge, "closest_gene_prob": closest_gene_prob, "max_closest_gene_prob": max_closest_gene_prob, "scale_raw_closest_gene": scale_raw_closest_gene, "cap_raw_closest_gene": cap_raw_closest_gene, "cap_region_posterior": cap_region_posterior, "scale_region_posterior": scale_region_posterior, "max_signal_p": max_signal_p, "signal_window_size": signal_window_size, "signal_min_sep": signal_min_sep, "max_closest_gene_dist": max_closest_gene_dist, "min_n_ratio": min_n_ratio, "min_gwas_inverse_variance_ratio": min_inverse_variance_ratio, "gwas_inverse_variance_reference": inverse_variance_reference, "gwas_inverse_variance_reference_quantile": inverse_variance_reference_quantile})
 
         need_columns = _needs_gwas_column_detection(
             gwas_pos_col=gwas_pos_col,
@@ -1967,8 +1971,9 @@ class PigeanState(object):
             )
 
         reported_n_available = gwas_n_col is not None or gwas_n is not None
+        sample_size_qc_source = "reported_n" if reported_n_available else "inverse_variance_proxy"
         self._record_params({
-            "gwas_sample_size_qc_source": "reported_n" if reported_n_available else "inverse_variance_proxy",
+            "gwas_sample_size_qc_source": sample_size_qc_source,
             "gwas_chrom_col_resolved": gwas_chrom_col,
             "gwas_pos_col_resolved": gwas_pos_col,
             "gwas_locus_col_resolved": gwas_locus_col,
@@ -1978,6 +1983,22 @@ class PigeanState(object):
             "gwas_n_col_resolved": gwas_n_col,
             "gwas_freq_col_resolved": gwas_freq_col,
         })
+        log(
+            "GWAS uncertainty QC: sample-size source=%s; inverse-variance "
+            "reference=%s (upper quantile=%.3g), minimum ratio=%s"
+            % (
+                sample_size_qc_source,
+                inverse_variance_reference,
+                inverse_variance_reference_quantile,
+                str(min_inverse_variance_ratio),
+            )
+        )
+        if not reported_n_available:
+            warn(
+                "No reported GWAS N was supplied or inferred; sample-size QC is "
+                "using inverse variance as a proxy. Supply --gwas-n-col or --gwas-n "
+                "to separate sample-size/missingness QC from effect-uncertainty QC."
+            )
 
         location_data = _load_huge_gene_and_exon_locations(
             gene_loc_file=gene_loc_file,
@@ -2292,9 +2313,15 @@ class PigeanState(object):
                 qc_totals = {
                     "input_variants": 0,
                     "sample_size_kept": 0,
+                    "inverse_variance_eligible": 0,
                     "inverse_variance_removed": 0,
                     "final_kept": 0,
                     "forced_retained": 0,
+                    "strong_signal_sample_size_kept": 0,
+                    "strong_signal_inverse_variance_eligible": 0,
+                    "strong_signal_inverse_variance_removed": 0,
+                    "strong_signal_qc_kept": 0,
+                    "strong_signal_final_kept": 0,
                 }
                 if learn_params:
                     log("Learning window function and allelic var scale factor")
@@ -2467,6 +2494,8 @@ class PigeanState(object):
                         reported_n_available=reported_n_available,
                         min_inverse_variance_ratio=min_inverse_variance_ratio,
                         inverse_variance_eligible=~var_se_was_inferred,
+                        inverse_variance_reference=inverse_variance_reference,
+                        inverse_variance_reference_quantile=inverse_variance_reference_quantile,
                         learn_params=learn_params,
                         chrom=chrom,
                         added_chrom_pos=added_chrom_pos,
@@ -2477,12 +2506,16 @@ class PigeanState(object):
                             qc_totals[key] += variant_qc[key]
                         log(
                             "GWAS variant QC chromosome %s: input=%d, sample-size-kept=%d, "
-                            "inverse-variance-removed=%d, final-kept=%d, forced-retained=%d"
+                            "observed-SE-eligible=%d, inverse-variance-removed=%d, "
+                            "strong-signals-kept=%d/%d, final-kept=%d, forced-retained=%d"
                             % (
                                 chrom,
                                 variant_qc["input_variants"],
                                 variant_qc["sample_size_kept"],
+                                variant_qc["inverse_variance_eligible"],
                                 variant_qc["inverse_variance_removed"],
+                                variant_qc["strong_signal_qc_kept"],
+                                variant_qc["strong_signal_sample_size_kept"],
                                 variant_qc["final_kept"],
                                 variant_qc["forced_retained"],
                             )
@@ -2632,22 +2665,39 @@ class PigeanState(object):
                             )
 
                 if not learn_params:
-                    eligible = qc_totals["sample_size_kept"]
+                    sample_size_kept = qc_totals["sample_size_kept"]
+                    eligible = qc_totals["inverse_variance_eligible"]
                     removed = qc_totals["inverse_variance_removed"]
                     removed_fraction = removed / eligible if eligible else 0.0
+                    strong_input = qc_totals["strong_signal_sample_size_kept"]
+                    strong_kept = qc_totals["strong_signal_qc_kept"]
+                    strong_retained_fraction = strong_kept / strong_input if strong_input else 1.0
                     log(
                         "GWAS variant QC overall: input=%d, sample-size-kept=%d, "
-                        "inverse-variance-removed=%d (%.2f%% of sample-size-eligible), "
-                        "final-kept=%d, forced-retained=%d"
+                        "observed-SE-eligible=%d, inverse-variance-removed=%d "
+                        "(%.2f%% of observed-SE-eligible), strong-signals-kept=%d/%d "
+                        "(%.2f%%), final-kept=%d, forced-retained=%d"
                         % (
                             qc_totals["input_variants"],
+                            sample_size_kept,
                             eligible,
                             removed,
                             100 * removed_fraction,
+                            strong_kept,
+                            strong_input,
+                            100 * strong_retained_fraction,
                             qc_totals["final_kept"],
                             qc_totals["forced_retained"],
                         )
                     )
+                    inferred_or_unusable = sample_size_kept - eligible
+                    if min_inverse_variance_ratio and inferred_or_unusable > 0:
+                        warn(
+                            "Inverse-variance QC was skipped for %d variants without an "
+                            "observed usable SE; those variants remain governed by the "
+                            "sample-size and other GWAS QC gates."
+                            % inferred_or_unusable
+                        )
                     if min_inverse_variance_ratio and removed_fraction >= 0.25:
                         warn(
                             "Inverse-variance QC removed %.2f%% of variants that passed "
@@ -2655,6 +2705,13 @@ class PigeanState(object):
                             "reported N overstates effective information, or that GWAS SE "
                             "scale/column selection needs review."
                             % (100 * removed_fraction)
+                        )
+                    if min_inverse_variance_ratio and strong_input and strong_retained_fraction < 0.9:
+                        warn(
+                            "Inverse-variance QC retained only %.2f%% of genome-wide-significant "
+                            "variants (p <= 5e-8) that passed sample-size QC. Review GWAS "
+                            "uncertainty-column semantics and the QC summary."
+                            % (100 * strong_retained_fraction)
                         )
 
                 if learn_params:

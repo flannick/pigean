@@ -50,13 +50,13 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["max_post_beta_rhat"], 1.25)
         self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.50)
 
-    def test_inverse_variance_filter_defaults_to_half_mean_and_zero_disables(self) -> None:
+    def test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables(self) -> None:
         default_proc = self._run("gibbs", "--print-effective-config")
         self.assertEqual(default_proc.returncode, 0, msg=default_proc.stderr)
-        self.assertEqual(
-            json.loads(default_proc.stdout)["options"]["min_gwas_inverse_variance_ratio"],
-            0.5,
-        )
+        default_options = json.loads(default_proc.stdout)["options"]
+        self.assertEqual(default_options["min_gwas_inverse_variance_ratio"], 0.5)
+        self.assertEqual(default_options["gwas_inverse_variance_reference"], "winsorized_mean")
+        self.assertEqual(default_options["gwas_inverse_variance_reference_quantile"], 0.9)
 
         explicit_proc = self._run(
             "gibbs", "--min-gwas-inverse-variance-ratio", "0", "--print-effective-config"

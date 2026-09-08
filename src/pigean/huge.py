@@ -1002,6 +1002,8 @@ def compute_huge_variant_qc_mask(
     min_n_ratio=0.5,
     min_inverse_variance_ratio=None,
     inverse_variance_eligible=None,
+    inverse_variance_reference="winsorized_mean",
+    inverse_variance_reference_quantile=0.9,
 ):
     """Return variants passing sample-size and optional inverse-variance QC.
 
@@ -1037,12 +1039,22 @@ def compute_huge_variant_qc_mask(
             & (inverse_variance > 0)
         )
         if np.any(valid):
+            if inverse_variance_reference == "mean":
+                reference = np.mean(inverse_variance[valid])
+                inverse_variance_keep = inverse_variance >= min_inverse_variance_ratio * reference
+            elif inverse_variance_reference == "winsorized_mean":
+                upper = np.quantile(
+                    inverse_variance[valid], inverse_variance_reference_quantile
+                )
+                reference = np.mean(np.minimum(inverse_variance[valid], upper))
+                inverse_variance_keep = inverse_variance >= min_inverse_variance_ratio * reference
+            else:
+                raise ValueError(
+                    "inverse_variance_reference must be 'winsorized_mean' or 'mean'"
+                )
             variants_keep &= ~inverse_variance_eligible | (
                 valid
-                & (
-                    inverse_variance
-                    >= min_inverse_variance_ratio * np.mean(inverse_variance[valid])
-                )
+                & inverse_variance_keep
             )
 
     return variants_keep
@@ -1063,17 +1075,43 @@ def normalize_reported_standard_error(se):
     return se, False
 
 
-def summarize_huge_variant_qc(sample_size_keep, inverse_variance_keep, final_keep):
-    """Summarize independent QC gates, including positions forced back in."""
+def summarize_huge_variant_qc(
+    sample_size_keep,
+    inverse_variance_keep,
+    final_keep,
+    *,
+    inverse_variance_eligible=None,
+    var_p=None,
+    strong_signal_p=5e-8,
+):
+    """Summarize independent QC gates, eligibility, and strong-signal retention."""
     sample_size_keep = np.asarray(sample_size_keep, dtype=bool)
     inverse_variance_keep = np.asarray(inverse_variance_keep, dtype=bool)
     final_keep = np.asarray(final_keep, dtype=bool)
+    if inverse_variance_eligible is None:
+        inverse_variance_eligible = np.ones(len(final_keep), dtype=bool)
+    else:
+        inverse_variance_eligible = np.asarray(inverse_variance_eligible, dtype=bool)
+    strong_signal = np.zeros(len(final_keep), dtype=bool)
+    if var_p is not None:
+        var_p = np.asarray(var_p, dtype=float)
+        strong_signal = np.isfinite(var_p) & (var_p <= strong_signal_p)
+
+    eligible = sample_size_keep & inverse_variance_eligible
     return {
         "input_variants": int(len(final_keep)),
         "sample_size_kept": int(np.sum(sample_size_keep)),
-        "inverse_variance_removed": int(np.sum(sample_size_keep & ~inverse_variance_keep)),
+        "inverse_variance_eligible": int(np.sum(eligible)),
+        "inverse_variance_removed": int(np.sum(eligible & ~inverse_variance_keep)),
         "final_kept": int(np.sum(final_keep)),
         "forced_retained": int(np.sum(~inverse_variance_keep & final_keep)),
+        "strong_signal_sample_size_kept": int(np.sum(strong_signal & sample_size_keep)),
+        "strong_signal_inverse_variance_eligible": int(np.sum(strong_signal & eligible)),
+        "strong_signal_inverse_variance_removed": int(
+            np.sum(strong_signal & eligible & ~inverse_variance_keep)
+        ),
+        "strong_signal_qc_kept": int(np.sum(strong_signal & inverse_variance_keep)),
+        "strong_signal_final_kept": int(np.sum(strong_signal & final_keep)),
     }
 
 
@@ -1096,6 +1134,8 @@ def filter_huge_variants_for_signal_search(
     reported_n_available,
     min_inverse_variance_ratio,
     inverse_variance_eligible,
+    inverse_variance_reference,
+    inverse_variance_reference_quantile,
     learn_params,
     chrom,
     added_chrom_pos,
@@ -1114,6 +1154,8 @@ def filter_huge_variants_for_signal_search(
         min_n_ratio=min_n_ratio,
         min_inverse_variance_ratio=min_inverse_variance_ratio,
         inverse_variance_eligible=inverse_variance_eligible,
+        inverse_variance_reference=inverse_variance_reference,
+        inverse_variance_reference_quantile=inverse_variance_reference_quantile,
     )
 
     variants_keep_before_forcing = variants_keep.copy()
@@ -1126,6 +1168,8 @@ def filter_huge_variants_for_signal_search(
         sample_size_keep,
         variants_keep_before_forcing,
         variants_keep,
+        inverse_variance_eligible=inverse_variance_eligible,
+        var_p=var_p,
     )
 
     var_pos = var_pos[variants_keep]

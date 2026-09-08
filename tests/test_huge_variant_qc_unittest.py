@@ -80,20 +80,48 @@ class HugeVariantQcTest(unittest.TestCase):
         )
         np.testing.assert_array_equal(mask, np.array([True, False, True]))
 
+    def test_inverse_variance_filter_rejects_unknown_reference(self) -> None:
+        with self.assertRaisesRegex(ValueError, "winsorized_mean.*mean"):
+            compute_huge_variant_qc_mask(
+                np.ones(2),
+                min_n_ratio=0,
+                min_inverse_variance_ratio=0.5,
+                inverse_variance_reference="mode",
+            )
+
+    def test_winsorized_mean_resists_extreme_upper_tail(self) -> None:
+        inverse_variance = np.array([1.0] * 99 + [1_000_000.0])
+        mask = compute_huge_variant_qc_mask(
+            1 / inverse_variance,
+            min_n_ratio=0,
+            min_inverse_variance_ratio=0.5,
+            inverse_variance_reference="winsorized_mean",
+            inverse_variance_reference_quantile=0.9,
+        )
+        np.testing.assert_array_equal(mask, np.ones(100, dtype=bool))
+
     def test_qc_summary_separates_inverse_variance_removals_and_forced_positions(self) -> None:
         summary = summarize_huge_variant_qc(
             np.array([True, True, False, True]),
             np.array([True, False, False, True]),
             np.array([True, True, False, True]),
+            inverse_variance_eligible=np.array([True, True, True, False]),
+            var_p=np.array([1e-9, 2e-8, 1e-10, 0.1]),
         )
         self.assertEqual(
             summary,
             {
                 "input_variants": 4,
                 "sample_size_kept": 3,
+                "inverse_variance_eligible": 2,
                 "inverse_variance_removed": 1,
                 "final_kept": 3,
                 "forced_retained": 1,
+                "strong_signal_sample_size_kept": 2,
+                "strong_signal_inverse_variance_eligible": 2,
+                "strong_signal_inverse_variance_removed": 1,
+                "strong_signal_qc_kept": 1,
+                "strong_signal_final_kept": 2,
             },
         )
 
