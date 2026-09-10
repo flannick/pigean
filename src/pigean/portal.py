@@ -188,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--db", required=True, type=Path)
     run.add_argument("--host", default="127.0.0.1")
     run.add_argument("--port", type=int, default=8765)
-    run.add_argument("--title", default="PIGEAN results portal")
+    run.add_argument("--title", default="PIGEAN Portal")
     run.add_argument("--plotly-js", type=Path, default=None,
                      help="Local plotly.min.js to embed instead of loading from the CDN (offline use)")
     run.add_argument("--cors-origin", default="*",
@@ -197,7 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     page = sub.add_parser("html", help="Write a static portal page that calls a running `serve` instance")
     page.add_argument("--api-url", required=True, help="Base URL of the portal server, e.g. http://localhost:8765")
     page.add_argument("--out", required=True, type=Path, help="HTML file to write")
-    page.add_argument("--title", default="PIGEAN results portal")
+    page.add_argument("--title", default="PIGEAN Portal")
     page.add_argument("--plotly-js", type=Path, default=None, help="Embed a local plotly.min.js instead of the CDN")
     page.add_argument("--db", type=Path, default=None,
                       help="Optional: the SQLite file this page is meant to browse; only checked for existence "

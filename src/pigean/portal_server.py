@@ -188,7 +188,7 @@ def _json_default(value):
     return str(value)
 
 
-def serve(db_path: Path, *, host: str = "127.0.0.1", port: int = 8765, title: str = "PIGEAN results portal",
+def serve(db_path: Path, *, host: str = "127.0.0.1", port: int = 8765, title: str = "PIGEAN Portal",
           plotly_src: str = "", cors_origin: str = "*", server_ready=None) -> None:
     """Block serving the portal until interrupted. `server_ready(httpd)` is called once bound."""
     if not db_path.exists():

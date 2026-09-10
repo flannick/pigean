@@ -1,6 +1,6 @@
 # PIGEAN Results Portal
 
-`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs. It has three commands:
+`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs. It has three commands (the served page opens on a landing search — trait, model, run, optional gene — and then a results view):
 
 1. `build` reads one or more runs (gene stats, gene-set stats, and the gene x gene-set
    loading table), applies thresholds, and writes a SQLite file.
