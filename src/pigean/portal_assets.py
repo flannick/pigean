@@ -225,7 +225,13 @@ function runSummary() {
   $('open-build').onclick = () => openModal('Build details', `Run id <code>${esc(r.run_id)}</code><br>Model <b>${esc(r.model_title || r.model || '')}</b> · run <b>${esc(r.seed || '')}</b> · trait <b>${esc(r.trait || '')}</b><br>Filters (${esc(f.mode || 'any')}): ${filt}<br>Built ${esc(r.built_at)}<br>${paths}${(r.warnings||[]).map(w => `<div class="warn">${esc(w)}</div>`).join('')}`);
   const pb = $('open-params');
   if (pb) pb.onclick = async () => { openModal('Run parameters', '<span class="muted">loading…</span>'); const b = await api('/api/run_params', { run: r.run_id });
-    $('modal-body').innerHTML = `<div class="muted" style="margin-bottom:8px"><code>${esc(r.params_path)}</code> · ${b.params.length} parameters</div><table><thead><tr><th>Parameter</th><th>Ver.</th><th>Value</th></tr></thead><tbody>${b.params.map(p => `<tr><td>${esc(p.parameter)}</td><td>${esc(p.version)}</td><td style="white-space:normal;word-break:break-all">${esc(p.value)}</td></tr>`).join('')}</tbody></table>`; };
+    $('modal-body').innerHTML = `<div class="controls"><div style="flex:1"><label for="param-search">search parameter (fuzzy)</label><input id="param-search" placeholder="e.g. burn in, seed, chains" style="width:100%" autocomplete="off"></div><div class="muted" id="param-count" style="align-self:end"></div></div>
+      <div class="muted" style="margin-bottom:8px"><code>${esc(r.params_path)}</code></div><table><thead><tr><th>Parameter</th><th>Ver.</th><th>Value</th></tr></thead><tbody id="param-rows"></tbody></table>`;
+    const render = () => { const q = $('param-search').value.trim();
+      const rows = q ? b.params.map(x => [x, fuzzyScore(q, x.parameter)]).filter(x => x[1] > 0).sort((a,c) => c[1] - a[1]).map(x => x[0]) : b.params;
+      $('param-rows').innerHTML = rows.map(x => `<tr><td>${esc(x.parameter)}</td><td>${esc(x.version)}</td><td style="white-space:normal;word-break:break-all">${esc(x.value)}</td></tr>`).join('');
+      $('param-count').textContent = `${rows.length} of ${b.params.length} parameters`; };
+    $('param-search').oninput = render; render(); setTimeout(() => $('param-search').focus(), 50); };
   const mb = $('open-mappings');
   if (mb) mb.onclick = () => openModal(`Phenotype mappings: ${ph.name || r.trait}`, `<div class="muted" style="margin-bottom:8px">${esc(r.trait)} · ${esc(ph.portal_id || '')} · ${esc(ph.trait_group || '')}${ph.trait_type ? ' · ' + esc(ph.trait_type) : ''}${ph.is_dichotomous === '1' || ph.is_dichotomous === 'true' ? ' · dichotomous' : ''}${ph.legacy_trait_group ? ' · legacy group ' + esc(ph.legacy_trait_group) : ''}${ph.description && ph.description !== ph.name ? '<br>' + esc(ph.description) : ''}</div>
       <table><thead><tr><th>Ontology</th><th>ID</th><th>Label</th><th>Predicate</th><th class="num">Conf.</th><th>Justification</th><th>Source</th></tr></thead><tbody>
