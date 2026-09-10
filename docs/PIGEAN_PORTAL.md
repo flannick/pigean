@@ -77,7 +77,7 @@ Normalised columns:
 | table | columns (aliases accepted from the raw files) |
 |---|---|
 | genes | `gene`, `prior`, `combined`, `log_bf`, `huge_score` (`huge_score_gwas`), `n`, `chrom`, `start`, `end` |
-| gene_sets | `gene_set`, `label`, `n`, `beta`, `beta_uncorrected`, `p_orig`, `z_orig` |
+| gene_sets | `gene_set`, `label` (the gene-set library, shown as "Library"), `n`, `beta`, `beta_uncorrected`, `p_orig`, `z_orig` |
 | gene_gene_sets | `gene`, `gene_set`, `beta`, `weight`, `prior`, `combined`, `log_bf`, `huge_score` |
 
 Every original column of the gene and gene-set tables is also stored as JSON and shown in the

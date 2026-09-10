@@ -348,7 +348,7 @@ async function loadGeneSets() {
 }
 function renderGeneSetTable() {
   const s = state.gsSort;
-  const cols = [['gene_set','Gene set',false],['label','Label',false],['n','N',true],['beta','beta',true],['beta_uncorrected','beta_unc',true],['p_orig','P',true]];
+  const cols = [['gene_set','Gene set',false],['label','Library',false],['n','N',true],['beta','beta',true],['beta_uncorrected','beta_unc',true],['p_orig','P',true]];
   const rows = sortRows(state.geneSets, s);
   $('gs-table').innerHTML = '<thead><tr>' + cols.map(([c,t,n]) => `<th class="${n?'num':''}" data-col="${c}">${t}${sortMark(s,c)}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map((r,i) => `<tr class="row ${r.gene_set===state.selectedGeneSet?'selected':''}" data-gs="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${i+1}. ${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num">${fmt(r.n)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.beta_uncorrected)}</td><td class="num">${fmt(r.p_orig)}</td></tr>`).join('') + '</tbody>';
@@ -358,7 +358,8 @@ function renderGeneSetTable() {
 }
 
 // ---------- detail sheet
-function kv(obj, keys) { return '<div class="kv">' + keys.filter(k => obj[k] !== undefined && obj[k] !== null && obj[k] !== '').map(k => `<div><span>${esc(k)}</span>${esc(typeof obj[k]==='number'?fmt(obj[k]):obj[k])}</div>`).join('') + '</div>'; }
+const KV_NAMES = { label: 'library' };
+function kv(obj, keys) { return '<div class="kv">' + keys.filter(k => obj[k] !== undefined && obj[k] !== null && obj[k] !== '').map(k => `<div><span>${esc(KV_NAMES[k] || k)}</span>${esc(typeof obj[k]==='number'?fmt(obj[k]):obj[k])}</div>`).join('') + '</div>'; }
 function openSheet(kind, title, bodyHtml, across) {
   $('sheet-kind').textContent = kind; $('sheet-title').textContent = title;
   const runLabel = (state.runs.find(r => r.run_id === state.run) || {}).trait || 'this run';
@@ -480,7 +481,7 @@ async function showGene(gene) {
     if (q) rows = rows.map(r => [r, Math.max(fuzzyScore(q, r.gene_set), fuzzyScore(q, r.label || '') * 0.98)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]);
     $('gs-plot').style.height = `${Math.min(700, 60 + 16 * Math.min(rows.length, 40))}px`;
     hBar('gs-plot', rows.map(r => ({ ...r, short: r.gene_set.length > 38 ? r.gene_set.slice(0, 36) + '…' : r.gene_set })), 'short', metric, metric === 'weight' ? null : 'weight', Math.min(700, 60 + 16 * Math.min(rows.length, 40)));
-    pagedTable('gs-member-table', `<tr><th>Gene set</th><th>Label</th><th class="num">${metric}</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr>`, rows,
+    pagedTable('gs-member-table', `<tr><th>Gene set</th><th>Library</th><th class="num">${metric}</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr>`, rows,
       r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num"><b>${fmt(r[metric])}</b></td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`,
       tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
   };
@@ -562,8 +563,8 @@ BODY = r"""
     <section class="panel">
       <h2>Top gene sets</h2>
       <div class="controls">
-        <div style="flex:1"><label>search gene set (id or label)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
-        <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option></select></div>
+        <div style="flex:1"><label>search gene set (id or library)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
+        <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option><option value="label">library</option></select></div>
       </div>
       <details class="adv"><summary>Advanced filters</summary><div class="controls">
         <div><label>min beta</label><input id="min_beta" type="number" step="0.01"></div>
