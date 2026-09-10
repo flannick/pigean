@@ -14,7 +14,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from pigean import portal, portal_db, portal_server  # noqa: E402
+from pigean import portal, portal_compare, portal_db, portal_server  # noqa: E402
 from pigean.portal_assets import render_portal_html  # noqa: E402
 
 GENE_STATS = (
@@ -251,6 +251,101 @@ class PortalBuildTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             portal.main(["build", "--db", str(self.db), "--package", "model=a,trait=b"])
 
+    def test_ranks_are_over_full_input_not_kept_rows(self) -> None:
+        self.assertEqual(self._build(), 0)  # keeps GENE1 and GENE3 only
+        conn = portal_db.open_database(self.db, readonly=True)
+        ranks = {r["gene"]: r for r in portal_db.query_genes(conn, "demo")}
+        # combined: GENE1 3.0 (1), GENE2 1.4 (2), GENE3 1.3 (3), GENELOW 0.2 (4) -> GENE3 is rank 3 even though GENE2 was filtered out
+        self.assertEqual((ranks["GENE1"]["rank_combined"], ranks["GENE3"]["rank_combined"]), (1, 3))
+        self.assertEqual((ranks["GENE1"]["rank_log_bf"], ranks["GENE3"]["rank_log_bf"]), (1, 2))
+        gs = {r["gene_set"]: r for r in portal_db.query_gene_sets(conn, "demo")}
+        self.assertEqual((gs["SET_A"]["rank_beta"], gs["SET_B"]["rank_beta"]), (1, 2))
+        run = portal_db.list_runs(conn)[0]
+        self.assertEqual((run["n_ranked_genes"], run["n_ranked_gene_sets"]), (4, 3))
+        conn.close()
+
+    def test_compare_queries(self) -> None:
+        # run A: the fixture as-is; run B: same genes with GENE1 halved and GENE2 boosted so ranks flip, plus a B-only gene
+        b_dir = self.root / "b"
+        _write(b_dir / "pigean.gene_stats.out.gz",
+               "Gene\tprior\tcombined\tlog_bf\thuge_score_gwas\tN\tChrom\tStart\tEnd\n"
+               "GENE1\t0.9\t1.5\t0.6\t0.5\t5\t1\t100\t200\n"
+               "GENE2\t2.0\t3.5\t1.5\t0.1\t4\t1\t300\t400\n"
+               "GENE3\t0.2\t1.3\t1.1\t0.9\t4\t2\t500\t600\n"
+               "GENENEW\t1.5\t2.0\t0.5\t0.0\t4\t2\t700\t800\n")
+        _write(b_dir / "pigean.gene_set_stats.out.gz", GENE_SET_STATS)
+        _write(b_dir / "pigean.gene_gene_set_stats.out.gz", LOADINGS)
+        params_a, params_b = self.root / "pa.tsv", self.root / "pb.tsv"
+        _write(params_a, "Parameter\tVersion\tValue\nnum_chains\t1\t10\nseed\t1\t1\nonly_a\t1\tx\n")
+        _write(params_b, "Parameter\tVersion\tValue\nnum_chains\t1\t10.0\nseed\t1\t2\n")
+        rc = portal.main([
+            "build", "--db", str(self.db), "--gene-filter", "combined>1", "--gene-set-filter", "beta>0.01",
+            "--run", f"A:{self.run_dir}", "--run-meta", f"A:model=m,trait=T2D,title=A", "--run-files",
+            f"B:gene_stats={b_dir / 'pigean.gene_stats.out.gz'},gene_set_stats={b_dir / 'pigean.gene_set_stats.out.gz'}",
+            "--run-meta", "B:model=m,trait=T2D",
+        ])
+        self.assertEqual(rc, 0)
+        conn = portal_db.open_database(self.db)
+        # attach params by hand (the --run forms have no params= key)
+        conn.executemany("INSERT INTO run_params VALUES (?,?,?,?)", [("A", "num_chains", "1", "10"), ("A", "seed", "1", "1"), ("A", "only_a", "1", "x"),
+                                                                   ("B", "num_chains", "1", "10.0"), ("B", "seed", "1", "2")])
+        conn.commit()
+
+        genes = portal_compare.compare_genes(conn, "A", "B", metric="combined")
+        by = {r["gene"]: r for r in genes["rows"]}
+        self.assertEqual(genes["counts"], {"both": 3, "a_only": 0, "b_only": 1})  # combined>1 keeps GENE1-3 in A, all four in B
+        self.assertEqual((by["GENE1"]["a_rank_combined"], by["GENE1"]["b_rank_combined"], by["GENE1"]["delta_rank_combined"]), (1, 3, 2))
+        self.assertAlmostEqual(by["GENE1"]["delta_combined"], -1.5)
+        self.assertEqual(by["GENENEW"]["status"], "b_only")
+        self.assertIsNone(by["GENENEW"]["a_combined"])
+        self.assertEqual(genes["rows"][0]["gene"], "GENE1")  # biggest |Δrank| first
+        self.assertEqual([r["gene"] for r in portal_compare.compare_genes(conn, "A", "B", search="new")["rows"]], ["GENENEW"])
+        self.assertEqual([r["gene"] for r in portal_compare.compare_genes(conn, "A", "B", status="both", sort="id")["rows"]], ["GENE1", "GENE2", "GENE3"])
+
+        summary = portal_compare.compare_summary(conn, "A", "B", top_n=2)
+        self.assertTrue(summary["ranks_available"])
+        combined = next(m for m in summary["genes"]["metrics"] if m["metric"] == "combined")
+        # top-2 by combined: A = {GENE1, GENE2}, B = {GENE2, GENENEW}; union ∩ both-present = {GENE1, GENE2}
+        self.assertEqual((combined["n_top_a"], combined["n_top_b"], combined["overlap"], combined["n"]), (2, 2, 1, 2))
+        self.assertAlmostEqual(combined["jaccard"], 1 / 3)
+        self.assertAlmostEqual(combined["pearson"], -1.0)  # A (3.0, 1.4) vs B (1.5, 3.5)
+        whole = next(m for m in portal_compare.compare_summary(conn, "A", "B", top_n=0)["genes"]["metrics"] if m["metric"] == "combined")
+        self.assertEqual(whole["n"], 3)
+        self.assertAlmostEqual(portal_compare.pearson([1, 2, 3], [2, 4, 6]), 1.0)
+        self.assertAlmostEqual(portal_compare.spearman([1, 2, 3], [10, 100, 1000]), 1.0)
+        self.assertAlmostEqual(portal_compare.spearman([1, 2, 3], [3, 2, 1]), -1.0)
+
+        params = portal_compare.compare_params(conn, "A", "B")
+        diff = {r["parameter"]: r for r in params["rows"]}
+        self.assertFalse(diff["num_chains"]["differs"])   # 10 vs 10.0 normalise equal
+        self.assertTrue(diff["seed"]["differs"])
+        self.assertTrue(diff["only_a"]["differs"] and diff["only_a"]["b_value"] is None)
+        self.assertEqual(params["n_differ"], 2)
+
+        self.assertEqual(portal_compare.lookup(conn, "A", "B", kind="gene", ident="GENE3")["status"], "both")
+        self.assertIsNone(portal_compare.lookup(conn, "A", "B", kind="gene_set", ident="NOPE"))
+        self.assertEqual(portal_compare.validate_pair(conn, "A", "A"), (400, "'a' and 'b' must be different runs"))
+        self.assertEqual(portal_compare.validate_pair(conn, "A", "zzz")[0], 404)
+        conn.close()
+
+        state = portal_server.PortalState(self.db, title="t", plotly_src="about:blank")
+        status, body = portal_server.handle_api(state, "/api/compare/summary", {"a": ["A"], "b": ["B"], "top_n": ["2"]})
+        self.assertEqual((status, body["top_n"]), (200, 2))
+        self.assertEqual(portal_server.handle_api(state, "/api/compare/genes", {"a": ["A"], "b": ["A"]})[0], 400)
+        self.assertEqual(portal_server.handle_api(state, "/api/compare/lookup", {"a": ["A"], "b": ["B"], "kind": ["x"], "id": ["GENE1"]})[0], 400)
+        status, body = portal_server.handle_api(state, "/api/compare/params", {"a": ["A"], "b": ["B"]})
+        self.assertEqual((status, body["n_differ"]), (200, 2))
+
+    def test_comparer_page_and_static_html(self) -> None:
+        self.assertEqual(self._build(), 0)
+        out = self.root / "compare.html"
+        rc = portal.main(["html", "--page", "comparer", "--api-url", "http://localhost:8765", "--out", str(out), "--db", str(self.db)])
+        self.assertEqual(rc, 0)
+        page = out.read_text(encoding="utf-8")
+        self.assertIn("<title>PIGEAN Comparer</title>", page)
+        self.assertIn("/api/compare/summary", page)
+        self.assertIn('window.PIGEAN_PORTAL_API_BASE = "http://localhost:8765"', page)
+
     def test_build_without_runs_fails(self) -> None:
         self.assertEqual(portal.main(["build", "--db", str(self.db)]), 2)
 
@@ -296,6 +391,8 @@ class PortalBuildTest(unittest.TestCase):
             self.assertIn('id="sheet"', html)
             self.assertIn("Build details", html)
             self.assertIn('window.PIGEAN_PORTAL_API_BASE = ""', html)
+            with urllib.request.urlopen(f"{base}/compare") as resp:
+                self.assertIn("PIGEAN Comparer", resp.read().decode("utf-8"))
             req = urllib.request.Request(f"{base}/api/runs", method="OPTIONS")
             with urllib.request.urlopen(req) as resp:
                 self.assertEqual(resp.status, 204)

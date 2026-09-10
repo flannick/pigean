@@ -12,6 +12,12 @@ API:
     GET /api/gene_across?id=GENE[&model=]          the gene in every run (runs where it passed thresholds)
     GET /api/gene_set_across?id=GENE_SET[&model=]  the gene set in every run
     GET /api/run_params?run=ID                     PIGEAN params recorded for the run
+  Comparer (page at /compare):
+    GET /api/compare/summary?a=ID&b=ID[&top_n=]
+    GET /api/compare/genes?a=ID&b=ID[&metric=&search=&sort=&status=&limit=]
+    GET /api/compare/gene_sets?a=ID&b=ID[&metric=&search=&sort=&status=&limit=]
+    GET /api/compare/params?a=ID&b=ID
+    GET /api/compare/lookup?a=ID&b=ID&kind=gene|gene_set&id=...
 """
 
 from __future__ import annotations
@@ -24,8 +30,9 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from . import portal_db
+from . import portal_compare, portal_db
 from .portal_assets import render_portal_html
+from .portal_compare_assets import render_compare_html
 
 LOGGER = logging.getLogger("pigean.portal")
 
@@ -40,6 +47,7 @@ class PortalState:
         # Static (bucket-hosted) copies of the page live on another origin, so the read-only
         # API answers cross-origin requests. Empty string disables the header.
         self.cors_origin = cors_origin
+        self.compare_title = "PIGEAN Comparer"
         self._local = threading.local()
 
     def connection(self):
@@ -87,6 +95,30 @@ def _handle_api(state: PortalState, path: str, params: dict[str, list[str]]) -> 
     conn = state.connection()
     if path == "/api/runs":
         return 200, {"runs": portal_db.list_runs(conn)}
+
+    if path.startswith("/api/compare/"):
+        a, b = _str(params, "a"), _str(params, "b")
+        problem = portal_compare.validate_pair(conn, a, b)
+        if problem:
+            return problem[0], {"error": problem[1]}
+        sub = path[len("/api/compare/"):]
+        if sub == "summary":
+            return 200, portal_compare.compare_summary(conn, a, b, top_n=_int(params, "top_n", 100))
+        if sub == "genes":
+            return 200, portal_compare.compare_genes(conn, a, b, metric=_str(params, "metric", "combined"), search=_str(params, "search"),
+                                                     sort=_str(params, "sort", "abs_delta_rank"), status=_str(params, "status"), limit=_int(params, "limit", 5000))
+        if sub == "gene_sets":
+            return 200, portal_compare.compare_gene_sets(conn, a, b, metric=_str(params, "metric", "beta"), search=_str(params, "search"),
+                                                         sort=_str(params, "sort", "abs_delta_rank"), status=_str(params, "status"), limit=_int(params, "limit", 5000))
+        if sub == "params":
+            return 200, portal_compare.compare_params(conn, a, b)
+        if sub == "lookup":
+            kind = _str(params, "kind", "gene")
+            if kind not in ("gene", "gene_set"):
+                return 400, {"error": "kind must be gene or gene_set"}
+            row = portal_compare.lookup(conn, a, b, kind=kind, ident=_str(params, "id"))
+            return (200, row) if row is not None else (404, {"error": f"unknown {kind} in either run"})
+        return 404, {"error": f"unknown endpoint {path}"}
 
     if path in ("/api/gene_across", "/api/gene_set_across"):
         ident = _str(params, "id")
@@ -164,6 +196,10 @@ def make_handler(state: PortalState):
             params = parse_qs(parsed.query, keep_blank_values=True)
             if parsed.path in ("/", "/index.html"):
                 html = render_portal_html(title=state.title, plotly_src=state.plotly_src)
+                self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+                return
+            if parsed.path in ("/compare", "/compare.html"):
+                html = render_compare_html(title=state.compare_title, plotly_src=state.plotly_src)
                 self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
                 return
             if parsed.path == "/healthz":

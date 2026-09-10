@@ -1,6 +1,6 @@
 # PIGEAN Results Portal
 
-`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs. It has three commands (the served page opens on a landing search — trait, model, run, optional gene — and then a results view):
+`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs: the **Explorer** (one run at a time, served at `/`) and the **Comparer** (two runs side by side, served at `/compare`, see below). It has three commands:
 
 1. `build` reads one or more runs (gene stats, gene-set stats, and the gene x gene-set
    loading table), applies thresholds, and writes a SQLite file.
@@ -125,6 +125,38 @@ or disable with `--cors-origin ""`.
 | `GET /api/gene_set_across` | `id`, optional `model` — likewise `beta` / `beta_uncorrected` for a gene set |
 | `GET /api/run_params` | `run` — the PIGEAN parameters stored from the package's `params=` file |
 | `GET /healthz` | — |
+
+## Comparer (`/compare`)
+
+The same server and database also serve a second portal for comparing two runs, at
+`http://127.0.0.1:8765/compare` (static copy: `html --page comparer --api-url ... --out compare.html`).
+Its landing card picks **Run A** and **Run B** independently (trait typeahead → model → run, swap
+button); the URL hash `#a=RUN&b=RUN` makes a comparison linkable. The results view shows:
+
+- **Agreement**: for each score (genes: combined / prior / log_bf; gene sets: beta /
+  beta_uncorrected) the Pearson and Spearman correlation on the union of A's and B's top-N (N
+  selectable, or all common rows), the top-N overlap and Jaccard, and the rank correlation over
+  all common rows; plus counts of genes / gene sets present in both runs or only one.
+- **Scatters**: gene scores and gene-set effects as A vs B (identity line) or difference vs mean,
+  coloured by |Δrank|; clicking a point opens the lookup card.
+- **Ranking tables** (paginated, server-sorted by |Δrank| / |Δscore| / Δ / rank / name, filter by
+  presence, lookup by id or library): rank in A, rank in B, Δrank, score in A and B, Δscore.
+- **Run parameters**: a diff of the two runs' stored `params` (only differences by default,
+  fuzzy search).
+
+Ranks are computed at build time over the **full** PIGEAN output (before thresholding) and stored
+as `rank_combined` / `rank_prior` / `rank_log_bf` on genes and `rank_beta` /
+`rank_beta_uncorrected` on gene sets (schema v5; older databases show a "rebuild" note). Only
+rows that passed each build's thresholds are stored, so "A only" / "B only" means the other run
+fell below threshold.
+
+| endpoint | parameters |
+|---|---|
+| `GET /api/compare/summary` | `a`, `b`, optional `top_n` (0 = all common) |
+| `GET /api/compare/genes` | `a`, `b`, optional `metric`, `search`, `sort` (`abs_delta_rank`, `abs_delta`, `delta_rank`, `delta`, `a_rank`, `b_rank`, `id`), `status` (`both`/`a_only`/`b_only`), `limit` |
+| `GET /api/compare/gene_sets` | same, `metric` in `beta`/`beta_uncorrected` |
+| `GET /api/compare/params` | `a`, `b` |
+| `GET /api/compare/lookup` | `a`, `b`, `kind` (`gene`/`gene_set`), `id` |
 
 ## Tests
 

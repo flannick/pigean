@@ -7,8 +7,10 @@
     PYTHONPATH=src python -m pigean.portal serve --db results/portal.sqlite --port 8765
 
     PYTHONPATH=src python -m pigean.portal html --api-url http://localhost:8765 --out portal.html
+    PYTHONPATH=src python -m pigean.portal html --page comparer --api-url http://localhost:8765 --out compare.html
 
-`html` writes a static copy of the UI that talks to a running `serve` instance, for hosting
+`serve` hosts two portals on one database: the Explorer at / and the two-run Comparer at
+/compare. `html` writes a static copy of either UI that talks to a running `serve` instance, for hosting
 from a bucket or any static file server. Standard library only; the UI loads Plotly from a
 CDN unless `--plotly-js` points at a local copy. See docs/PIGEAN_PORTAL.md.
 """
@@ -23,6 +25,7 @@ from pathlib import Path
 from . import portal_db
 from .portal_db import BuildOptions, RunFiles, parse_filter, resolve_run_dir
 from .portal_assets import render_portal_html
+from .portal_compare_assets import render_compare_html
 from .portal_server import serve
 
 DEFAULT_PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
@@ -197,7 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
     page = sub.add_parser("html", help="Write a static portal page that calls a running `serve` instance")
     page.add_argument("--api-url", required=True, help="Base URL of the portal server, e.g. http://localhost:8765")
     page.add_argument("--out", required=True, type=Path, help="HTML file to write")
-    page.add_argument("--title", default="PIGEAN Portal")
+    page.add_argument("--page", choices=["explorer", "comparer"], default="explorer",
+                      help="Which portal to write: the single-run Explorer (served at /) or the two-run Comparer (/compare)")
+    page.add_argument("--title", default=None, help="Page title (default: PIGEAN Portal / PIGEAN Comparer)")
     page.add_argument("--plotly-js", type=Path, default=None, help="Embed a local plotly.min.js instead of the CDN")
     page.add_argument("--db", type=Path, default=None,
                       help="Optional: the SQLite file this page is meant to browse; only checked for existence "
@@ -276,7 +281,10 @@ def run_html(args: argparse.Namespace) -> int:
         raise ValueError(f"--api-url must start with http:// or https://, got '{api_url}'")
     if args.db is not None and not args.db.exists():
         raise FileNotFoundError(f"database not found: {args.db}")
-    page = render_portal_html(title=args.title, plotly_src=_plotly_src(args.plotly_js), api_base=api_url)
+    if args.page == "comparer":
+        page = render_compare_html(title=args.title or "PIGEAN Comparer", plotly_src=_plotly_src(args.plotly_js), api_base=api_url)
+    else:
+        page = render_portal_html(title=args.title or "PIGEAN Portal", plotly_src=_plotly_src(args.plotly_js), api_base=api_url)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(page, encoding="utf-8")
     logging.info("wrote %s (API %s)", args.out, api_url)

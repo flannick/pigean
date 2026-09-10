@@ -21,7 +21,7 @@ from typing import Callable, Iterable, Iterator, Optional
 
 from .dashboard import _first, open_text, parse_float
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 GENE_COLUMN_ALIASES = {
     "gene": ["Gene", "gene", "id", "ID"],
@@ -190,6 +190,42 @@ def _extra_json(row: dict[str, str], keep_numeric: bool = True) -> str:
     return json.dumps(payload, separators=(",", ":"))
 
 
+GENE_RANK_METRICS = ("combined", "prior", "log_bf")
+GENE_SET_RANK_METRICS = ("beta", "beta_uncorrected")
+
+
+def compute_ranks(path: Path, id_aliases: list[str], metric_aliases: dict[str, list[str]]) -> tuple[dict[str, dict[str, int]], int]:
+    """
+    Competition ranks (1 = highest; ties share the lowest rank; missing values unranked) of every
+    row in a PIGEAN table, per metric, computed over the FULL file before any thresholding.
+
+    Returns:
+        ({metric: {id: rank}}, n_rows_with_id)
+    """
+    values: dict[str, list[tuple[str, float]]] = {m: [] for m in metric_aliases}
+    n = 0
+    for raw in _iter_rows(path):
+        ident = _first(raw, id_aliases, "")
+        if not ident:
+            continue
+        n += 1
+        for metric, names in metric_aliases.items():
+            value = parse_float(_first(raw, names, None))
+            if value is not None:
+                values[metric].append((ident, value))
+    ranks: dict[str, dict[str, int]] = {}
+    for metric, pairs in values.items():
+        pairs.sort(key=lambda item: -item[1])
+        out: dict[str, int] = {}
+        current_rank, previous = 0, None
+        for position, (ident, value) in enumerate(pairs, start=1):
+            if value != previous:
+                current_rank, previous = position, value
+            out.setdefault(ident, current_rank)
+        ranks[metric] = out
+    return ranks, n
+
+
 DDL = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS runs (
@@ -197,18 +233,21 @@ CREATE TABLE IF NOT EXISTS runs (
     gene_stats_path TEXT, gene_set_stats_path TEXT,
     gene_gene_set_stats_path TEXT, n_genes INTEGER, n_gene_sets INTEGER, n_loadings INTEGER,
     n_genes_input INTEGER, n_gene_sets_input INTEGER, n_loadings_input INTEGER,
-    filters_json TEXT, warnings_json TEXT, built_at TEXT, model_title TEXT DEFAULT '', params_path TEXT DEFAULT ''
+    filters_json TEXT, warnings_json TEXT, built_at TEXT, model_title TEXT DEFAULT '', params_path TEXT DEFAULT '',
+    n_ranked_genes INTEGER, n_ranked_gene_sets INTEGER
 );
 CREATE TABLE IF NOT EXISTS run_params (
     run_id TEXT NOT NULL, parameter TEXT NOT NULL, version TEXT NOT NULL, value TEXT, PRIMARY KEY (run_id, parameter, version)
 );
 CREATE TABLE IF NOT EXISTS genes (
     run_id TEXT NOT NULL, gene TEXT NOT NULL, prior REAL, combined REAL, log_bf REAL, huge_score REAL,
-    n REAL, chrom TEXT, start REAL, end REAL, extra_json TEXT, PRIMARY KEY (run_id, gene)
+    n REAL, chrom TEXT, start REAL, end REAL, extra_json TEXT,
+    rank_combined INTEGER, rank_prior INTEGER, rank_log_bf INTEGER, PRIMARY KEY (run_id, gene)
 );
 CREATE TABLE IF NOT EXISTS gene_sets (
     run_id TEXT NOT NULL, gene_set TEXT NOT NULL, label TEXT, n REAL, beta REAL, beta_uncorrected REAL,
-    p_orig REAL, z_orig REAL, extra_json TEXT, PRIMARY KEY (run_id, gene_set)
+    p_orig REAL, z_orig REAL, extra_json TEXT,
+    rank_beta INTEGER, rank_beta_uncorrected INTEGER, PRIMARY KEY (run_id, gene_set)
 );
 CREATE TABLE IF NOT EXISTS gene_gene_sets (
     run_id TEXT NOT NULL, gene_set TEXT NOT NULL, gene TEXT NOT NULL, beta REAL, weight REAL,
@@ -312,6 +351,8 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
                 param_rows.append((run_id, key, _first(raw, ["Version", "version"], "1"), _first(raw, ["Value", "value"], "")))
         conn.executemany("INSERT OR REPLACE INTO run_params VALUES (?,?,?,?)", param_rows)
 
+    gene_ranks, n_ranked_genes = compute_ranks(
+        files.gene_stats, GENE_COLUMN_ALIASES["gene"], {m: GENE_COLUMN_ALIASES[m] for m in GENE_RANK_METRICS})
     n_genes_in = n_genes = 0
     gene_rows = []
     for raw in _iter_rows(files.gene_stats):
@@ -320,12 +361,17 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
         if not row["gene"] or not passes_filters(row, options.gene_filters, options.filter_mode):
             continue
         gene_rows.append((run_id, row["gene"], row["prior"], row["combined"], row["log_bf"], row["huge_score"],
-                          row["n"], row["chrom"], row["start"], row["end"], _extra_json(raw)))
-    conn.executemany("INSERT OR REPLACE INTO genes VALUES (?,?,?,?,?,?,?,?,?,?,?)", gene_rows)
+                          row["n"], row["chrom"], row["start"], row["end"], _extra_json(raw),
+                          *(gene_ranks[m].get(row["gene"]) for m in GENE_RANK_METRICS)))
+    conn.executemany(
+        "INSERT OR REPLACE INTO genes (run_id, gene, prior, combined, log_bf, huge_score, n, chrom, start, end, "
+        "extra_json, rank_combined, rank_prior, rank_log_bf) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", gene_rows)
     n_genes = len(gene_rows)
     if n_genes_in and not n_genes:
         warnings.append(f"run '{run_id}': no genes passed the gene filters")
 
+    gs_ranks, n_ranked_gene_sets = compute_ranks(
+        files.gene_set_stats, GENE_SET_COLUMN_ALIASES["gene_set"], {m: GENE_SET_COLUMN_ALIASES[m] for m in GENE_SET_RANK_METRICS})
     n_gene_sets_in = 0
     gene_set_rows = []
     kept_gene_sets: set[str] = set()
@@ -336,8 +382,11 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
             continue
         kept_gene_sets.add(row["gene_set"])
         gene_set_rows.append((run_id, row["gene_set"], row["label"] or "", row["n"], row["beta"],
-                              row["beta_uncorrected"], row["p_orig"], row["z_orig"], _extra_json(raw)))
-    conn.executemany("INSERT OR REPLACE INTO gene_sets VALUES (?,?,?,?,?,?,?,?,?)", gene_set_rows)
+                              row["beta_uncorrected"], row["p_orig"], row["z_orig"], _extra_json(raw),
+                              *(gs_ranks[m].get(row["gene_set"]) for m in GENE_SET_RANK_METRICS)))
+    conn.executemany(
+        "INSERT OR REPLACE INTO gene_sets (run_id, gene_set, label, n, beta, beta_uncorrected, p_orig, z_orig, extra_json, "
+        "rank_beta, rank_beta_uncorrected) VALUES (?,?,?,?,?,?,?,?,?,?,?)", gene_set_rows)
     n_gene_sets = len(gene_set_rows)
     if n_gene_sets_in and not n_gene_sets:
         warnings.append(f"run '{run_id}': no gene sets passed the gene-set filters")
@@ -378,15 +427,17 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
         "gene_gene_set_stats_path": str(files.gene_gene_set_stats) if files.gene_gene_set_stats else "",
         "n_genes": n_genes, "n_gene_sets": n_gene_sets, "n_loadings": n_loadings,
         "n_genes_input": n_genes_in, "n_gene_sets_input": n_gene_sets_in, "n_loadings_input": n_loadings_in,
+        "n_ranked_genes": n_ranked_genes, "n_ranked_gene_sets": n_ranked_gene_sets,
         "filters_json": filters_json, "warnings_json": json.dumps(warnings),
         "built_at": datetime.now().isoformat(timespec="seconds"),
     }
     conn.execute(
         "INSERT OR REPLACE INTO runs (run_id,title,model,trait,seed,gene_stats_path,gene_set_stats_path,"
         "gene_gene_set_stats_path,n_genes,n_gene_sets,n_loadings,n_genes_input,n_gene_sets_input,n_loadings_input,"
-        "filters_json,warnings_json,built_at,model_title,params_path) VALUES (:run_id,:title,:model,:trait,:seed,"
+        "filters_json,warnings_json,built_at,model_title,params_path,n_ranked_genes,n_ranked_gene_sets) VALUES (:run_id,:title,:model,:trait,:seed,"
         ":gene_stats_path,:gene_set_stats_path,:gene_gene_set_stats_path,:n_genes,:n_gene_sets,:n_loadings,"
-        ":n_genes_input,:n_gene_sets_input,:n_loadings_input,:filters_json,:warnings_json,:built_at,:model_title,:params_path)",
+        ":n_genes_input,:n_gene_sets_input,:n_loadings_input,:filters_json,:warnings_json,:built_at,:model_title,:params_path,"
+        ":n_ranked_genes,:n_ranked_gene_sets)",
         summary,
     )
     summary["warnings"] = warnings
@@ -399,6 +450,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
     for column in ("model", "trait", "seed", "model_title", "params_path"):
         if column not in existing:
             conn.execute(f"ALTER TABLE runs ADD COLUMN {column} TEXT DEFAULT ''")
+    for column in ("n_ranked_genes", "n_ranked_gene_sets"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE runs ADD COLUMN {column} INTEGER")
+    # schema v5: ranks over the full (pre-threshold) PIGEAN output, used by the Comparer
+    for table, columns in (("genes", ("rank_combined", "rank_prior", "rank_log_bf")),
+                           ("gene_sets", ("rank_beta", "rank_beta_uncorrected"))):
+        have = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for column in columns:
+            if column not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} INTEGER")
 
 
 def build_database(db_path: Path, runs: list[RunFiles], options: BuildOptions) -> list[dict]:
@@ -478,7 +539,7 @@ def query_genes(conn: sqlite3.Connection, run_id: str, *, min_prior: Optional[fl
                 min_log_bf: Optional[float] = None, min_combined: Optional[float] = None,
                 search: str = "", sort: str = "combined", limit: int = 5000) -> list[dict]:
     sort_col = sort if sort in ("combined", "prior", "log_bf", "huge_score", "gene") else "combined"
-    sql = "SELECT gene, prior, combined, log_bf, huge_score, n, chrom, start, end FROM genes WHERE run_id=?"
+    sql = "SELECT gene, prior, combined, log_bf, huge_score, n, chrom, start, end, rank_combined, rank_prior, rank_log_bf FROM genes WHERE run_id=?"
     params: list = [run_id]
     for col, value in (("prior", min_prior), ("log_bf", min_log_bf), ("combined", min_combined)):
         if value is not None:
@@ -497,7 +558,7 @@ def query_gene_sets(conn: sqlite3.Connection, run_id: str, *, min_beta: Optional
                     min_beta_uncorrected: Optional[float] = None, search: str = "",
                     sort: str = "beta", limit: int = 500) -> list[dict]:
     sort_col = sort if sort in ("beta", "beta_uncorrected", "n", "gene_set") else "beta"
-    sql = "SELECT gene_set, label, n, beta, beta_uncorrected, p_orig, z_orig FROM gene_sets WHERE run_id=?"
+    sql = "SELECT gene_set, label, n, beta, beta_uncorrected, p_orig, z_orig, rank_beta, rank_beta_uncorrected FROM gene_sets WHERE run_id=?"
     params: list = [run_id]
     if min_beta is not None:
         sql += " AND beta >= ?"
