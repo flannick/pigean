@@ -30,10 +30,13 @@ LOGGER = logging.getLogger("pigean.portal")
 class PortalState:
     """Per-server state: the database path plus a thread-local read-only connection."""
 
-    def __init__(self, db_path: Path, *, title: str, plotly_src: str) -> None:
+    def __init__(self, db_path: Path, *, title: str, plotly_src: str, cors_origin: str = "*") -> None:
         self.db_path = db_path
         self.title = title
         self.plotly_src = plotly_src
+        # Static (bucket-hosted) copies of the page live on another origin, so the read-only
+        # API answers cross-origin requests. Empty string disables the header.
+        self.cors_origin = cors_origin
         self._local = threading.local()
 
     def connection(self):
@@ -123,8 +126,21 @@ def make_handler(state: PortalState):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self._cors_headers()
             self.end_headers()
             self.wfile.write(body)
+
+        def _cors_headers(self) -> None:
+            if state.cors_origin:
+                self.send_header("Access-Control-Allow-Origin", state.cors_origin)
+                self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        def do_OPTIONS(self) -> None:  # noqa: N802 (CORS preflight)
+            self.send_response(204)
+            self._cors_headers()
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def _send_json(self, status: int, payload: dict) -> None:
             self._send(status, json.dumps(payload, allow_nan=False, default=_json_default).encode("utf-8"),
@@ -160,11 +176,11 @@ def _json_default(value):
 
 
 def serve(db_path: Path, *, host: str = "127.0.0.1", port: int = 8765, title: str = "PIGEAN results portal",
-          plotly_src: str = "", server_ready=None) -> None:
+          plotly_src: str = "", cors_origin: str = "*", server_ready=None) -> None:
     """Block serving the portal until interrupted. `server_ready(httpd)` is called once bound."""
     if not db_path.exists():
         raise FileNotFoundError(f"database not found: {db_path}")
-    state = PortalState(db_path, title=title, plotly_src=plotly_src)
+    state = PortalState(db_path, title=title, plotly_src=plotly_src, cors_origin=cors_origin)
     httpd = ThreadingHTTPServer((host, port), make_handler(state))
     httpd.daemon_threads = True
     bound_host, bound_port = httpd.server_address[:2]

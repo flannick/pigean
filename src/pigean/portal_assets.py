@@ -8,6 +8,7 @@ gene's gene-set memberships). All data comes from the JSON API; no build step.
 from __future__ import annotations
 
 import html
+import json
 
 CSS = r"""
 :root { --ink:#1f2933; --muted:#65758b; --line:#d9e1ea; --soft:#f4f7f8; --accent:#0f766e; --accent-soft:#dff4f1; --warn:#9a5b1f; }
@@ -50,10 +51,12 @@ const state = { run:null, runs:[], genes:[], geneSets:[], selectedGeneSet:null, 
 const $ = id => document.getElementById(id);
 const fmt = v => (v === null || v === undefined) ? '' : (Math.abs(v) >= 1000 ? v.toFixed(0) : (Math.abs(v) < 0.01 && v !== 0 ? v.toExponential(2) : (+v).toFixed(3)));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API_BASE = (window.PIGEAN_PORTAL_API_BASE || '').replace(/\/+$/, '');
 async function api(path, params) {
-  const url = new URL(path, location.href);
+  const url = new URL(API_BASE + path, location.href);
   Object.entries(params || {}).forEach(([k,v]) => { if (v !== '' && v !== null && v !== undefined) url.searchParams.set(k, v); });
-  const res = await fetch(url);
+  let res;
+  try { res = await fetch(url); } catch (err) { throw new Error(`cannot reach portal server at ${API_BASE || location.origin}: ${err.message}`); }
   const body = await res.json();
   if (!res.ok) throw new Error(body.error || res.statusText);
   return body;
@@ -179,7 +182,7 @@ loadRuns().catch(err => { $('run-summary').innerHTML = `<span class="warn">${esc
 BODY = r"""
 <div class="shell">
   <header>
-    <div><h1>{title}</h1><div class="muted">Gene scatter, ranked gene sets, and gene loadings from thresholded PIGEAN outputs.</div></div>
+    <div><h1>{title}</h1><div class="muted">Gene scatter, ranked gene sets, and gene loadings from thresholded PIGEAN outputs.{api_note}</div></div>
     <div style="margin-left:auto;min-width:260px"><label for="run">Run</label><select id="run"></select></div>
   </header>
   <div id="run-summary" class="muted"></div>
@@ -215,13 +218,23 @@ BODY = r"""
 """
 
 
-def render_portal_html(*, title: str, plotly_src: str) -> str:
-    """Complete HTML document for the portal UI."""
+def render_portal_html(*, title: str, plotly_src: str, api_base: str = "") -> str:
+    """
+    Complete HTML document for the portal UI.
+
+    Args:
+        title: Page title.
+        plotly_src: URL (or data: URI) of plotly.min.js.
+        api_base: Absolute URL of a `pigean.portal serve` instance for a static deployment
+            (e.g. a bucket-hosted page calling `http://localhost:8765`); empty means same origin.
+    """
+    api_note = f" API: <code>{html.escape(api_base)}</code>" if api_base else ""
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
         f"<title>{html.escape(title)}</title>\n<style>{CSS}</style>\n"
         f"<script src=\"{html.escape(plotly_src, quote=True)}\"></script>\n</head>\n<body>\n"
-        + BODY.replace("{title}", html.escape(title))
+        + BODY.replace("{title}", html.escape(title)).replace("{api_note}", api_note)
+        + f"<script>window.PIGEAN_PORTAL_API_BASE = {json.dumps(api_base)};</script>\n"
         + f"<script>{SCRIPT}</script>\n</body>\n</html>\n"
     )

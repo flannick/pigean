@@ -1,12 +1,14 @@
 # PIGEAN Results Portal
 
-`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs. It has two steps:
+`python -m pigean.portal` is a lightweight viewer for PIGEAN outputs. It has three commands:
 
 1. `build` reads one or more runs (gene stats, gene-set stats, and the gene x gene-set
    loading table), applies thresholds, and writes a SQLite file.
 2. `serve` hosts that file behind a small JSON API and a single-page UI: a scatter of each
    gene's direct (`log_bf`) vs. indirect (`prior`) score, a ranked gene-set table, and the
    gene loadings for whichever gene set (or gene) you click.
+3. `html` writes the same UI as a static page whose JavaScript calls a `serve` instance at a
+   fixed URL, so the page can be hosted from a bucket or any static file server.
 
 Like `pigean.dashboard`, it is a post-processing tool that never reruns PIGEAN, and it uses
 only the standard library (`sqlite3`, `http.server`). The UI loads Plotly from a CDN by
@@ -59,6 +61,25 @@ PYTHONPATH=src python -m pigean.portal serve --db results/portal.sqlite --host 1
 Open `http://127.0.0.1:8765/`. The database is opened read-only; rebuild with `build` and
 restart to pick up changes. Use `--host 0.0.0.0` to expose it on a network (there is no
 authentication, so keep it behind SSH forwarding or a trusted network).
+
+## Static page (`html`)
+
+```bash
+PYTHONPATH=src python -m pigean.portal html \
+  --api-url http://localhost:8765 \
+  --out results/portal.html \
+  --db results/portal.sqlite   # optional: only checked for existence, so a pipeline can make the page depend on the database
+```
+
+The page is self-contained apart from Plotly (CDN, or `--plotly-js` to embed) and calls
+`<api-url>/api/...` for every request. Host it anywhere static files can be served (an S3/GCS
+bucket, GitHub Pages, `python -m http.server`) and keep a `serve` instance reachable at the
+API URL from the viewer's browser. For a server bound to `localhost`, that means the viewer
+opens the page on the same machine or uses an SSH tunnel (`ssh -L 8765:localhost:8765 host`).
+
+`serve` sends `Access-Control-Allow-Origin: *` on API responses so the cross-origin page can
+read them (the API is read-only). Restrict it with `serve --cors-origin https://my-bucket.example`
+or disable with `--cors-origin ""`.
 
 ### JSON API
 

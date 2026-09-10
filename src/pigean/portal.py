@@ -6,8 +6,11 @@
 
     PYTHONPATH=src python -m pigean.portal serve --db results/portal.sqlite --port 8765
 
-See docs/PIGEAN_PORTAL.md. Standard library only; the UI loads Plotly from a CDN unless
-`serve --plotly-js` points at a local copy.
+    PYTHONPATH=src python -m pigean.portal html --api-url http://localhost:8765 --out portal.html
+
+`html` writes a static copy of the UI that talks to a running `serve` instance, for hosting
+from a bucket or any static file server. Standard library only; the UI loads Plotly from a
+CDN unless `--plotly-js` points at a local copy. See docs/PIGEAN_PORTAL.md.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from pathlib import Path
 
 from . import portal_db
 from .portal_db import BuildOptions, RunFiles, parse_filter, resolve_run_dir
+from .portal_assets import render_portal_html
 from .portal_server import serve
 
 DEFAULT_PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
@@ -106,6 +110,17 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--title", default="PIGEAN results portal")
     run.add_argument("--plotly-js", type=Path, default=None,
                      help="Local plotly.min.js to embed instead of loading from the CDN (offline use)")
+    run.add_argument("--cors-origin", default="*",
+                     help="Access-Control-Allow-Origin value for the API (default '*'; empty disables CORS)")
+
+    page = sub.add_parser("html", help="Write a static portal page that calls a running `serve` instance")
+    page.add_argument("--api-url", required=True, help="Base URL of the portal server, e.g. http://localhost:8765")
+    page.add_argument("--out", required=True, type=Path, help="HTML file to write")
+    page.add_argument("--title", default="PIGEAN results portal")
+    page.add_argument("--plotly-js", type=Path, default=None, help="Embed a local plotly.min.js instead of the CDN")
+    page.add_argument("--db", type=Path, default=None,
+                      help="Optional: the SQLite file this page is meant to browse; only checked for existence "
+                           "(lets pipelines declare the database as a dependency of the page)")
     return parser
 
 
@@ -149,12 +164,28 @@ def run_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plotly_src(plotly_js: Path | None) -> str:
+    if plotly_js is not None:
+        return "data:text/javascript;base64," + _b64(plotly_js)
+    return DEFAULT_PLOTLY_CDN
+
+
 def run_serve(args: argparse.Namespace) -> int:
-    if args.plotly_js is not None:
-        plotly_src = "data:text/javascript;base64," + _b64(args.plotly_js)
-    else:
-        plotly_src = DEFAULT_PLOTLY_CDN
-    serve(args.db, host=args.host, port=args.port, title=args.title, plotly_src=plotly_src)
+    serve(args.db, host=args.host, port=args.port, title=args.title, plotly_src=_plotly_src(args.plotly_js),
+          cors_origin=args.cors_origin)
+    return 0
+
+
+def run_html(args: argparse.Namespace) -> int:
+    api_url = args.api_url.strip()
+    if not api_url.startswith(("http://", "https://")):
+        raise ValueError(f"--api-url must start with http:// or https://, got '{api_url}'")
+    if args.db is not None and not args.db.exists():
+        raise FileNotFoundError(f"database not found: {args.db}")
+    page = render_portal_html(title=args.title, plotly_src=_plotly_src(args.plotly_js), api_base=api_url)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(page, encoding="utf-8")
+    logging.info("wrote %s (API %s)", args.out, api_url)
     return 0
 
 
@@ -171,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "build":
             return run_build(args)
+        if args.command == "html":
+            return run_html(args)
         return run_serve(args)
     except (FileNotFoundError, ValueError) as exc:
         logging.error(str(exc))

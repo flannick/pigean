@@ -206,11 +206,31 @@ class PortalBuildTest(unittest.TestCase):
             self.assertEqual(len(payload["loadings"]), 3)
             with urllib.request.urlopen(f"{base}/") as resp:
                 html = resp.read().decode("utf-8")
+                self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
             self.assertIn("<title>t</title>", html)
             self.assertIn("/api/genes", html)
+            self.assertIn('window.PIGEAN_PORTAL_API_BASE = ""', html)
+            req = urllib.request.Request(f"{base}/api/runs", method="OPTIONS")
+            with urllib.request.urlopen(req) as resp:
+                self.assertEqual(resp.status, 204)
+                self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
         finally:
             httpd.shutdown()
             thread.join(5)
+
+    def test_html_subcommand_writes_static_page(self) -> None:
+        self.assertEqual(self._build(), 0)
+        out = self.root / "static" / "portal.html"
+        rc = portal.main(["html", "--api-url", "http://localhost:8765/", "--out", str(out), "--title", "static",
+                          "--db", str(self.db)])
+        self.assertEqual(rc, 0)
+        html = out.read_text(encoding="utf-8")
+        self.assertIn('window.PIGEAN_PORTAL_API_BASE = "http://localhost:8765/"', html)
+        self.assertIn("<title>static</title>", html)
+        self.assertIn("API: <code>http://localhost:8765/</code>", html)
+        # bad URL scheme and missing --db are errors
+        self.assertEqual(portal.main(["html", "--api-url", "localhost:8765", "--out", str(out)]), 1)
+        self.assertEqual(portal.main(["html", "--api-url", "http://x", "--out", str(out), "--db", str(self.root / "no.sqlite")]), 1)
 
     def test_render_html_escapes_title(self) -> None:
         html = render_portal_html(title="<x>", plotly_src="https://example/plotly.js")
