@@ -21,6 +21,13 @@ CSS = r"""
 .ab .swap { align-self:center; }
 .tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:11px; font-weight:700; margin-right:6px; }
 .tag.a { background:#dbeafe; color:#1d4ed8; } .tag.b { background:#fde68a; color:#92400e; }
+/* everything that belongs to run A is blue, run B amber */
+th.ca, td.ca { color:#1d4ed8; background:rgba(219,234,254,.45); }
+th.cb, td.cb { color:#92400e; background:rgba(253,230,138,.35); }
+th.ca, th.cb { font-weight:700; }
+.stat.ca { border-color:#bfdbfe; background:#eff6ff; } .stat.ca strong { color:#1d4ed8; }
+.stat.cb { border-color:#fde68a; background:#fffbeb; } .stat.cb strong { color:#92400e; }
+.scroll td.ca:first-child, .scroll td.cb:first-child { background:#fff; }
 .vs { color:var(--muted); font-weight:600; margin:0 6px; }
 .crumb.stacked { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:baseline; }
 .crumb.stacked strong { font-size:19px; }
@@ -100,8 +107,8 @@ function renderSummary() {
     <div class="tabs"><button data-tab="genes" class="${kind==='genes'?'active':''}">Genes</button><button data-tab="gene_sets" class="${kind==='gene_sets'?'active':''}">Gene sets</button></div>
     <div class="counts">
       <div class="stat"><strong>${c.both.toLocaleString()}</strong><span class="muted">${noun} in both</span></div>
-      <div class="stat"><strong>${c.a_only.toLocaleString()}</strong><span class="muted">A only</span></div>
-      <div class="stat"><strong>${c.b_only.toLocaleString()}</strong><span class="muted">B only</span></div>
+      <div class="stat ca"><strong>${c.a_only.toLocaleString()}</strong><span class="muted"><span class="tag a">A</span>only</span></div>
+      <div class="stat cb"><strong>${c.b_only.toLocaleString()}</strong><span class="muted"><span class="tag b">B</span>only</span></div>
       <span class="muted">ranked over ${(ranked[0] || 0).toLocaleString()} (A) / ${(ranked[1] || 0).toLocaleString()} (B) ${noun} in the full PIGEAN output</span>
     </div>
     ${d.ranks_available ? '' : '<div class="warn">This database predates rank storage — rebuild it with the current pigean.portal to get ranks and top-N summaries.</div>'}
@@ -121,12 +128,12 @@ function scatter(el, rows, metric, keyName, hoverName) {
   const cd = both.map(r => [r[`a_${metric}`], r[`b_${metric}`], r[`a_rank_${metric}`], r[`b_rank_${metric}`], r[`delta_rank_${metric}`]]);
   const traces = [{ type: 'scattergl', mode: 'markers', x, y, text: both.map(r => r[keyName]), customdata: cd,
     marker: { size: 6, opacity: 0.7, color: both.map(r => Math.abs(r[`delta_rank_${metric}`] ?? 0)), colorscale: 'Viridis', reversescale: true, colorbar: { title: '|Δrank|', thickness: 12 } },
-    hovertemplate: `<b>%{text}</b><br>A ${metric} %{customdata[0]:.3f} (rank %{customdata[2]})<br>B ${metric} %{customdata[1]:.3f} (rank %{customdata[3]})<br>Δrank %{customdata[4]}<extra></extra>` }];
+    hovertemplate: `<b>%{text}</b><br><span style="color:#1d4ed8">A ${metric} %{customdata[0]:.3f} (rank %{customdata[2]})</span><br><span style="color:#92400e">B ${metric} %{customdata[1]:.3f} (rank %{customdata[3]})</span><br>Δrank %{customdata[4]}<extra></extra>` }];
   let layout;
   if (ab) {
     const lo = Math.min(...x, ...y), hi = Math.max(...x, ...y);
     traces.push({ type: 'scatter', mode: 'lines', x: [lo, hi], y: [lo, hi], line: { color: '#9ca3af', dash: 'dot', width: 1 }, hoverinfo: 'skip' });
-    layout = { xaxis: { title: `A: ${metric}` }, yaxis: { title: `B: ${metric}` } };
+    layout = { xaxis: { title: { text: `A: ${metric}`, font: { color: '#1d4ed8' } } }, yaxis: { title: { text: `B: ${metric}`, font: { color: '#92400e' } } } };
   } else {
     traces.push({ type: 'scatter', mode: 'lines', x: [Math.min(...x), Math.max(...x)], y: [0, 0], line: { color: '#9ca3af', dash: 'dot', width: 1 }, hoverinfo: 'skip' });
     layout = { xaxis: { title: `mean of A and B: ${metric}` }, yaxis: { title: `B − A: ${metric}` } };
@@ -144,8 +151,8 @@ async function loadGenes() {
   state.geneRows = d.rows;
   scatter('gene-scatter', d.rows, metric, 'gene', 'gene');
   $('gene-count').textContent = `${d.total.toLocaleString()} genes (${d.counts.both.toLocaleString()} in both); scatter shows genes present in both`;
-  pagedTable('gene-table', `<tr><th>Gene</th><th class="num">rank A</th><th class="num">rank B</th><th class="num">Δrank</th><th class="num">A ${metric}</th><th class="num">B ${metric}</th><th class="num">Δ${metric}</th><th>status</th></tr>`, d.rows,
-    r => `<tr class="row" data-id="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num">${rank(r[`a_rank_${metric}`])}</td><td class="num">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num">${fmt(r[`a_${metric}`])}</td><td class="num">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
+  pagedTable('gene-table', `<tr><th>Gene</th><th class="num ca">rank A</th><th class="num cb">rank B</th><th class="num">Δrank</th><th class="num ca">A ${metric}</th><th class="num cb">B ${metric}</th><th class="num">Δ${metric}</th><th>status</th></tr>`, d.rows,
+    r => `<tr class="row" data-id="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num ca">${rank(r[`a_rank_${metric}`])}</td><td class="num cb">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num ca">${fmt(r[`a_${metric}`])}</td><td class="num cb">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
     tr => tr.onclick = () => showLookup('gene', tr.dataset.id));
 }
 async function loadGeneSets() {
@@ -154,8 +161,8 @@ async function loadGeneSets() {
   state.gsRows = d.rows;
   scatter('gs-scatter', d.rows, metric, 'gene_set', 'gene_set');
   $('gs-count').textContent = `${d.total.toLocaleString()} gene sets (${d.counts.both.toLocaleString()} in both); scatter shows gene sets present in both`;
-  pagedTable('gs-table', `<tr><th>Gene set</th><th>Library</th><th class="num">rank A</th><th class="num">rank B</th><th class="num">Δrank</th><th class="num">A ${metric}</th><th class="num">B ${metric}</th><th class="num">Δ${metric}</th><th>status</th></tr>`, d.rows,
-    r => `<tr class="row" data-id="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num">${rank(r[`a_rank_${metric}`])}</td><td class="num">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num">${fmt(r[`a_${metric}`])}</td><td class="num">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
+  pagedTable('gs-table', `<tr><th>Gene set</th><th>Library</th><th class="num ca">rank A</th><th class="num cb">rank B</th><th class="num">Δrank</th><th class="num ca">A ${metric}</th><th class="num cb">B ${metric}</th><th class="num">Δ${metric}</th><th>status</th></tr>`, d.rows,
+    r => `<tr class="row" data-id="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num ca">${rank(r[`a_rank_${metric}`])}</td><td class="num cb">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num ca">${fmt(r[`a_${metric}`])}</td><td class="num cb">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
     tr => tr.onclick = () => showLookup('gene_set', tr.dataset.id));
 }
 
@@ -167,8 +174,8 @@ async function showLookup(kind, id) {
   const ra = runById(state.a), rb = runById(state.b);
   openModal(`${kind === 'gene' ? 'Gene' : 'Gene set'}: ${id}`,
     `<div class="muted" style="margin-bottom:8px">${statusHtml(d.status)}${d.label ? ' · library ' + esc(d.label) : ''}</div>
-     <table><thead><tr><th>metric</th><th class="num"><span class="tag a">A</span>${esc(runLabel(ra))}</th><th class="num"><span class="tag b">B</span>${esc(runLabel(rb))}</th><th class="num">Δ (B − A)</th><th class="num">rank A</th><th class="num">rank B</th><th class="num">Δrank</th></tr></thead><tbody>
-     ${metrics.map(m => `<tr><td>${m}</td><td class="num">${fmt(d[`a_${m}`])}</td><td class="num">${fmt(d[`b_${m}`])}</td><td class="num">${delta(d[`delta_${m}`])}</td><td class="num">${rank(d[`a_rank_${m}`])}</td><td class="num">${rank(d[`b_rank_${m}`])}</td><td class="num">${delta(d[`delta_rank_${m}`])}</td></tr>`).join('')}
+     <table><thead><tr><th>metric</th><th class="num ca"><span class="tag a">A</span>${esc(runLabel(ra))}</th><th class="num cb"><span class="tag b">B</span>${esc(runLabel(rb))}</th><th class="num">Δ (B − A)</th><th class="num ca">rank A</th><th class="num cb">rank B</th><th class="num">Δrank</th></tr></thead><tbody>
+     ${metrics.map(m => `<tr><td>${m}</td><td class="num ca">${fmt(d[`a_${m}`])}</td><td class="num cb">${fmt(d[`b_${m}`])}</td><td class="num">${delta(d[`delta_${m}`])}</td><td class="num ca">${rank(d[`a_rank_${m}`])}</td><td class="num cb">${rank(d[`b_rank_${m}`])}</td><td class="num">${delta(d[`delta_rank_${m}`])}</td></tr>`).join('')}
      </tbody></table>`);
 }
 
@@ -183,8 +190,8 @@ function renderParams() {
   let rows = p.rows.filter(r => !only || r.differs);
   if (q) rows = rows.map(r => [r, fuzzyScore(q, r.parameter)]).filter(x => x[1] > 0).sort((x, y) => y[1] - x[1]).map(x => x[0]);
   $('param-count').textContent = `${p.n_differ} of ${p.n_params} parameters differ${!p.a_has_params || !p.b_has_params ? ' (a run has no stored params — build with params=)' : ''}; showing ${rows.length}`;
-  pagedTable('param-table', `<tr><th>Parameter</th><th>Ver.</th><th><span class="tag a">A</span></th><th><span class="tag b">B</span></th></tr>`, rows,
-    r => `<tr class="${r.differs ? 'selected' : ''}"><td>${esc(r.parameter)}</td><td>${esc(r.version)}</td><td style="white-space:normal;word-break:break-all">${esc(r.a_value ?? '')}</td><td style="white-space:normal;word-break:break-all">${esc(r.b_value ?? '')}</td></tr>`, null, 40);
+  pagedTable('param-table', `<tr><th>Parameter</th><th>Ver.</th><th class="ca"><span class="tag a">A</span>${esc(runLabel(runById(state.a)))}</th><th class="cb"><span class="tag b">B</span>${esc(runLabel(runById(state.b)))}</th></tr>`, rows,
+    r => `<tr class="${r.differs ? 'selected' : ''}"><td>${esc(r.parameter)}</td><td>${esc(r.version)}</td><td class="ca" style="white-space:normal;word-break:break-all">${esc(r.a_value ?? '')}</td><td class="cb" style="white-space:normal;word-break:break-all">${esc(r.b_value ?? '')}</td></tr>`, null, 40);
 }
 
 // ---------- wiring
