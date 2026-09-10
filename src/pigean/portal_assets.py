@@ -70,15 +70,20 @@ dialog.modal .modal-body { padding:14px 18px 18px; overflow:auto; max-height:cal
 .landing h1 { font-size:34px; margin-bottom:4px; }
 .landing .lede { color:var(--muted); margin:0 0 22px; }
 .landing .field { margin-bottom:14px; }
-.landing input.big { width:100%; font-size:20px; padding:14px 16px; border-radius:12px; }
 .landing .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.landing select, .landing input { width:100%; }
+.landing select, .landing input { width:100%; font-size:14px; padding:10px 12px; border-radius:10px; font-family:inherit; }
+.landing select { appearance:auto; }
+.ta-wrap { position:relative; }
+.ta { position:absolute; left:0; right:0; top:calc(100% + 4px); background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 30px rgba(31,41,51,.12); z-index:30; overflow:hidden; }
+.ta[hidden] { display:none; }
+.ta div { padding:7px 12px; cursor:pointer; display:flex; gap:10px; align-items:baseline; font-size:13px; }
+.ta div b { font-weight:600; min-width:6ch; }
+.ta div span { color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ta div.active, .ta div:hover { background:var(--accent-soft); }
 .landing .actions { display:flex; gap:12px; align-items:center; margin-top:18px; }
 .landing button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-size:15px; padding:10px 18px; }
 .landing button.primary:hover { background:#0b5f59; }
 .landing .hint { color:var(--muted); font-size:12px; }
-.trait-hits { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:120px; overflow:auto; }
-.trait-hits button { font-weight:500; font-size:12px; padding:4px 9px; }
 /* results header */
 .bar { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-bottom:12px; }
 .bar .crumb { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
@@ -148,9 +153,26 @@ function fuzzyScore(query, text) {
   for (const ch of q) { const j = t.indexOf(ch, ti); if (j < 0) return 0; if (first < 0) first = j; gaps += j - ti; ti = j + 1; }
   return Math.max(1, 300 - gaps * 4 - first - t.length * 0.01);
 }
+// Small typeahead: `items(q)` returns ranked [{value, label, sub}] (already limited); `pick(value)` on choose.
+function attachTypeahead(input, items, pick, limit = 8) {
+  const box = document.createElement('div'); box.className = 'ta'; box.hidden = true; input.parentElement.appendChild(box);
+  let list = [], active = -1;
+  const render = () => { box.innerHTML = list.map((it, i) => `<div class="${i===active?'active':''}" data-i="${i}"><b>${esc(it.label)}</b>${it.sub ? `<span>${esc(it.sub)}</span>` : ''}</div>`).join(''); box.hidden = !list.length;
+    box.querySelectorAll('div').forEach(d => { d.onmousedown = e => { e.preventDefault(); choose(+d.dataset.i); }; }); };
+  const choose = i => { if (i < 0 || i >= list.length) return; input.value = list[i].value; box.hidden = true; list = []; pick(list, input.value); };
+  const refresh = () => { list = items(input.value.trim()).slice(0, limit); active = list.length ? 0 : -1; render(); };
+  input.addEventListener('input', refresh); input.addEventListener('focus', refresh);
+  input.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
+  input.addEventListener('keydown', e => {
+    if (box.hidden && (e.key === 'ArrowDown')) { refresh(); return; }
+    if (e.key === 'ArrowDown') { active = Math.min(active + 1, list.length - 1); render(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { active = Math.max(active - 1, 0); render(); e.preventDefault(); }
+    else if (e.key === 'Enter') { if (!box.hidden && active >= 0) { choose(active); e.preventDefault(); e.stopPropagation(); } }
+    else if (e.key === 'Escape') { box.hidden = true; }
+  });
+}
 const traitScore = (t, q) => { const p = phenoOf(t); return Math.max(fuzzyScore(q, t), p ? fuzzyScore(q, p.name || '') * 0.98 : 0, p && (p.portal_id || '').toLowerCase() === q ? 1000 : 0); };
 const phenoOf = t => { const r = state.runs.find(x => x.trait === t && x.phenotype); return r ? r.phenotype : null; };
-const traitLabel = t => { const p = phenoOf(t); return p && p.name && p.name !== t ? `${p.name} (${t})` : t; };
 function hashState() { const h = new URLSearchParams(location.hash.replace(/^#/, '')); return { run: h.get('run') || '', gene: h.get('gene') || '', gs: h.get('gs') || '' }; }
 function setHash(obj) { const h = new URLSearchParams(); Object.entries(obj).forEach(([k,v]) => { if (v) h.set(k, v); }); const next = '#' + h.toString(); if (location.hash !== next) history.replaceState(null, '', next); }
 async function loadRuns() {
@@ -164,15 +186,16 @@ async function loadRuns() {
   if (h.run && state.runs.some(r => r.run_id === h.run)) { state.run = h.run; $('run').value = h.run; await openResults(); if (h.gene) showGene(h.gene); else if (h.gs) showGeneSet(h.gs); }
   else showLanding();
 }
-function populateTraits() {
+function availableTraits() {
   const model = $('model').value;
-  const traits = uniq(state.runs.filter(r => !model || r.model === model).map(r => r.trait)).sort();
-  $('trait-list').innerHTML = traits.map(t => `<option value="${esc(t)}">${esc(traitLabel(t))}</option>`).join('');
-  const q = $('trait').value.trim().toLowerCase();
-  const hits = q ? traits.map(t => [t, traitScore(t, q)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]) : traits;
-  $('trait-hits').innerHTML = hits.slice(0, 60).map(t => `<button type="button" data-trait="${esc(t)}" class="${$('trait').value === t ? 'active' : ''}">${esc(traitLabel(t))}</button>`).join('') + (hits.length > 60 ? `<span class="hint">… ${hits.length - 60} more</span>` : '');
-  $('trait-hits').querySelectorAll('button').forEach(b => b.onclick = () => { $('trait').value = b.dataset.trait; populateTraits(); populateRuns(); });
+  return uniq(state.runs.filter(r => !model || r.model === model).map(r => r.trait)).sort();
 }
+function traitItems(q) {
+  const traits = availableTraits();
+  const ranked = q ? traits.map(t => [t, traitScore(t, q.toLowerCase())]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]) : traits;
+  return ranked.map(t => { const p = phenoOf(t); return { value: t, label: t, sub: p && p.name && p.name !== t ? p.name : '' }; });
+}
+function populateTraits() { /* traits are looked up live by the typeahead */ }
 function matchingRuns() {
   const model = $('model').value, q = $('trait').value.trim().toLowerCase();
   const pool = state.runs.filter(r => !model || r.model === model);
@@ -191,9 +214,11 @@ function populateRuns() {
   const label = r => r.trait ? `${r.trait} · ${r.model}${r.seed && r.seed !== 'main' ? ' · ' + r.seed : ''}` : (r.title || r.run_id);
   $('run').innerHTML = runs.map(r => `<option value="${esc(r.run_id)}">${esc(label(r))}</option>`).join('');
   $('run-count').textContent = runs.length === state.runs.length ? `${runs.length} runs` : `${runs.length} of ${state.runs.length} runs`;
+  const prev = state.run;
   if (!runs.some(r => r.run_id === state.run)) state.run = runs.length ? runs[0].run_id : null;
   if (state.run) $('run').value = state.run;
   $('open').disabled = !state.run;
+  if (state.run !== prev) prefetchGenes();
 }
 function showLanding() { $('view-results').hidden = true; $('view-landing').hidden = false; closeSheet(); setHash({}); setTimeout(() => $('trait').focus(), 50); }
 async function openResults() {
@@ -261,13 +286,13 @@ async function refreshRun() {
 async function loadGenes() {
   const body = await api('/api/genes', { run: state.run, min_prior: num('min_prior'), min_log_bf: num('min_log_bf'), min_combined: num('min_combined'), sort: 'combined', limit: 20000 });
   state.genes = body.genes;
-  fillGeneList('');
+
   drawScatter();
   renderGeneTable();
 }
-function fillGeneList(q) {
-  const ranked = q ? state.genes.map(g => [g.gene, fuzzyScore(q, g.gene)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).slice(0, 30).map(x => x[0]) : state.genes.slice(0, 200).map(g => g.gene);
-  $('gene-list').innerHTML = ranked.map(g => `<option value="${esc(g)}">`).join('');
+function geneItems(q) {
+  const ranked = q ? state.genes.map(g => [g, fuzzyScore(q, g.gene)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]) : state.genes.slice(0, 8);
+  return ranked.map(g => ({ value: g.gene, label: g.gene, sub: `combined ${fmt(g.combined)} · log_bf ${fmt(g.log_bf)} · prior ${fmt(g.prior)}` }));
 }
 function drawScatter() {
   const g = state.genes, hl = state.highlighted;
@@ -408,17 +433,20 @@ async function showGene(gene) {
 // ---------- wiring
 let t1, t2;
 $('model').onchange = () => { populateTraits(); populateRuns(); };
-$('trait').oninput = () => { populateTraits(); populateRuns(); };
-$('trait').onkeydown = e => { if (e.key === 'Enter') { populateRuns(); if (state.run) openWithGene(); } };
-$('run').onchange = e => { state.run = e.target.value; };
+attachTypeahead($('trait'), traitItems, () => populateRuns());
+$('trait').addEventListener('input', populateRuns);
+$('trait').addEventListener('keydown', e => { if (e.key === 'Enter') { populateRuns(); if (state.run) openWithGene(); } });
+attachTypeahead($('gene_landing'), q => { const runGenes = state.genes.length ? geneItems(q) : []; return runGenes; }, () => {});
+$('run').onchange = e => { state.run = e.target.value; prefetchGenes(); };
+async function prefetchGenes() { if (!state.run) return; try { const b = await api('/api/genes', { run: state.run, sort: 'combined', limit: 20000 }); state.genes = b.genes; } catch (e) { state.genes = []; } }
 $('open').onclick = openWithGene;
 async function openWithGene() { await openResults(); const g = $('gene_landing').value.trim(); if (g) { const best = bestGene(g); $('gene_search').value = best; showGene(best); } }
 $('back').onclick = showLanding;
 ['min_prior','min_log_bf','min_combined'].forEach(id => $(id).oninput = () => { clearTimeout(t1); t1 = setTimeout(loadGenes, 350); });
 ['min_beta','min_beta_uncorrected','gs_search'].forEach(id => $(id).oninput = () => { clearTimeout(t2); t2 = setTimeout(loadGeneSets, 350); });
 $('gs_sort').onchange = () => { const c = $('gs_sort').value; state.gsSort = { col: c, desc: !['gene_set','label','p_orig'].includes(c) }; renderGeneSetTable(); };
-$('gene_search').oninput = () => fillGeneList($('gene_search').value.trim());
-$('gene_search').onchange = () => { const v = $('gene_search').value.trim(); if (v) showGene(bestGene(v)); };
+attachTypeahead($('gene_search'), geneItems, (_, v) => showGene(v));
+$('gene_search').addEventListener('keydown', e => { if (e.key === 'Enter') { const v = $('gene_search').value.trim(); if (v) showGene(bestGene(v)); } });
 $('modal-close').onclick = () => $('modal').close();
 $('modal').onclick = e => { if (e.target === $('modal')) $('modal').close(); };
 $('sheet-close').onclick = closeSheet;
@@ -433,21 +461,21 @@ BODY = r"""
 <div id="view-landing" hidden>
   <div class="landing">
     <h1>{title}</h1>
-    <p class="lede">Browse thresholded PIGEAN results: genes, gene sets and their loadings, across traits and models.{api_note}</p>
-    <div class="field"><label for="trait">Trait</label><input id="trait" class="big" list="trait-list" placeholder="type a trait name, legacy id or portal id…" autocomplete="off"><datalist id="trait-list"></datalist><div id="trait-hits" class="trait-hits"></div></div>
+    <p class="lede">Browse PIGEAN results across traits, models, and genes.{api_note}</p>
+    <div class="field ta-wrap"><label for="trait">Trait</label><input id="trait" placeholder="Search traits by name or id" autocomplete="off"></div>
     <div class="row">
       <div class="field"><label for="model">Model</label><select id="model"></select></div>
       <div class="field"><label for="run">Run <span id="run-count" class="muted"></span></label><select id="run"></select></div>
     </div>
-    <div class="field"><label for="gene_landing">Gene <span class="muted">(optional — opens that gene's card)</span></label><input id="gene_landing" placeholder="e.g. TCF7L2" style="width:100%"></div>
-    <div class="actions"><button id="open" class="primary" type="button" disabled>Open results</button><span id="landing-note" class="hint">Enter in the trait box also opens the first matching run.</span></div>
+    <div class="field ta-wrap"><label for="gene_landing">Gene <span class="muted">(optional)</span></label><input id="gene_landing" placeholder="e.g. TCF7L2" autocomplete="off"></div>
+    <div class="actions"><button id="open" class="primary" type="button" disabled>Open results</button><span id="landing-note" class="hint"></span></div>
   </div>
 </div>
 <div id="view-results" class="shell" hidden>
   <div class="bar">
     <button id="back" type="button" title="back to search">◀ Search</button>
     <div class="crumb" id="crumb"></div>
-    <div class="right"><div><label for="gene_search">Gene</label><input id="gene_search" list="gene-list" placeholder="e.g. TCF7L2 ⏎" style="width:14ch"><datalist id="gene-list"></datalist></div></div>
+    <div class="right"><div class="ta-wrap"><label for="gene_search">Gene</label><input id="gene_search" placeholder="e.g. TCF7L2" style="width:22ch" autocomplete="off"></div></div>
   </div>
   <div id="run-summary"></div>
   <div class="grid">
