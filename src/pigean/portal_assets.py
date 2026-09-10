@@ -54,6 +54,18 @@ details.build div { margin:6px 0 0 14px; font-size:12px; line-height:1.6; }
 .chip { display:inline-block; background:var(--hl-soft); color:var(--hl); border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; margin-left:6px; }
 /* landing */
 #view-landing { min-height:80vh; display:flex; align-items:center; justify-content:center; }
+#view-landing[hidden], #view-results[hidden] { display:none !important; }
+dialog.modal { border:1px solid var(--line); border-radius:14px; padding:0; width:min(900px, 94vw); max-height:88vh; box-shadow:0 24px 60px rgba(31,41,51,.18); }
+dialog.modal::backdrop { background:rgba(31,41,51,.28); }
+dialog.modal .modal-head { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; }
+dialog.modal .modal-head h2 { flex:1; margin:0; font-size:16px; }
+dialog.modal .modal-body { padding:14px 18px 18px; overflow:auto; max-height:calc(88vh - 60px); font-size:12.5px; line-height:1.5; }
+.linkbtn { border:0; background:none; color:var(--accent); padding:0; font-weight:600; cursor:pointer; font-size:12px; }
+.linkbtn:hover { background:none; text-decoration:underline; }
+.maps { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:2px 0 12px; }
+.maps a { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:2px 9px; font-size:11.5px; color:var(--ink); text-decoration:none; background:#fff; }
+.maps a:hover { border-color:var(--accent); color:var(--accent); }
+.maps a .onto { color:var(--muted); font-weight:600; margin-right:3px; }
 .landing { width:min(720px, 94vw); background:#fff; border:1px solid var(--line); border-radius:18px; padding:32px 36px 28px; box-shadow:0 18px 45px rgba(31,41,51,.08); }
 .landing h1 { font-size:34px; margin-bottom:4px; }
 .landing .lede { color:var(--muted); margin:0 0 22px; }
@@ -126,6 +138,17 @@ function bindSort(table, s, textCols, rerender) {
 
 // ---------- run selection: landing (trait -> model -> run -> optional gene) and results bar
 const uniq = a => [...new Set(a.filter(x => x !== null && x !== undefined && x !== ''))];
+// Fuzzy score: exact > prefix > substring > in-order subsequence (with a small gap penalty); 0 = no match.
+function fuzzyScore(query, text) {
+  if (!query) return 1; if (!text) return 0;
+  const q = query.toLowerCase(), t = text.toLowerCase();
+  if (t === q) return 1000; if (t.startsWith(q)) return 800 - t.length * 0.01;
+  const idx = t.indexOf(q); if (idx >= 0) return 600 - idx * 0.5 - t.length * 0.01;
+  let ti = 0, gaps = 0, first = -1;
+  for (const ch of q) { const j = t.indexOf(ch, ti); if (j < 0) return 0; if (first < 0) first = j; gaps += j - ti; ti = j + 1; }
+  return Math.max(1, 300 - gaps * 4 - first - t.length * 0.01);
+}
+const traitScore = (t, q) => { const p = phenoOf(t); return Math.max(fuzzyScore(q, t), p ? fuzzyScore(q, p.name || '') * 0.98 : 0, p && (p.portal_id || '').toLowerCase() === q ? 1000 : 0); };
 const phenoOf = t => { const r = state.runs.find(x => x.trait === t && x.phenotype); return r ? r.phenotype : null; };
 const traitLabel = t => { const p = phenoOf(t); return p && p.name && p.name !== t ? `${p.name} (${t})` : t; };
 function hashState() { const h = new URLSearchParams(location.hash.replace(/^#/, '')); return { run: h.get('run') || '', gene: h.get('gene') || '', gs: h.get('gs') || '' }; }
@@ -146,15 +169,22 @@ function populateTraits() {
   const traits = uniq(state.runs.filter(r => !model || r.model === model).map(r => r.trait)).sort();
   $('trait-list').innerHTML = traits.map(t => `<option value="${esc(t)}">${esc(traitLabel(t))}</option>`).join('');
   const q = $('trait').value.trim().toLowerCase();
-  const hits = q ? traits.filter(t => matchTrait(t, q)) : traits;
+  const hits = q ? traits.map(t => [t, traitScore(t, q)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]) : traits;
   $('trait-hits').innerHTML = hits.slice(0, 60).map(t => `<button type="button" data-trait="${esc(t)}" class="${$('trait').value === t ? 'active' : ''}">${esc(traitLabel(t))}</button>`).join('') + (hits.length > 60 ? `<span class="hint">… ${hits.length - 60} more</span>` : '');
   $('trait-hits').querySelectorAll('button').forEach(b => b.onclick = () => { $('trait').value = b.dataset.trait; populateTraits(); populateRuns(); });
 }
-function matchTrait(t, q) { const p = phenoOf(t); return t.toLowerCase().includes(q) || (p && ((p.name || '').toLowerCase().includes(q) || (p.portal_id || '').toLowerCase() === q)); }
 function matchingRuns() {
   const model = $('model').value, q = $('trait').value.trim().toLowerCase();
-  const exact = state.runs.some(r => (r.trait || '').toLowerCase() === q);
-  return state.runs.filter(r => (!model || r.model === model) && (!q || (exact ? (r.trait || '').toLowerCase() === q : (matchTrait(r.trait || '', q) || r.run_id.toLowerCase().includes(q)))));
+  const pool = state.runs.filter(r => !model || r.model === model);
+  if (!q) return pool;
+  const exact = pool.filter(r => (r.trait || '').toLowerCase() === q);
+  if (exact.length) return exact;
+  return pool.map(r => [r, Math.max(traitScore(r.trait || '', q), fuzzyScore(q, r.run_id) * 0.5)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]);
+}
+function bestGene(query) {
+  const q = query.trim(); if (!q) return '';
+  const ranked = state.genes.map(g => [g.gene, fuzzyScore(q, g.gene)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]);
+  return ranked.length ? ranked[0][0] : q.toUpperCase();
 }
 function populateRuns() {
   const runs = matchingRuns();
@@ -181,23 +211,38 @@ function runSummary() {
     `<span class="muted">model <b>${esc(r.model_title || r.model || '')}</b>${r.seed && r.seed !== 'main' ? ' · run <b>' + esc(r.seed) + '</b>' : ''}</span>`;
   const filt = ['genes','gene_sets','loadings'].map(k => (f[k] && f[k].length) ? `<b>${k}</b>: ${esc(f[k].join(` ${f.mode === 'all' ? 'AND' : 'OR'} `))}` : null).filter(Boolean).join(' &nbsp;·&nbsp; ') || 'no build-time filters';
   const paths = ['gene_stats_path','gene_set_stats_path','gene_gene_set_stats_path','params_path'].filter(k => r[k]).map(k => `<code>${esc(r[k])}</code>`).join('<br>');
-  const mappings = ph && ph.mappings && ph.mappings.length ? `<details class="build"><summary>Phenotype mappings (${ph.mappings.length})</summary><div>
-        ${ph.description && ph.description !== ph.name ? esc(ph.description) + '<br>' : ''}${esc(ph.trait_type || '')}${ph.is_dichotomous === '1' || ph.is_dichotomous === 'true' ? ' · dichotomous' : ''}${ph.legacy_trait_group ? ' · legacy group ' + esc(ph.legacy_trait_group) : ''}
-        <table style="margin-top:6px;width:auto"><thead><tr><th>Ontology</th><th>ID</th><th>Label</th><th>Predicate</th><th class="num">Conf.</th><th>Justification</th></tr></thead><tbody>
-        ${ph.mappings.map(m => `<tr><td>${esc(m.target_ontology)}</td><td>${esc(m.target_id)}</td><td>${esc(m.target_label)}</td><td>${esc((m.predicate || '').replace('skos:', ''))}</td><td class="num">${m.confidence === null || m.confidence === undefined ? '' : (+m.confidence).toFixed(2)}</td><td class="muted">${esc(m.justification || '')}</td></tr>`).join('')}
-        </tbody></table></div></details>` : '';
-  $('run-summary').innerHTML = `<div class="counts">
+  const maps = ph && ph.mappings ? ph.mappings : [];
+  const conf = m => m.confidence === null || m.confidence === undefined ? '' : (+m.confidence).toFixed(2);
+  const mapChips = maps.length ? `<div class="maps">${maps.map(m => `<a href="${esc(ontologyUrl(m.target_id))}" target="_blank" rel="noopener" title="${esc(m.target_label || '')} · ${esc((m.predicate || '').replace('skos:', ''))}${conf(m) ? ' · confidence ' + conf(m) : ''}"><span class="onto">${esc(m.target_ontology || m.target_id.split(':')[0])}</span>${esc(m.target_label || m.target_id)}</a>`).join('')}
+      <button class="linkbtn" id="open-mappings" type="button">all ${maps.length} mappings</button></div>` : '';
+  $('run-summary').innerHTML = mapChips + `<div class="counts">
       <div class="stat"><strong>${r.n_genes.toLocaleString()}</strong><span class="muted">genes of ${r.n_genes_input.toLocaleString()}</span></div>
       <div class="stat"><strong>${r.n_gene_sets.toLocaleString()}</strong><span class="muted">gene sets of ${r.n_gene_sets_input.toLocaleString()}</span></div>
       <div class="stat"><strong>${r.n_loadings.toLocaleString()}</strong><span class="muted">loadings of ${r.n_loadings_input.toLocaleString()}</span></div>
-      <details class="build"><summary>Build details</summary><div>Run id <code>${esc(r.run_id)}</code><br>Filters (${esc(f.mode || 'any')}): ${filt}<br>Built ${esc(r.built_at)}<br>${paths}${(r.warnings||[]).map(w => `<div class="warn">${esc(w)}</div>`).join('')}</div></details>
-      ${r.params_path ? `<details class="build" id="params-details"><summary>Run parameters</summary><div id="params-body" class="muted">loading…</div></details>` : ''}
-      ${mappings}
+      <button class="linkbtn" id="open-build" type="button">Build details</button>
+      ${r.params_path ? '<button class="linkbtn" id="open-params" type="button">Run parameters</button>' : ''}
     </div>`;
-  const pd = $('params-details');
-  if (pd) pd.ontoggle = async () => { if (pd.open && !pd.dataset.loaded) { pd.dataset.loaded = '1'; const b = await api('/api/run_params', { run: r.run_id });
-    $('params-body').innerHTML = `<table style="width:auto"><thead><tr><th>Parameter</th><th>Ver.</th><th>Value</th></tr></thead><tbody>${b.params.map(p => `<tr><td>${esc(p.parameter)}</td><td>${esc(p.version)}</td><td style="white-space:normal;word-break:break-all">${esc(p.value)}</td></tr>`).join('')}</tbody></table>`; } };
+  $('open-build').onclick = () => openModal('Build details', `Run id <code>${esc(r.run_id)}</code><br>Model <b>${esc(r.model_title || r.model || '')}</b> · run <b>${esc(r.seed || '')}</b> · trait <b>${esc(r.trait || '')}</b><br>Filters (${esc(f.mode || 'any')}): ${filt}<br>Built ${esc(r.built_at)}<br>${paths}${(r.warnings||[]).map(w => `<div class="warn">${esc(w)}</div>`).join('')}`);
+  const pb = $('open-params');
+  if (pb) pb.onclick = async () => { openModal('Run parameters', '<span class="muted">loading…</span>'); const b = await api('/api/run_params', { run: r.run_id });
+    $('modal-body').innerHTML = `<div class="muted" style="margin-bottom:8px"><code>${esc(r.params_path)}</code> · ${b.params.length} parameters</div><table><thead><tr><th>Parameter</th><th>Ver.</th><th>Value</th></tr></thead><tbody>${b.params.map(p => `<tr><td>${esc(p.parameter)}</td><td>${esc(p.version)}</td><td style="white-space:normal;word-break:break-all">${esc(p.value)}</td></tr>`).join('')}</tbody></table>`; };
+  const mb = $('open-mappings');
+  if (mb) mb.onclick = () => openModal(`Phenotype mappings: ${ph.name || r.trait}`, `<div class="muted" style="margin-bottom:8px">${esc(r.trait)} · ${esc(ph.portal_id || '')} · ${esc(ph.trait_group || '')}${ph.trait_type ? ' · ' + esc(ph.trait_type) : ''}${ph.is_dichotomous === '1' || ph.is_dichotomous === 'true' ? ' · dichotomous' : ''}${ph.legacy_trait_group ? ' · legacy group ' + esc(ph.legacy_trait_group) : ''}${ph.description && ph.description !== ph.name ? '<br>' + esc(ph.description) : ''}</div>
+      <table><thead><tr><th>Ontology</th><th>ID</th><th>Label</th><th>Predicate</th><th class="num">Conf.</th><th>Justification</th><th>Source</th></tr></thead><tbody>
+      ${maps.map(m => `<tr><td>${esc(m.target_ontology)}</td><td><a href="${esc(ontologyUrl(m.target_id))}" target="_blank" rel="noopener">${esc(m.target_id)}</a></td><td class="wrap">${esc(m.target_label)}</td><td>${esc((m.predicate || '').replace('skos:', ''))}</td><td class="num">${conf(m)}</td><td class="muted">${esc(m.justification || '')}</td><td class="muted">${esc(m.source || '')}</td></tr>`).join('')}</tbody></table>`);
 }
+// Resolvable link for an ontology CURIE (MESH:D003924, MONDO:0005148, EFO:0000275, ...).
+function ontologyUrl(curie) {
+  const [prefix, local] = (curie || '').split(':');
+  if (!local) return 'https://bioregistry.io/' + encodeURIComponent(curie || '');
+  const p = prefix.toUpperCase();
+  if (p === 'MESH') return `https://meshb.nlm.nih.gov/record/ui?ui=${encodeURIComponent(local)}`;
+  if (p === 'ORPHANET' || p === 'ORPHA') return `https://www.orpha.net/en/disease/detail/${encodeURIComponent(local)}`;
+  if (p === 'ICD10CM' || p === 'ICD10') return `https://icd.who.int/browse10/2019/en#/${encodeURIComponent(local)}`;
+  if (['EFO','MONDO','DOID','HP','OBA','CMO','CHEBI','NCIT','UBERON','GO','PATO','SNOMED','SNOMEDCT'].includes(p)) return `https://www.ebi.ac.uk/ols4/search?q=${encodeURIComponent(curie)}`;
+  return 'https://bioregistry.io/' + encodeURIComponent(curie);
+}
+function openModal(title, bodyHtml) { $('modal-title').textContent = title; $('modal-body').innerHTML = bodyHtml; const d = $('modal'); if (!d.open) d.showModal(); }
 async function refreshRun() {
   state.selectedGeneSet = null; state.selectedGene = null; state.highlighted = new Set();
   closeSheet();
@@ -210,9 +255,13 @@ async function refreshRun() {
 async function loadGenes() {
   const body = await api('/api/genes', { run: state.run, min_prior: num('min_prior'), min_log_bf: num('min_log_bf'), min_combined: num('min_combined'), sort: 'combined', limit: 20000 });
   state.genes = body.genes;
-  $('gene-list').innerHTML = state.genes.slice(0, 3000).map(g => `<option value="${esc(g.gene)}">`).join('');
+  fillGeneList('');
   drawScatter();
   renderGeneTable();
+}
+function fillGeneList(q) {
+  const ranked = q ? state.genes.map(g => [g.gene, fuzzyScore(q, g.gene)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).slice(0, 30).map(x => x[0]) : state.genes.slice(0, 200).map(g => g.gene);
+  $('gene-list').innerHTML = ranked.map(g => `<option value="${esc(g)}">`).join('');
 }
 function drawScatter() {
   const g = state.genes, hl = state.highlighted;
@@ -357,16 +406,19 @@ $('trait').oninput = () => { populateTraits(); populateRuns(); };
 $('trait').onkeydown = e => { if (e.key === 'Enter') { populateRuns(); if (state.run) openWithGene(); } };
 $('run').onchange = e => { state.run = e.target.value; };
 $('open').onclick = openWithGene;
-async function openWithGene() { await openResults(); const g = $('gene_landing').value.trim(); if (g) { $('gene_search').value = g; showGene(g); } }
+async function openWithGene() { await openResults(); const g = $('gene_landing').value.trim(); if (g) { const best = bestGene(g); $('gene_search').value = best; showGene(best); } }
 $('back').onclick = showLanding;
 ['min_prior','min_log_bf','min_combined'].forEach(id => $(id).oninput = () => { clearTimeout(t1); t1 = setTimeout(loadGenes, 350); });
 ['min_beta','min_beta_uncorrected','gs_search'].forEach(id => $(id).oninput = () => { clearTimeout(t2); t2 = setTimeout(loadGeneSets, 350); });
 $('gs_sort').onchange = () => { const c = $('gs_sort').value; state.gsSort = { col: c, desc: !['gene_set','label','p_orig'].includes(c) }; renderGeneSetTable(); };
-$('gene_search').onchange = () => { const v = $('gene_search').value.trim(); if (v) showGene((state.genes.find(g => g.gene.toLowerCase() === v.toLowerCase()) || {gene: v}).gene); };
+$('gene_search').oninput = () => fillGeneList($('gene_search').value.trim());
+$('gene_search').onchange = () => { const v = $('gene_search').value.trim(); if (v) showGene(bestGene(v)); };
+$('modal-close').onclick = () => $('modal').close();
+$('modal').onclick = e => { if (e.target === $('modal')) $('modal').close(); };
 $('sheet-close').onclick = closeSheet;
 $('sheet-backdrop').onclick = closeSheet;
 $('clear-highlight').onclick = () => { state.selectedGeneSet = null; state.selectedGene = null; setHighlight([]); renderGeneSetTable(); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').open) closeSheet(); });
 window.addEventListener('hashchange', () => { const h = hashState(); if (!h.run && !$('view-results').hidden) showLanding(); });
 loadRuns().catch(err => { $('landing-note').innerHTML = `<span class="warn">${esc(err.message)}</span>`; $('view-landing').hidden = false; });
 """
@@ -419,6 +471,7 @@ BODY = r"""
     </section>
   </div>
 </div>
+<dialog id="modal" class="modal"><div class="modal-head"><h2 id="modal-title"></h2><button id="modal-close" type="button" title="close">✕</button></div><div class="modal-body" id="modal-body"></div></dialog>
 <div id="sheet-backdrop"></div>
 <aside id="sheet" aria-label="detail">
   <div class="sheet-head"><div style="flex:1"><div class="kind" id="sheet-kind"></div><h2 id="sheet-title"></h2></div><button id="sheet-close" type="button" title="close (Esc)">✕</button></div>
