@@ -167,6 +167,23 @@ class PortalBuildTest(unittest.TestCase):
         self.assertTrue(any("loadings will be empty" in w for w in run["warnings"]))
         conn.close()
 
+    def test_run_meta_explicit_and_inferred(self) -> None:
+        rc = portal.main([
+            "build", "--db", str(self.db),
+            "--run", f"large__T2D__s2:{self.run_dir}",
+            "--run", f"custom:{self.lap_dir}", "--run-meta", "custom:model=pathways,trait=IBD,seed=7,title=IBD pathways",
+            "--run", f"plain:{self.lap_dir}",
+        ])
+        self.assertEqual(rc, 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        runs = {r["run_id"]: r for r in portal_db.list_runs(conn)}
+        self.assertEqual((runs["large__T2D__s2"]["model"], runs["large__T2D__s2"]["trait"], runs["large__T2D__s2"]["seed"]), ("large", "T2D", "2"))
+        self.assertEqual((runs["custom"]["model"], runs["custom"]["trait"], runs["custom"]["seed"], runs["custom"]["title"]), ("pathways", "IBD", "7", "IBD pathways"))
+        self.assertEqual((runs["plain"]["model"], runs["plain"]["trait"], runs["plain"]["seed"]), ("", "", ""))
+        conn.close()
+        with self.assertRaises(SystemExit):
+            portal.main(["build", "--db", str(self.db), "--run", f"x:{self.run_dir}", "--run-meta", "x:colour=red"])
+
     def test_build_without_runs_fails(self) -> None:
         self.assertEqual(portal.main(["build", "--db", str(self.db)]), 2)
 
@@ -209,6 +226,8 @@ class PortalBuildTest(unittest.TestCase):
                 self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
             self.assertIn("<title>t</title>", html)
             self.assertIn("/api/genes", html)
+            self.assertIn('id="sheet"', html)
+            self.assertIn("Build details", html)
             self.assertIn('window.PIGEAN_PORTAL_API_BASE = ""', html)
             req = urllib.request.Request(f"{base}/api/runs", method="OPTIONS")
             with urllib.request.urlopen(req) as resp:

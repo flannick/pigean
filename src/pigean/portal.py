@@ -61,6 +61,23 @@ def _parse_run_files_spec(value: str) -> RunFiles:
     return files
 
 
+def _parse_run_meta(value: str) -> tuple[str, dict]:
+    """RUN_ID:model=NAME,trait=NAME,seed=N[,title=TEXT]"""
+    if ":" not in value:
+        raise argparse.ArgumentTypeError(f"--run-meta expects RUN_ID:key=value,..., got '{value}'")
+    run_id, rest = value.split(":", 1)
+    meta: dict = {}
+    for item in rest.split(","):
+        if "=" not in item:
+            raise argparse.ArgumentTypeError(f"--run-meta item '{item}' must be key=value")
+        key, val = item.split("=", 1)
+        key = key.strip()
+        if key not in ("model", "trait", "seed", "title"):
+            raise argparse.ArgumentTypeError(f"--run-meta for '{run_id}' has unknown key '{key}'")
+        meta[key] = val.strip()
+    return run_id, meta
+
+
 def _parse_title(value: str) -> tuple[str, str]:
     if ":" not in value:
         raise argparse.ArgumentTypeError(f"--run-title expects RUN_ID:TITLE, got '{value}'")
@@ -90,6 +107,10 @@ def build_parser() -> argparse.ArgumentParser:
                        metavar="RUN_ID:gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH]",
                        help="Explicit file paths for one run. Repeatable.")
     build.add_argument("--run-title", action="append", default=[], type=_parse_title, metavar="RUN_ID:TITLE")
+    build.add_argument("--run-meta", action="append", default=[], type=_parse_run_meta,
+                       metavar="RUN_ID:model=NAME,trait=NAME,seed=N[,title=TEXT]",
+                       help="Model / trait / seed labels for the portal's selectors. Inferred from run ids of the "
+                            "form <model>__<trait>[__s<seed>] when omitted. Repeatable.")
     build.add_argument("--gene-filter", action="append", default=[], type=_filter_arg, metavar="EXPR",
                        help="Gene threshold such as 'prior>1' or 'log_bf>=1'. Repeatable.")
     build.add_argument("--gene-set-filter", action="append", default=[], type=_filter_arg, metavar="EXPR",
@@ -126,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _collect_runs(args: argparse.Namespace) -> list[RunFiles]:
     titles = dict(args.run_title)
+    metas = dict(args.run_meta)
     runs: list[RunFiles] = []
     for run_id, directory in args.run:
         runs.append(resolve_run_dir(run_id, directory))
@@ -135,7 +157,10 @@ def _collect_runs(args: argparse.Namespace) -> list[RunFiles]:
         if files.run_id in seen:
             raise ValueError(f"duplicate run id '{files.run_id}'")
         seen.add(files.run_id)
-        files.title = titles.get(files.run_id, files.run_id)
+        meta = metas.get(files.run_id, {})
+        files.model, files.trait, files.seed = meta.get("model", ""), meta.get("trait", ""), meta.get("seed", "")
+        files.infer_metadata()
+        files.title = titles.get(files.run_id) or meta.get("title") or files.run_id
         for path in (files.gene_stats, files.gene_set_stats, files.gene_gene_set_stats):
             if path is not None and not path.exists():
                 raise FileNotFoundError(f"run '{files.run_id}': {path} does not exist")

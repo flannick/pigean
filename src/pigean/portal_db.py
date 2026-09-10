@@ -21,7 +21,7 @@ from typing import Callable, Iterable, Iterator, Optional
 
 from .dashboard import _first, open_text, parse_float
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 GENE_COLUMN_ALIASES = {
     "gene": ["Gene", "gene", "id", "ID"],
@@ -109,16 +109,35 @@ def passes_filters(row: dict, filters: list[Filter], mode: str) -> bool:
     return any(results) if mode == "any" else all(results)
 
 
+_RUN_ID_RE = re.compile(r"^(?P<model>.+?)__(?P<trait>[^_].*?)(?:__s(?P<seed>\d+))?$")
+
+
 @dataclass
 class RunFiles:
-    """Input files for one run. `gene_gene_set_stats` is optional."""
+    """Input files plus metadata for one run. `gene_gene_set_stats` is optional.
+
+    `model` / `trait` / `seed` drive the portal's model -> trait -> run selectors. When not
+    given explicitly they are inferred from a `<model>__<trait>[__s<seed>]` run id.
+    """
 
     run_id: str
     gene_stats: Path
     gene_set_stats: Path
     gene_gene_set_stats: Optional[Path] = None
     title: str = ""
+    model: str = ""
+    trait: str = ""
+    seed: str = ""
     warnings: list[str] = field(default_factory=list)
+
+    def infer_metadata(self) -> None:
+        """Fill blank model/trait/seed from the run id if it follows the LAP naming pattern."""
+        match = _RUN_ID_RE.match(self.run_id)
+        if not match:
+            return
+        self.model = self.model or match["model"]
+        self.trait = self.trait or match["trait"]
+        self.seed = self.seed or (match["seed"] or "")
 
 
 def _first_existing(directory: Path, names: Iterable[str], glob_pattern: str, exclude: str = "") -> Optional[Path]:
@@ -172,7 +191,8 @@ def _extra_json(row: dict[str, str], keep_numeric: bool = True) -> str:
 DDL = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS runs (
-    run_id TEXT PRIMARY KEY, title TEXT, gene_stats_path TEXT, gene_set_stats_path TEXT,
+    run_id TEXT PRIMARY KEY, title TEXT, model TEXT, trait TEXT, seed TEXT,
+    gene_stats_path TEXT, gene_set_stats_path TEXT,
     gene_gene_set_stats_path TEXT, n_genes INTEGER, n_gene_sets INTEGER, n_loadings INTEGER,
     n_genes_input INTEGER, n_gene_sets_input INTEGER, n_loadings_input INTEGER,
     filters_json TEXT, warnings_json TEXT, built_at TEXT
@@ -285,6 +305,7 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
     })
     summary = {
         "run_id": run_id, "title": files.title or run_id,
+        "model": files.model, "trait": files.trait, "seed": files.seed,
         "gene_stats_path": str(files.gene_stats), "gene_set_stats_path": str(files.gene_set_stats),
         "gene_gene_set_stats_path": str(files.gene_gene_set_stats) if files.gene_gene_set_stats else "",
         "n_genes": n_genes, "n_gene_sets": n_gene_sets, "n_loadings": n_loadings,
@@ -293,13 +314,21 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
         "built_at": datetime.now().isoformat(timespec="seconds"),
     }
     conn.execute(
-        "INSERT OR REPLACE INTO runs VALUES (:run_id,:title,:gene_stats_path,:gene_set_stats_path,"
+        "INSERT OR REPLACE INTO runs VALUES (:run_id,:title,:model,:trait,:seed,:gene_stats_path,:gene_set_stats_path,"
         ":gene_gene_set_stats_path,:n_genes,:n_gene_sets,:n_loadings,:n_genes_input,:n_gene_sets_input,"
         ":n_loadings_input,:filters_json,:warnings_json,:built_at)",
         summary,
     )
     summary["warnings"] = warnings
     return summary
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after schema v1 to an existing (appended-to) database."""
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
+    for column in ("model", "trait", "seed"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE runs ADD COLUMN {column} TEXT DEFAULT ''")
 
 
 def build_database(db_path: Path, runs: list[RunFiles], options: BuildOptions) -> list[dict]:
@@ -310,6 +339,7 @@ def build_database(db_path: Path, runs: list[RunFiles], options: BuildOptions) -
     conn = open_database(db_path)
     try:
         conn.executescript(DDL)
+        _migrate(conn)
         conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
         summaries = []
         for files in runs:
@@ -330,7 +360,7 @@ def _rows(cursor: sqlite3.Cursor) -> list[dict]:
 
 
 def list_runs(conn: sqlite3.Connection) -> list[dict]:
-    runs = _rows(conn.execute("SELECT * FROM runs ORDER BY run_id"))
+    runs = _rows(conn.execute("SELECT * FROM runs ORDER BY model, trait, seed, run_id"))
     for run in runs:
         run["filters"] = json.loads(run.pop("filters_json") or "{}")
         run["warnings"] = json.loads(run.pop("warnings_json") or "[]")

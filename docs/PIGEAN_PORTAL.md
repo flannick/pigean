@@ -4,9 +4,12 @@
 
 1. `build` reads one or more runs (gene stats, gene-set stats, and the gene x gene-set
    loading table), applies thresholds, and writes a SQLite file.
-2. `serve` hosts that file behind a small JSON API and a single-page UI: a scatter of each
-   gene's direct (`log_bf`) vs. indirect (`prior`) score, a ranked gene-set table, and the
-   gene loadings for whichever gene set (or gene) you click.
+2. `serve` hosts that file behind a small JSON API and a single-page UI: model → trait → run
+   selectors plus a gene search, a scatter of each gene's direct (`log_bf`) vs. indirect
+   (`prior`) score with a sortable gene table, a ranked gene-set table, and a collapsible
+   detail sheet that opens with a gene set's gene loadings (its genes are highlighted in
+   magenta on the scatter) or a gene's gene-set memberships. Build thresholds and input paths
+   sit behind a "Build details" toggle.
 3. `html` writes the same UI as a static page whose JavaScript calls a `serve` instance at a
    fixed URL, so the page can be hosted from a bucket or any static file server.
 
@@ -31,6 +34,9 @@ PYTHONPATH=src python -m pigean.portal build \
   are recognised. Repeat for several runs.
 - `--run-files RUN_ID:gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH]` gives
   explicit paths when the files live elsewhere.
+- `--run-meta RUN_ID:model=NAME,trait=NAME,seed=N[,title=TEXT]` labels a run for the UI's
+  model → trait → run selectors. Omitted labels are inferred from run ids shaped like
+  `<model>__<trait>[__s<seed>]` (the LAP naming used by the inferiority pipeline).
 - `--gene-filter`, `--gene-set-filter`, `--loading-filter` take `column op number`
   expressions (`>`, `>=`, `<`, `<=`, `==`, `!=`) against the normalised column names below
   and are repeatable. `--filter-mode any` (default) keeps a row if *any* filter on that table
