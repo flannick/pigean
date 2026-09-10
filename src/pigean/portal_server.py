@@ -9,6 +9,9 @@ API:
     GET /api/gene_sets?run=ID[&min_beta=&min_beta_uncorrected=&search=&sort=&limit=]
     GET /api/gene_set?run=ID&id=GENE_SET[&limit=]
     GET /api/gene?run=ID&id=GENE[&limit=]
+    GET /api/gene_across?id=GENE[&model=]          the gene in every run (runs where it passed thresholds)
+    GET /api/gene_set_across?id=GENE_SET[&model=]  the gene set in every run
+    GET /api/run_params?run=ID                     PIGEAN params recorded for the run
 """
 
 from __future__ import annotations
@@ -85,6 +88,14 @@ def _handle_api(state: PortalState, path: str, params: dict[str, list[str]]) -> 
     if path == "/api/runs":
         return 200, {"runs": portal_db.list_runs(conn)}
 
+    if path in ("/api/gene_across", "/api/gene_set_across"):
+        ident = _str(params, "id")
+        if not ident:
+            return 400, {"error": "missing 'id' parameter"}
+        fn = portal_db.gene_across_runs if path == "/api/gene_across" else portal_db.gene_set_across_runs
+        rows = fn(conn, ident, model=_str(params, "model"))
+        return 200, {"id": ident, "model": _str(params, "model"), "rows": rows}
+
     run_id = _str(params, "run")
     if not run_id:
         return 400, {"error": "missing 'run' parameter"}
@@ -111,6 +122,8 @@ def _handle_api(state: PortalState, path: str, params: dict[str, list[str]]) -> 
     if path == "/api/gene":
         detail = portal_db.gene_detail(conn, run_id, _str(params, "id"), limit=_int(params, "limit", 500))
         return (200, detail) if detail is not None else (404, {"error": "unknown gene"})
+    if path == "/api/run_params":
+        return 200, {"run": run_id, "params": portal_db.run_params(conn, run_id)}
     return 404, {"error": f"unknown endpoint {path}"}
 
 

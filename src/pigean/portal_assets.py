@@ -1,6 +1,7 @@
 """Single-page UI for the PIGEAN results portal (served by `pigean.portal_server`).
 
-Layout: model -> trait -> run selectors plus a gene search in the header; a gene scatter
+Layout: model -> trait -> run selectors (traits searchable by legacy id, portal name or
+portal id when the build included the portal phenotype file) plus a gene search in the header; a gene scatter
 (log_bf vs prior, coloured by combined) with a sortable gene table; a ranked gene-set
 table; and a collapsible right-hand detail sheet that opens with a gene set's gene
 loadings or a gene's gene-set memberships. Genes belonging to the selected gene set are
@@ -60,6 +61,11 @@ body.sheet-open #sheet-backdrop { display:block; }
 #sheet .kind { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
 #sheet .scroll { max-height:none; }
 #loading-plot { margin-bottom:8px; }
+.tabs { display:flex; gap:6px; margin:10px 0 12px; border-bottom:1px solid var(--line); }
+.tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; background:none; font-weight:600; color:var(--muted); padding:6px 10px; }
+.tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tabs button:hover { background:none; color:var(--ink); }
+.across-controls { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:8px; }
 """
 
 SCRIPT = r"""
@@ -100,16 +106,18 @@ async function loadRuns() {
 function populateTraits() {
   const model = $('model').value;
   const traits = uniq(state.runs.filter(r => !model || r.model === model).map(r => r.trait)).sort();
-  $('trait-list').innerHTML = traits.map(t => `<option value="${esc(t)}">`).join('');
+  const nameOf = t => { const r = state.runs.find(x => x.trait === t && x.phenotype); return r && r.phenotype.name && r.phenotype.name !== t ? r.phenotype.name : ''; };
+  $('trait-list').innerHTML = traits.map(t => `<option value="${esc(t)}">${esc(nameOf(t))}</option>`).join('');
   $('trait').placeholder = traits.length ? `search ${traits.length} traits` : 'no trait labels';
 }
 function matchingRuns() {
   const model = $('model').value, trait = $('trait').value.trim().toLowerCase();
-  return state.runs.filter(r => (!model || r.model === model) && (!trait || (r.trait || '').toLowerCase().includes(trait) || r.run_id.toLowerCase().includes(trait)));
+  const hit = r => (r.trait || '').toLowerCase().includes(trait) || r.run_id.toLowerCase().includes(trait) || (r.phenotype && (r.phenotype.name || '').toLowerCase().includes(trait)) || (r.phenotype && (r.phenotype.portal_id || '').toLowerCase() === trait);
+  return state.runs.filter(r => (!model || r.model === model) && (!trait || hit(r)));
 }
 function populateRuns() {
   const runs = matchingRuns();
-  const label = r => r.seed ? `${r.trait || r.run_id} · ${r.model} · seed ${r.seed}` : (r.title || r.run_id);
+  const label = r => r.trait ? `${r.trait} · ${r.model}${r.seed && r.seed !== 'main' ? ' · ' + r.seed : ''}` : (r.title || r.run_id);
   $('run').innerHTML = runs.map(r => `<option value="${esc(r.run_id)}">${esc(label(r))}</option>`).join('');
   $('run-count').textContent = `${runs.length} of ${state.runs.length} runs`;
   if (!runs.some(r => r.run_id === state.run)) state.run = runs.length ? runs[0].run_id : null;
@@ -121,18 +129,33 @@ function runSummary() {
   const f = r.filters || {};
   const filt = ['genes','gene_sets','loadings'].map(k => (f[k] && f[k].length) ? `<b>${k}</b>: ${esc(f[k].join(` ${f.mode === 'all' ? 'AND' : 'OR'} `))}` : null).filter(Boolean).join(' &nbsp;·&nbsp; ') || 'no build-time filters';
   const paths = ['gene_stats_path','gene_set_stats_path','gene_gene_set_stats_path'].filter(k => r[k]).map(k => `<code>${esc(r[k])}</code>`).join('<br>');
+  const ph = r.phenotype;
+  const phenoCard = ph ? `<div class="stat"><strong>${esc(ph.name || r.trait)}</strong><span class="muted">${esc(r.trait)} · ${esc(ph.portal_id || '')}${ph.trait_group ? ' · ' + esc(ph.trait_group) : ''}</span></div>` : '';
+  const mappings = ph && ph.mappings && ph.mappings.length ? `<details class="build"><summary>Phenotype mappings (${ph.mappings.length})</summary><div>
+        ${ph.description && ph.description !== ph.name ? esc(ph.description) + '<br>' : ''}
+        ${esc(ph.trait_type || '')}${ph.is_dichotomous === '1' || ph.is_dichotomous === 'true' ? ' · dichotomous' : ''}${ph.legacy_trait_group ? ' · legacy group ' + esc(ph.legacy_trait_group) : ''}
+        <table style="margin-top:6px;width:auto"><thead><tr><th>Ontology</th><th>ID</th><th>Label</th><th>Predicate</th><th class="num">Conf.</th><th>Justification</th></tr></thead><tbody>
+        ${ph.mappings.map(m => `<tr><td>${esc(m.target_ontology)}</td><td>${esc(m.target_id)}</td><td>${esc(m.target_label)}</td><td>${esc((m.predicate || '').replace('skos:', ''))}</td><td class="num">${m.confidence === null || m.confidence === undefined ? '' : (+m.confidence).toFixed(2)}</td><td class="muted">${esc(m.justification || '')}</td></tr>`).join('')}
+        </tbody></table></div></details>` : '';
   $('run-summary').innerHTML = `
     <div class="stats">
+      ${phenoCard}
       <div class="stat"><strong>${esc(r.title || r.run_id)}</strong><span class="muted">${esc(r.run_id)}</span></div>
       <div class="stat"><strong>${r.n_genes.toLocaleString()}</strong><span class="muted">genes (of ${r.n_genes_input.toLocaleString()})</span></div>
       <div class="stat"><strong>${r.n_gene_sets.toLocaleString()}</strong><span class="muted">gene sets (of ${r.n_gene_sets_input.toLocaleString()})</span></div>
       <div class="stat"><strong>${r.n_loadings.toLocaleString()}</strong><span class="muted">loadings (of ${r.n_loadings_input.toLocaleString()})</span></div>
       <details class="build"><summary>Build details</summary><div>
+        Model: ${esc(r.model_title || r.model || '')} · run <b>${esc(r.seed || '')}</b><br>
         Filters (${esc(f.mode || 'any')}): ${filt}<br>
-        Built ${esc(r.built_at)}<br>${paths}
+        Built ${esc(r.built_at)}<br>${paths}${r.params_path ? '<br><code>' + esc(r.params_path) + '</code>' : ''}
         ${(r.warnings||[]).map(w => `<div class="warn">${esc(w)}</div>`).join('')}
       </div></details>
+      ${r.params_path ? `<details class="build" id="params-details"><summary>Run parameters</summary><div id="params-body" class="muted">loading…</div></details>` : ''}
+      ${mappings}
     </div>`;
+  const pd = $('params-details');
+  if (pd) pd.ontoggle = async () => { if (pd.open && !pd.dataset.loaded) { pd.dataset.loaded = '1'; const b = await api('/api/run_params', { run: r.run_id });
+    $('params-body').innerHTML = `<table style="width:auto"><thead><tr><th>Parameter</th><th>Ver.</th><th>Value</th></tr></thead><tbody>${b.params.map(p => `<tr><td>${esc(p.parameter)}</td><td>${esc(p.version)}</td><td style="white-space:normal;word-break:break-all">${esc(p.value)}</td></tr>`).join('')}</tbody></table>`; } };
 }
 async function refreshRun() {
   state.selectedGeneSet = null; state.selectedGene = null; state.highlighted = new Set();
@@ -196,10 +219,57 @@ function renderGeneSetTable() {
 
 // ---------- detail sheet
 function kv(obj, keys) { return '<div class="kv">' + keys.filter(k => obj[k] !== undefined && obj[k] !== null && obj[k] !== '').map(k => `<div><span>${esc(k)}</span>${esc(typeof obj[k]==='number'?fmt(obj[k]):obj[k])}</div>`).join('') + '</div>'; }
-function openSheet(kind, title, bodyHtml) {
-  $('sheet-kind').textContent = kind; $('sheet-title').textContent = title; $('sheet-body').innerHTML = bodyHtml;
+function openSheet(kind, title, bodyHtml, across) {
+  $('sheet-kind').textContent = kind; $('sheet-title').textContent = title;
+  const runLabel = (state.runs.find(r => r.run_id === state.run) || {}).trait || 'this run';
+  $('sheet-body').innerHTML = across
+    ? `<div class="tabs"><button class="active" data-tab="this">Details for ${esc(runLabel)}</button><button data-tab="across">Across traits</button></div><div id="tab-this">${bodyHtml}</div><div id="tab-across" hidden></div>`
+    : bodyHtml;
+  if (across) $('sheet-body').querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+    $('sheet-body').querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    $('tab-this').hidden = b.dataset.tab !== 'this'; $('tab-across').hidden = b.dataset.tab !== 'across';
+    if (b.dataset.tab === 'across' && !$('tab-across').dataset.loaded) { $('tab-across').dataset.loaded = '1'; across(); }
+    window.dispatchEvent(new Event('resize'));
+  });
   document.body.classList.add('sheet-open');
   window.dispatchEvent(new Event('resize'));
+}
+
+// ---------- across-traits view (vertical trait plot, one point per run, grouped by trait group)
+const GROUP_COLORS = ['#1f77b4','#2ca02c','#9467bd','#d62728','#ff7f0e','#8c564b','#e377c2','#17becf','#bcbd22','#7f7f7f','#0f766e','#c2410c'];
+async function renderAcross(kind, id, metrics) {
+  const el = $('tab-across');
+  const models = uniq(state.runs.map(r => r.model));
+  const current = (state.runs.find(r => r.run_id === state.run) || {}).model || '';
+  el.innerHTML = `<div class="across-controls">
+      <div><label>metric</label><select id="across-metric">${metrics.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+      <div><label>model</label><select id="across-model"><option value="">all models</option>${models.map(m => `<option value="${esc(m)}" ${m===current?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
+      <div class="muted" id="across-note" style="flex:1"></div>
+    </div><div id="across-plot"></div><div class="scroll" style="max-height:320px"><table id="across-table"></table></div>`;
+  const draw = async () => {
+    const metric = $('across-metric').value, model = $('across-model').value;
+    const body = await api(kind === 'gene' ? '/api/gene_across' : '/api/gene_set_across', { id, model });
+    const rows = body.rows.filter(r => r[metric] !== null && r[metric] !== undefined);
+    $('across-note').textContent = `${rows.length} run${rows.length===1?'':'s'} where ${id} passed the build thresholds`;
+    if (!rows.length) { Plotly.purge('across-plot'); $('across-table').innerHTML = ''; return; }
+    rows.sort((a,b) => (a.trait_group||'~').localeCompare(b.trait_group||'~') || (b[metric] - a[metric]));
+    const label = r => `${r.phenotype_name || r.trait}${models.length > 1 && !model ? ' · ' + r.model : ''}${r.seed && r.seed !== 'main' ? ' · ' + r.seed : ''}`;
+    const y = rows.map(label), groups = uniq(rows.map(r => r.trait_group || 'other'));
+    const traces = groups.map((gname, i) => { const sel = rows.filter(r => (r.trait_group || 'other') === gname); return {
+      type: 'scatter', mode: 'markers', name: gname, orientation: 'h', y: sel.map(label), x: sel.map(r => r[metric]),
+      marker: { size: 9, color: GROUP_COLORS[i % GROUP_COLORS.length], line: { width: 1, color: '#fff' } },
+      customdata: sel.map(r => [r.trait, r.portal_id || '', r.run_id]),
+      hovertemplate: `<b>%{y}</b><br>${metric} %{x:.3f}<br>%{customdata[0]} %{customdata[1]}<br>%{customdata[2]}<extra>${esc(gname)}</extra>` }; });
+    const h = Math.max(220, 40 + 18 * rows.length);
+    Plotly.react('across-plot', traces, { height: Math.min(h, 900), margin: { l: 10, r: 10, t: 10, b: 40 }, xaxis: { title: metric, zeroline: true },
+      yaxis: { automargin: true, categoryorder: 'array', categoryarray: y.slice().reverse(), tickfont: { size: 10 } }, legend: { orientation: 'h', y: -0.12, font: { size: 10 } }, hovermode: 'closest' }, { responsive: true, displaylogo: false });
+    $('across-plot').on('plotly_click', ev => { const p = ev.points && ev.points[0]; if (p && p.customdata) { state.run = p.customdata[2]; $('model').value = ''; $('trait').value = ''; populateTraits(); populateRuns(); $('run').value = state.run; refreshRun().then(() => kind === 'gene' ? showGene(id) : showGeneSet(id)); } });
+    const cols = kind === 'gene' ? ['combined','log_bf','prior','huge_score'] : ['beta','beta_uncorrected','n'];
+    $('across-table').innerHTML = `<thead><tr><th>Trait</th><th>Model</th><th>Run</th><th>Group</th>${cols.map(c => `<th class="num">${c}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map(r => `<tr><td title="${esc(r.trait)} ${esc(r.portal_id||'')}">${esc(r.phenotype_name || r.trait)}</td><td>${esc(r.model)}</td><td>${esc(r.seed)}</td><td>${esc(r.trait_group||'')}</td>${cols.map(c => `<td class="num">${fmt(r[c])}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  };
+  $('across-metric').onchange = draw; $('across-model').onchange = draw;
+  await draw();
 }
 function closeSheet() { document.body.classList.remove('sheet-open'); window.dispatchEvent(new Event('resize')); }
 function setHighlight(genes) { state.highlighted = new Set(genes); drawScatter(); renderGeneTable(); }
@@ -214,7 +284,8 @@ async function showGeneSet(id) {
     `<div id="loading-plot" style="height:${Math.min(700, 60 + 16 * Math.min(L.length, 40))}px"></div>` +
     `<div class="scroll"><table id="loading-table"><thead><tr><th>Gene</th><th class="num">weight</th><th class="num">beta</th><th class="num">combined</th><th class="num">log_bf</th><th class="num">prior</th></tr></thead><tbody>` +
     L.map(r => `<tr class="row" data-gene="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.combined)}</td><td class="num">${fmt(r.log_bf)}</td><td class="num">${fmt(r.prior)}</td></tr>`).join('') + '</tbody></table></div>' +
-    `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`);
+    `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`,
+    () => renderAcross('gene_set', id, ['beta', 'beta_uncorrected']));
   $('sheet-body').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGene(tr.dataset.gene));
   const top = L.slice(0, 40).reverse();
   if (top.length) Plotly.react('loading-plot', [{ type: 'bar', orientation: 'h', y: top.map(r => r.gene), x: top.map(r => r.combined ?? 0), marker: { color: top.map(r => r.combined ?? 0), colorscale: 'Viridis', opacity: top.map(r => 0.45 + 0.55 * (r.weight ?? 0)) }, hovertemplate: '%{y}: combined %{x:.3f}, weight %{customdata:.2f}<extra></extra>', customdata: top.map(r => r.weight ?? 0) }],
@@ -225,14 +296,15 @@ async function showGeneSet(id) {
 async function showGene(gene) {
   let d;
   try { d = await api('/api/gene', { run: state.run, id: gene, limit: 1000 }); }
-  catch (err) { openSheet('Gene', gene, `<p class="warn">${esc(err.message)} — it may not have passed the build thresholds for this run.</p>`); return; }
+  catch (err) { openSheet('Gene', gene, `<p class="warn">${esc(err.message)} — it may not have passed the build thresholds for this run.</p>`, () => renderAcross('gene', gene, ['combined', 'log_bf', 'prior', 'huge_score'])); return; }
   state.selectedGene = gene;
   openSheet('Gene', gene,
     kv(d, ['combined','log_bf','prior','huge_score','n','chrom','start','end']) +
     `<h3>Gene sets <span class="muted">${d.gene_sets.length.toLocaleString()} loadings, by beta</span></h3>` +
     `<div class="scroll"><table><thead><tr><th>Gene set</th><th>Label</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr></thead><tbody>` +
     d.gene_sets.map(r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td>${esc(r.gene_set)}</td><td>${esc(r.label)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`).join('') + '</tbody></table></div>' +
-    `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`);
+    `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`,
+    () => renderAcross('gene', gene, ['combined', 'log_bf', 'prior', 'huge_score']));
   $('sheet-body').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
   setHighlight([gene]);
 }

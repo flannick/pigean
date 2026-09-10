@@ -8,8 +8,10 @@
    selectors plus a gene search, a scatter of each gene's direct (`log_bf`) vs. indirect
    (`prior`) score with a sortable gene table, a ranked gene-set table, and a collapsible
    detail sheet that opens with a gene set's gene loadings (its genes are ringed on the scatter while the
-   rest fade) or a gene's gene-set memberships. Build thresholds and input paths
-   sit behind a "Build details" toggle.
+   rest fade) or a gene's gene-set memberships. Each sheet has two tabs: details for the
+   current run, and "Across traits" — a vertical trait plot (one point per run, coloured by
+   portal trait group, metric selectable) of that gene or gene set in every run of the
+   database. Build thresholds, input paths and run parameters sit behind toggles.
 3. `html` writes the same UI as a static page whose JavaScript calls a `serve` instance at a
    fixed URL, so the page can be hosted from a bucket or any static file server.
 
@@ -22,11 +24,27 @@ default; pass `serve --plotly-js` for offline use.
 ```bash
 PYTHONPATH=src python -m pigean.portal build \
   --db results/portal.sqlite \
-  --run t2d:results/t2d/pigean \
-  --run-title t2d:"Type 2 diabetes" \
+  --package model=large,trait=T2D,gene_stats=results/T2D/gs.out,gene_set_stats=results/T2D/gss.out,gene_gene_set_stats=results/T2D/ggss.out,params=results/T2D/params.out \
+  --package model=large,trait=IBD,gene_stats=results/IBD/gs.out,gene_set_stats=results/IBD/gss.out,gene_gene_set_stats=results/IBD/ggss.out \
+  --phenotype-file ../dig-portal-data-models/versions/phenotype/v0.0.1/portal_phenotypes_flat.tsv \
   --gene-filter 'prior>1' --gene-filter 'log_bf>1' \
   --gene-set-filter 'beta>0.01'
 ```
+
+Every PIGEAN result has a model and a trait, and there may be several runs per model/trait
+(seeds, parameter sweeps). A `--package` describes one result:
+
+- `model=` the model id and optional `model_title=` a display name;
+- `trait=` the trait, as a legacy portal phenotype id when possible so it can be joined with
+  the portal phenotype file;
+- `gene_stats=`, `gene_set_stats=`, optional `gene_gene_set_stats=` (needed for loadings) and
+  optional `params=` (the `params.out` / `params.tsv` written by PIGEAN, stored as run
+  provenance and shown under "Run parameters");
+- optional `run=` label. When omitted the run is called `main` if the model/trait pair occurs
+  once, or `run1`, `run2`, … in input order when it occurs several times. The run id is always
+  `<model>__<trait>__<run>`, and `title=` overrides the display title.
+
+Older forms are still accepted:
 
 - `--run RUN_ID:DIR` locates the tables in a directory. Both the dashboard-style names
   (`pigean.gene_stats.out.gz`, `pigean.gene_set_stats.out.gz`, `pigean.gene_gene_set_stats.out.gz`)
@@ -45,6 +63,13 @@ PYTHONPATH=src python -m pigean.portal build \
 - Loadings are kept only for gene sets that passed the gene-set filters (so the loading
   table stays small); the genes in those loadings do not need to pass the gene filters.
   `--keep-all-loadings` keeps loadings for every gene set instead.
+- `--phenotype-file PATH` points at dig-portal-data-models'
+  `versions/phenotype/v*/portal_phenotypes_flat.tsv`. Each run's `trait` (a legacy portal
+  phenotype id such as `T2D`) is looked up there and the portal name, portal id, trait group,
+  type and every ontology mapping (MESH / MONDO / EFO / DOID / … with predicate and confidence)
+  are stored in `phenotypes` / `phenotype_mappings` and returned with `/api/runs`. The UI shows
+  the name and portal id on the run card, lets you search traits by name or portal id, and lists
+  the mappings under a "Phenotype mappings" toggle. Traits missing from the file are warned about.
 - `--append` adds or replaces runs in an existing database instead of recreating it.
 
 Normalised columns:
@@ -91,11 +116,14 @@ or disable with `--cors-origin ""`.
 
 | endpoint | parameters |
 |---|---|
-| `GET /api/runs` | — |
+| `GET /api/runs` | — (each run carries `model`, `trait`, `seed`, build counts/filters and, when built with `--phenotype-file`, a `phenotype` object with `name`, `portal_id`, `trait_group`, `mappings[]`) |
 | `GET /api/genes` | `run`, optional `min_prior`, `min_log_bf`, `min_combined`, `search`, `sort` (`combined`/`prior`/`log_bf`/`huge_score`/`gene`), `limit` |
 | `GET /api/gene_sets` | `run`, optional `min_beta`, `min_beta_uncorrected`, `search` (id or label), `sort` (`beta`/`beta_uncorrected`/`n`/`gene_set`), `limit` |
 | `GET /api/gene_set` | `run`, `id`, optional `limit` — the gene set plus its gene loadings (sorted by weight, then combined) |
 | `GET /api/gene` | `run`, `id`, optional `limit` — the gene plus the gene sets it loads on |
+| `GET /api/gene_across` | `id`, optional `model` — the gene's `combined` / `log_bf` / `prior` / `huge_score` in every run where it passed the build thresholds, with each run's trait, phenotype name and trait group |
+| `GET /api/gene_set_across` | `id`, optional `model` — likewise `beta` / `beta_uncorrected` for a gene set |
+| `GET /api/run_params` | `run` — the PIGEAN parameters stored from the package's `params=` file |
 | `GET /healthz` | — |
 
 ## Tests

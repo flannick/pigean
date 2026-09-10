@@ -78,6 +78,58 @@ def _parse_run_meta(value: str) -> tuple[str, dict]:
     return run_id, meta
 
 
+PACKAGE_KEYS = {"model", "model_title", "trait", "run", "title", "gene_stats", "gene_set_stats", "gene_gene_set_stats", "params"}
+
+
+def _parse_package(value: str) -> dict:
+    """model=NAME,trait=NAME,gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH][,params=PATH][,run=LABEL][,model_title=..][,title=..]"""
+    spec: dict = {}
+    for item in value.split(","):
+        if "=" not in item:
+            raise argparse.ArgumentTypeError(f"--package item '{item}' must be key=value")
+        key, val = item.split("=", 1)
+        key = key.strip()
+        if key not in PACKAGE_KEYS:
+            raise argparse.ArgumentTypeError(f"--package has unknown key '{key}' (allowed: {sorted(PACKAGE_KEYS)})")
+        spec[key] = val.strip()
+    for required in ("model", "trait", "gene_stats", "gene_set_stats"):
+        if not spec.get(required):
+            raise argparse.ArgumentTypeError(f"--package is missing {required}=...")
+    return spec
+
+
+def packages_to_runs(packages: list[dict]) -> list[RunFiles]:
+    """
+    Turn --package specs into RunFiles with constructed run ids.
+
+    The run label within a (model, trait) pair is `run=` when given; otherwise "main" when the
+    pair occurs once, or run1, run2, ... in input order when it occurs several times. The run id
+    is `<model>__<trait>__<label>`.
+    """
+    counts: dict[tuple[str, str], int] = {}
+    for spec in packages:
+        key = (spec["model"], spec["trait"])
+        counts[key] = counts.get(key, 0) + 1
+    seen: dict[tuple[str, str], int] = {}
+    runs: list[RunFiles] = []
+    for spec in packages:
+        key = (spec["model"], spec["trait"])
+        seen[key] = seen.get(key, 0) + 1
+        label = spec.get("run") or ("main" if counts[key] == 1 else f"run{seen[key]}")
+        run_id = f"{spec['model']}__{spec['trait']}__{label}"
+        files = RunFiles(
+            run_id=run_id, gene_stats=Path(spec["gene_stats"]), gene_set_stats=Path(spec["gene_set_stats"]),
+            gene_gene_set_stats=Path(spec["gene_gene_set_stats"]) if spec.get("gene_gene_set_stats") else None,
+            params=Path(spec["params"]) if spec.get("params") else None,
+            model=spec["model"], model_title=spec.get("model_title", ""), trait=spec["trait"], seed=label,
+            title=spec.get("title") or (f"{spec['trait']} / {spec['model']}" + (f" / {label}" if label != "main" else "")),
+        )
+        if files.gene_gene_set_stats is None:
+            files.warnings.append(f"run '{run_id}': no gene_gene_set_stats given; loadings will be empty")
+        runs.append(files)
+    return runs
+
+
 def _parse_title(value: str) -> tuple[str, str]:
     if ":" not in value:
         raise argparse.ArgumentTypeError(f"--run-title expects RUN_ID:TITLE, got '{value}'")
@@ -103,6 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--run", action="append", default=[], type=_parse_run_spec, metavar="RUN_ID:DIR",
                        help="Run directory containing gene_stats / gene_set_stats / gene_gene_set_stats tables "
                             "(dashboard-style pigean.*.out.gz or LAP-style *.gene_stats.tsv names). Repeatable.")
+    build.add_argument("--package", action="append", default=[], type=_parse_package,
+                       metavar="model=NAME,trait=NAME,gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH][,params=PATH][,run=LABEL][,model_title=TEXT][,title=TEXT]",
+                       help="One PIGEAN result package: the model it was run with, the trait, the result tables and "
+                            "optionally the params file. Run id = <model>__<trait>__<run>; run defaults to 'main', or "
+                            "run1, run2, ... when the same model/trait is given several times. Repeatable.")
     build.add_argument("--run-files", action="append", default=[], type=_parse_run_files_spec,
                        metavar="RUN_ID:gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH]",
                        help="Explicit file paths for one run. Repeatable.")
@@ -123,6 +180,9 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--keep-all-loadings", action="store_true",
                        help="Keep loadings for every gene set, not only those that passed --gene-set-filter")
     build.add_argument("--append", action="store_true", help="Add/replace runs in an existing database")
+    build.add_argument("--phenotype-file", type=Path, default=None,
+                       help="dig-portal-data-models portal_phenotypes_flat.tsv: adds each trait's portal name, "
+                            "portal id and ontology mappings (matched on the legacy phenotype id = run trait)")
 
     run = sub.add_parser("serve", help="Serve the portal UI + JSON API for a built database")
     run.add_argument("--db", required=True, type=Path)
@@ -148,20 +208,23 @@ def build_parser() -> argparse.ArgumentParser:
 def _collect_runs(args: argparse.Namespace) -> list[RunFiles]:
     titles = dict(args.run_title)
     metas = dict(args.run_meta)
-    runs: list[RunFiles] = []
+    runs: list[RunFiles] = packages_to_runs(args.package)
+    legacy: list[RunFiles] = []
     for run_id, directory in args.run:
-        runs.append(resolve_run_dir(run_id, directory))
-    runs.extend(args.run_files)
+        legacy.append(resolve_run_dir(run_id, directory))
+    legacy.extend(args.run_files)
     seen: set[str] = set()
-    for files in runs:
-        if files.run_id in seen:
-            raise ValueError(f"duplicate run id '{files.run_id}'")
-        seen.add(files.run_id)
+    for files in legacy:
         meta = metas.get(files.run_id, {})
         files.model, files.trait, files.seed = meta.get("model", ""), meta.get("trait", ""), meta.get("seed", "")
         files.infer_metadata()
         files.title = titles.get(files.run_id) or meta.get("title") or files.run_id
-        for path in (files.gene_stats, files.gene_set_stats, files.gene_gene_set_stats):
+    runs.extend(legacy)
+    for files in runs:
+        if files.run_id in seen:
+            raise ValueError(f"duplicate run id '{files.run_id}'")
+        seen.add(files.run_id)
+        for path in (files.gene_stats, files.gene_set_stats, files.gene_gene_set_stats, files.params):
             if path is not None and not path.exists():
                 raise FileNotFoundError(f"run '{files.run_id}': {path} does not exist")
     return runs
@@ -170,12 +233,15 @@ def _collect_runs(args: argparse.Namespace) -> list[RunFiles]:
 def run_build(args: argparse.Namespace) -> int:
     runs = _collect_runs(args)
     if not runs:
-        logging.error("no runs supplied; use --run RUN_ID:DIR or --run-files")
+        logging.error("no runs supplied; use --package, --run RUN_ID:DIR or --run-files")
         return 2
     options = BuildOptions(
         gene_filters=args.gene_filter, gene_set_filters=args.gene_set_filter, loading_filters=args.loading_filter,
         filter_mode=args.filter_mode, append=args.append, restrict_loadings_to_gene_sets=not args.keep_all_loadings,
+        phenotype_file=args.phenotype_file,
     )
+    if args.phenotype_file is not None and not args.phenotype_file.exists():
+        raise FileNotFoundError(f"phenotype file not found: {args.phenotype_file}")
     summaries = portal_db.build_database(args.db, runs, options)
     for summary in summaries:
         logging.info(
@@ -185,6 +251,9 @@ def run_build(args: argparse.Namespace) -> int:
         )
         for warning in summary["warnings"]:
             logging.warning(warning)
+        if "phenotypes" in summary:
+            logging.info("phenotypes: %d traits, %d ontology mappings", summary["phenotypes"]["n_phenotypes"],
+                         summary["phenotypes"]["n_mappings"])
     logging.info("wrote %s", args.db)
     return 0
 

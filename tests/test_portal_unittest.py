@@ -39,6 +39,13 @@ LOADINGS = (
     "GENE1\t1.8\t3.0\t1.2\t0.5\tSET_LOW\t0.001\t1\n"
 )
 
+PHENOTYPES_FLAT = (
+    "portal_id\tgwas_source_category\tlegacy_trait_group\ttrait_group\tphenotype\tphenotype_name\tdescription\ttrait_type\tis_dichotomous\tis_complex\tpigean_id\tmapping_count\ttarget_id\ttarget_label\ttarget_ontology\tmapping_predicate\tconfidence\tmapping_justification\tsource\n"
+    "PORTAL:0000398\tportal\tGLYCEMIC\tmetabolic\tT2D\tType 2 diabetes (T2D)\tType 2 diabetes (T2D)\tphenotype\t1\tfalse\t\t2\tMESH:D003924\tDiabetes Mellitus, Type 2\tMESH\tskos:exactMatch\t0.85\tinherited\tcurated.tsv\n"
+    "PORTAL:0000398\tportal\tGLYCEMIC\tmetabolic\tT2D\tType 2 diabetes (T2D)\tType 2 diabetes (T2D)\tphenotype\t1\tfalse\t\t2\tMONDO:0005148\ttype 2 diabetes mellitus\tMONDO\tskos:exactMatch\t0.9\tcurated\tamp.csv\n"
+    "PORTAL:0000001\tportal\tCV\tcardiovascular\tAF\tAtrial fibrillation\tAtrial fibrillation\tphenotype\t1\tfalse\t\t0\t\t\t\t\t\t\t\n"
+)
+
 
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +190,66 @@ class PortalBuildTest(unittest.TestCase):
         conn.close()
         with self.assertRaises(SystemExit):
             portal.main(["build", "--db", str(self.db), "--run", f"x:{self.run_dir}", "--run-meta", "x:colour=red"])
+
+    def test_phenotype_file_adds_names_and_mappings(self) -> None:
+        pheno = self.root / "portal_phenotypes_flat.tsv"
+        _write(pheno, PHENOTYPES_FLAT)
+        rc = portal.main([
+            "build", "--db", str(self.db), "--phenotype-file", str(pheno),
+            "--run", f"large__T2D__s1:{self.run_dir}", "--run", f"large__AF__s1:{self.lap_dir}",
+            "--run", f"large__NOPE__s1:{self.lap_dir}",
+        ])
+        self.assertEqual(rc, 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        runs = {r["run_id"]: r for r in portal_db.list_runs(conn)}
+        t2d = runs["large__T2D__s1"]["phenotype"]
+        self.assertEqual((t2d["name"], t2d["portal_id"], t2d["trait_group"]), ("Type 2 diabetes (T2D)", "PORTAL:0000398", "metabolic"))
+        self.assertEqual([m["target_id"] for m in t2d["mappings"]], ["MONDO:0005148", "MESH:D003924"])  # confidence desc
+        self.assertEqual(t2d["mappings"][0]["predicate"], "skos:exactMatch")
+        af = runs["large__AF__s1"]["phenotype"]
+        self.assertEqual((af["name"], af["mappings"]), ("Atrial fibrillation", []))
+        self.assertIsNone(runs["large__NOPE__s1"]["phenotype"])
+        self.assertTrue(any("NOPE" in w for w in runs["large__NOPE__s1"]["warnings"]))
+        conn.close()
+        self.assertEqual(portal.main(["build", "--db", str(self.db), "--phenotype-file", str(self.root / "missing.tsv"),
+                                      "--run", f"x:{self.run_dir}"]), 1)
+
+    def test_package_inputs_construct_run_ids_and_store_params(self) -> None:
+        params = self.root / "params.tsv"
+        _write(params, "Parameter\tVersion\tValue\nnum_chains\t1\t10\noption_seed\t1\t3\n")
+        gs, gss, ggss = (self.lap_dir / f"x__T2D.{k}.tsv" for k in ("gene_stats", "gene_set_stats", "gene_gene_set_stats"))
+        pkg = lambda model, trait, **kw: ",".join([f"model={model}", f"trait={trait}", f"gene_stats={gs}", f"gene_set_stats={gss}", f"gene_gene_set_stats={ggss}"] + [f"{k}={v}" for k, v in kw.items()])
+        rc = portal.main([
+            "build", "--db", str(self.db),
+            "--package", pkg("large", "T2D", params=str(params), model_title="Large model"),
+            "--package", pkg("large", "IBD"), "--package", pkg("large", "IBD"),
+            "--package", pkg("small", "IBD", run="s7", title="custom title"),
+        ])
+        self.assertEqual(rc, 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        runs = {r["run_id"]: r for r in portal_db.list_runs(conn)}
+        self.assertEqual(set(runs), {"large__T2D__main", "large__IBD__run1", "large__IBD__run2", "small__IBD__s7"})
+        self.assertEqual((runs["large__T2D__main"]["model_title"], runs["large__T2D__main"]["seed"], runs["large__T2D__main"]["title"]), ("Large model", "main", "T2D / large"))
+        self.assertEqual(runs["small__IBD__s7"]["title"], "custom title")
+        self.assertEqual([p["parameter"] for p in portal_db.run_params(conn, "large__T2D__main")], ["num_chains", "option_seed"])
+        self.assertEqual(portal_db.run_params(conn, "large__IBD__run1"), [])
+
+        across = portal_db.gene_across_runs(conn, "GENE1")
+        self.assertEqual(len(across), 4)
+        self.assertEqual({r["run_id"] for r in portal_db.gene_across_runs(conn, "GENE1", model="small")}, {"small__IBD__s7"})
+        self.assertEqual({r["run_id"] for r in portal_db.gene_set_across_runs(conn, "SET_A")}, set(runs))
+        self.assertEqual(portal_db.gene_set_across_runs(conn, "NOPE"), [])
+        conn.close()
+
+        state = portal_server.PortalState(self.db, title="t", plotly_src="about:blank")
+        status, body = portal_server.handle_api(state, "/api/gene_across", {"id": ["GENE1"], "model": ["large"]})
+        self.assertEqual((status, len(body["rows"])), (200, 3))
+        status, body = portal_server.handle_api(state, "/api/gene_set_across", {})
+        self.assertEqual(status, 400)
+        status, body = portal_server.handle_api(state, "/api/run_params", {"run": ["large__T2D__main"]})
+        self.assertEqual((status, body["params"][0]["value"]), (200, "10"))
+        with self.assertRaises(SystemExit):
+            portal.main(["build", "--db", str(self.db), "--package", "model=a,trait=b"])
 
     def test_build_without_runs_fails(self) -> None:
         self.assertEqual(portal.main(["build", "--db", str(self.db)]), 2)

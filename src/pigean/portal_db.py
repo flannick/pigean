@@ -21,7 +21,7 @@ from typing import Callable, Iterable, Iterator, Optional
 
 from .dashboard import _first, open_text, parse_float
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 GENE_COLUMN_ALIASES = {
     "gene": ["Gene", "gene", "id", "ID"],
@@ -126,8 +126,10 @@ class RunFiles:
     gene_gene_set_stats: Optional[Path] = None
     title: str = ""
     model: str = ""
+    model_title: str = ""
     trait: str = ""
-    seed: str = ""
+    seed: str = ""          # run label within (model, trait): "main", "s1", "run2", ...
+    params: Optional[Path] = None   # PIGEAN params.out / params.tsv (Parameter/Version/Value) for provenance
     warnings: list[str] = field(default_factory=list)
 
     def infer_metadata(self) -> None:
@@ -195,7 +197,10 @@ CREATE TABLE IF NOT EXISTS runs (
     gene_stats_path TEXT, gene_set_stats_path TEXT,
     gene_gene_set_stats_path TEXT, n_genes INTEGER, n_gene_sets INTEGER, n_loadings INTEGER,
     n_genes_input INTEGER, n_gene_sets_input INTEGER, n_loadings_input INTEGER,
-    filters_json TEXT, warnings_json TEXT, built_at TEXT
+    filters_json TEXT, warnings_json TEXT, built_at TEXT, model_title TEXT DEFAULT '', params_path TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS run_params (
+    run_id TEXT NOT NULL, parameter TEXT NOT NULL, version TEXT NOT NULL, value TEXT, PRIMARY KEY (run_id, parameter, version)
 );
 CREATE TABLE IF NOT EXISTS genes (
     run_id TEXT NOT NULL, gene TEXT NOT NULL, prior REAL, combined REAL, log_bf REAL, huge_score REAL,
@@ -208,6 +213,14 @@ CREATE TABLE IF NOT EXISTS gene_sets (
 CREATE TABLE IF NOT EXISTS gene_gene_sets (
     run_id TEXT NOT NULL, gene_set TEXT NOT NULL, gene TEXT NOT NULL, beta REAL, weight REAL,
     prior REAL, combined REAL, log_bf REAL, huge_score REAL, PRIMARY KEY (run_id, gene_set, gene)
+);
+CREATE TABLE IF NOT EXISTS phenotypes (
+    legacy_id TEXT PRIMARY KEY, portal_id TEXT, name TEXT, description TEXT, trait_group TEXT,
+    legacy_trait_group TEXT, trait_type TEXT, is_dichotomous TEXT, mapping_count INTEGER
+);
+CREATE TABLE IF NOT EXISTS phenotype_mappings (
+    legacy_id TEXT NOT NULL, target_id TEXT NOT NULL, target_label TEXT, target_ontology TEXT,
+    predicate TEXT, confidence REAL, justification TEXT, source TEXT, PRIMARY KEY (legacy_id, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_genes_prior ON genes (run_id, prior);
 CREATE INDEX IF NOT EXISTS idx_genes_combined ON genes (run_id, combined);
@@ -226,6 +239,50 @@ def open_database(path: Path, readonly: bool = False) -> sqlite3.Connection:
     return conn
 
 
+# Columns of dig-portal-data-models' versions/phenotype/v*/portal_phenotypes_flat.tsv (one row per
+# ontology mapping; phenotype-level fields repeat on every row of the same legacy id).
+PHENOTYPE_ID_COLUMNS = ["phenotype", "legacy_phenotype_id"]
+
+
+def load_phenotypes(conn: sqlite3.Connection, path: Path, legacy_ids: set[str]) -> dict:
+    """
+    Load portal phenotype names / ids / ontology mappings for the given legacy ids.
+
+    Args:
+        conn: Open writable connection.
+        path: `portal_phenotypes_flat.tsv` from dig-portal-data-models.
+        legacy_ids: Legacy phenotype ids (the pipeline's trait names) to keep.
+
+    Returns:
+        dict: `{"n_phenotypes": int, "n_mappings": int, "missing": [ids not found]}`.
+    """
+    found: set[str] = set()
+    pheno_rows: dict[str, tuple] = {}
+    map_rows: list[tuple] = []
+    for raw in _iter_rows(path):
+        legacy = _first(raw, PHENOTYPE_ID_COLUMNS, "")
+        if legacy not in legacy_ids:
+            continue
+        found.add(legacy)
+        if legacy not in pheno_rows:
+            pheno_rows[legacy] = (
+                legacy, raw.get("portal_id", ""), _first(raw, ["phenotype_name", "name"], legacy),
+                raw.get("description", ""), raw.get("trait_group", ""), raw.get("legacy_trait_group", ""),
+                raw.get("trait_type", ""), raw.get("is_dichotomous", ""), int(parse_float(raw.get("mapping_count"), 0) or 0),
+            )
+        target = raw.get("target_id", "")
+        if target:
+            map_rows.append((legacy, target, raw.get("target_label", ""), raw.get("target_ontology", ""),
+                             raw.get("mapping_predicate", ""), parse_float(raw.get("confidence")),
+                             raw.get("mapping_justification", ""), raw.get("source", "")))
+    for legacy in found:
+        conn.execute("DELETE FROM phenotypes WHERE legacy_id=?", (legacy,))
+        conn.execute("DELETE FROM phenotype_mappings WHERE legacy_id=?", (legacy,))
+    conn.executemany("INSERT OR REPLACE INTO phenotypes VALUES (?,?,?,?,?,?,?,?,?)", list(pheno_rows.values()))
+    conn.executemany("INSERT OR REPLACE INTO phenotype_mappings VALUES (?,?,?,?,?,?,?,?)", map_rows)
+    return {"n_phenotypes": len(pheno_rows), "n_mappings": len(map_rows), "missing": sorted(legacy_ids - found)}
+
+
 @dataclass
 class BuildOptions:
     gene_filters: list[Filter] = field(default_factory=list)
@@ -235,6 +292,8 @@ class BuildOptions:
     append: bool = False
     # keep loadings only for retained gene sets; genes in loadings need not pass gene filters
     restrict_loadings_to_gene_sets: bool = True
+    # dig-portal-data-models portal_phenotypes_flat.tsv: names / portal ids / mappings per trait
+    phenotype_file: Optional[Path] = None
 
 
 def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) -> dict:
@@ -244,6 +303,14 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
     conn.execute("DELETE FROM genes WHERE run_id=?", (run_id,))
     conn.execute("DELETE FROM gene_sets WHERE run_id=?", (run_id,))
     conn.execute("DELETE FROM gene_gene_sets WHERE run_id=?", (run_id,))
+    conn.execute("DELETE FROM run_params WHERE run_id=?", (run_id,))
+    if files.params is not None:
+        param_rows = []
+        for raw in _iter_rows(files.params):
+            key = _first(raw, ["Parameter", "parameter", "key"], "")
+            if key:
+                param_rows.append((run_id, key, _first(raw, ["Version", "version"], "1"), _first(raw, ["Value", "value"], "")))
+        conn.executemany("INSERT OR REPLACE INTO run_params VALUES (?,?,?,?)", param_rows)
 
     n_genes_in = n_genes = 0
     gene_rows = []
@@ -305,7 +372,8 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
     })
     summary = {
         "run_id": run_id, "title": files.title or run_id,
-        "model": files.model, "trait": files.trait, "seed": files.seed,
+        "model": files.model, "model_title": files.model_title, "trait": files.trait, "seed": files.seed,
+        "params_path": str(files.params) if files.params else "",
         "gene_stats_path": str(files.gene_stats), "gene_set_stats_path": str(files.gene_set_stats),
         "gene_gene_set_stats_path": str(files.gene_gene_set_stats) if files.gene_gene_set_stats else "",
         "n_genes": n_genes, "n_gene_sets": n_gene_sets, "n_loadings": n_loadings,
@@ -314,9 +382,11 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
         "built_at": datetime.now().isoformat(timespec="seconds"),
     }
     conn.execute(
-        "INSERT OR REPLACE INTO runs VALUES (:run_id,:title,:model,:trait,:seed,:gene_stats_path,:gene_set_stats_path,"
-        ":gene_gene_set_stats_path,:n_genes,:n_gene_sets,:n_loadings,:n_genes_input,:n_gene_sets_input,"
-        ":n_loadings_input,:filters_json,:warnings_json,:built_at)",
+        "INSERT OR REPLACE INTO runs (run_id,title,model,trait,seed,gene_stats_path,gene_set_stats_path,"
+        "gene_gene_set_stats_path,n_genes,n_gene_sets,n_loadings,n_genes_input,n_gene_sets_input,n_loadings_input,"
+        "filters_json,warnings_json,built_at,model_title,params_path) VALUES (:run_id,:title,:model,:trait,:seed,"
+        ":gene_stats_path,:gene_set_stats_path,:gene_gene_set_stats_path,:n_genes,:n_gene_sets,:n_loadings,"
+        ":n_genes_input,:n_gene_sets_input,:n_loadings_input,:filters_json,:warnings_json,:built_at,:model_title,:params_path)",
         summary,
     )
     summary["warnings"] = warnings
@@ -326,7 +396,7 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns introduced after schema v1 to an existing (appended-to) database."""
     existing = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
-    for column in ("model", "trait", "seed"):
+    for column in ("model", "trait", "seed", "model_title", "params_path"):
         if column not in existing:
             conn.execute(f"ALTER TABLE runs ADD COLUMN {column} TEXT DEFAULT ''")
 
@@ -345,6 +415,25 @@ def build_database(db_path: Path, runs: list[RunFiles], options: BuildOptions) -
         for files in runs:
             summaries.append(_load_run(conn, files, options))
             conn.commit()
+        if options.phenotype_file is not None:
+            # cover every trait in the database, including runs kept from an earlier --append build
+            traits = {row[0] for row in conn.execute("SELECT DISTINCT trait FROM runs WHERE trait != ''")}
+            info = load_phenotypes(conn, options.phenotype_file, traits)
+            conn.execute("INSERT OR REPLACE INTO meta VALUES ('phenotype_file', ?)", (str(options.phenotype_file),))
+            conn.commit()
+            for legacy in info["missing"]:
+                warning = f"trait '{legacy}' not found in {options.phenotype_file}"
+                for row in conn.execute("SELECT run_id, warnings_json FROM runs WHERE trait=?", (legacy,)).fetchall():
+                    existing = json.loads(row["warnings_json"] or "[]")
+                    if warning not in existing:
+                        existing.append(warning)
+                        conn.execute("UPDATE runs SET warnings_json=? WHERE run_id=?", (json.dumps(existing), row["run_id"]))
+                for summary in summaries:
+                    if summary["trait"] == legacy and warning not in summary["warnings"]:
+                        summary["warnings"].append(warning)
+            conn.commit()
+            if summaries:
+                summaries[-1]["phenotypes"] = info
         conn.execute("VACUUM")
         conn.commit()
         return summaries
@@ -359,11 +448,25 @@ def _rows(cursor: sqlite3.Cursor) -> list[dict]:
     return [dict(row) for row in cursor.fetchall()]
 
 
+def list_phenotypes(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Phenotype metadata keyed by legacy id, each with its ontology `mappings` list."""
+    phenotypes = {row["legacy_id"]: dict(row, mappings=[]) for row in conn.execute("SELECT * FROM phenotypes")}
+    for row in conn.execute("SELECT * FROM phenotype_mappings ORDER BY legacy_id, confidence DESC, target_ontology, target_id"):
+        entry = phenotypes.get(row["legacy_id"])
+        if entry is not None:
+            mapping = dict(row)
+            mapping.pop("legacy_id")
+            entry["mappings"].append(mapping)
+    return phenotypes
+
+
 def list_runs(conn: sqlite3.Connection) -> list[dict]:
     runs = _rows(conn.execute("SELECT * FROM runs ORDER BY model, trait, seed, run_id"))
+    phenotypes = list_phenotypes(conn)
     for run in runs:
         run["filters"] = json.loads(run.pop("filters_json") or "{}")
         run["warnings"] = json.loads(run.pop("warnings_json") or "[]")
+        run["phenotype"] = phenotypes.get(run.get("trait") or "")
     return runs
 
 
@@ -408,6 +511,38 @@ def query_gene_sets(conn: sqlite3.Connection, run_id: str, *, min_beta: Optional
     direction = "ASC" if sort_col == "gene_set" else "DESC"
     sql += f" ORDER BY {sort_col} {direction} LIMIT ?"
     params.append(max(1, min(int(limit), 100000)))
+    return _rows(conn.execute(sql, params))
+
+
+def run_params(conn: sqlite3.Connection, run_id: str) -> list[dict]:
+    return _rows(conn.execute("SELECT parameter, version, value FROM run_params WHERE run_id=? ORDER BY parameter, version", (run_id,)))
+
+
+_ACROSS_RUN_COLUMNS = ("r.run_id, r.model, r.model_title, r.trait, r.seed, r.title AS run_title, "
+                       "p.name AS phenotype_name, p.portal_id, p.trait_group")
+
+
+def gene_across_runs(conn: sqlite3.Connection, gene: str, *, model: str = "") -> list[dict]:
+    """The gene's scores in every run of the database (only runs where it passed the build thresholds)."""
+    sql = (f"SELECT {_ACROSS_RUN_COLUMNS}, g.prior, g.combined, g.log_bf, g.huge_score, g.n FROM genes g "
+           "JOIN runs r ON r.run_id = g.run_id LEFT JOIN phenotypes p ON p.legacy_id = r.trait WHERE g.gene=?")
+    params: list = [gene]
+    if model:
+        sql += " AND r.model=?"
+        params.append(model)
+    sql += " ORDER BY p.trait_group, r.trait, r.model, r.seed"
+    return _rows(conn.execute(sql, params))
+
+
+def gene_set_across_runs(conn: sqlite3.Connection, gene_set: str, *, model: str = "") -> list[dict]:
+    """The gene set's effects in every run of the database (only runs where it passed the build thresholds)."""
+    sql = (f"SELECT {_ACROSS_RUN_COLUMNS}, s.beta, s.beta_uncorrected, s.n, s.p_orig FROM gene_sets s "
+           "JOIN runs r ON r.run_id = s.run_id LEFT JOIN phenotypes p ON p.legacy_id = r.trait WHERE s.gene_set=?")
+    params: list = [gene_set]
+    if model:
+        sql += " AND r.model=?"
+        params.append(model)
+    sql += " ORDER BY p.trait_group, r.trait, r.model, r.seed"
     return _rows(conn.execute(sql, params))
 
 
