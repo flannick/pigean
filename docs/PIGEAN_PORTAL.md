@@ -7,8 +7,8 @@
 2. `serve` hosts that file behind a small JSON API and a single-page UI: model → trait → run
    selectors plus a gene search, a scatter of each gene's direct (`log_bf`) vs. indirect
    (`prior`) score with a sortable gene table, a ranked gene-set table, and a collapsible
-   detail sheet that opens with a gene set's gene loadings (its genes are highlighted in
-   magenta on the scatter) or a gene's gene-set memberships. Build thresholds and input paths
+   detail sheet that opens with a gene set's gene loadings (its genes are ringed on the scatter while the
+   rest fade) or a gene's gene-set memberships. Build thresholds and input paths
    sit behind a "Build details" toggle.
 3. `html` writes the same UI as a static page whose JavaScript calls a `serve` instance at a
    fixed URL, so the page can be hosted from a bucket or any static file server.

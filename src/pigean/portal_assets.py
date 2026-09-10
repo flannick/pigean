@@ -4,7 +4,7 @@ Layout: model -> trait -> run selectors plus a gene search in the header; a gene
 (log_bf vs prior, coloured by combined) with a sortable gene table; a ranked gene-set
 table; and a collapsible right-hand detail sheet that opens with a gene set's gene
 loadings or a gene's gene-set memberships. Genes belonging to the selected gene set are
-drawn as a magenta highlight layer on top of the scatter. All data comes from the JSON
+drawn on top of the scatter with a white ring while the rest of the genes fade. All data comes from the JSON
 API; no build step.
 """
 
@@ -17,8 +17,7 @@ CSS = r"""
 :root { --ink:#1f2933; --muted:#65758b; --line:#d9e1ea; --soft:#f4f7f8; --accent:#0f766e; --accent-soft:#dff4f1; --warn:#9a5b1f; --hl:#d61ac7; --hl-soft:#fbe3f8; }
 * { box-sizing: border-box; }
 body { margin:0; color:var(--ink); font-family: ui-sans-serif,-apple-system,"Segoe UI",sans-serif; background:#f7f9fa; font-size:14px; }
-.shell { max-width:1600px; margin:0 auto; padding:20px 24px 48px; transition: padding-right .2s; }
-body.sheet-open .shell { padding-right: 520px; }
+.shell { max-width:1600px; margin:0 auto; padding:20px 24px 48px; }
 header { display:flex; flex-wrap:wrap; gap:14px; align-items:end; margin-bottom:12px; }
 header .selectors { display:flex; flex-wrap:wrap; gap:12px; margin-left:auto; align-items:end; }
 h1 { margin:0; font-size:26px; letter-spacing:-0.02em; }
@@ -33,9 +32,6 @@ input[type=number] { width:9ch; }
 .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:10px; }
 button { border:1px solid var(--line); background:#fff; border-radius:9px; padding:6px 10px; cursor:pointer; font-weight:600; color:var(--ink); }
 button:hover { background:var(--accent-soft); border-color:var(--accent); }
-.seg { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
-.seg button { border:0; border-radius:0; font-weight:500; padding:6px 10px; }
-.seg button.active { background:var(--hl-soft); color:var(--hl); font-weight:700; }
 table { width:100%; border-collapse:collapse; font-size:12.5px; }
 th, td { padding:5px 7px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
 th { position:sticky; top:0; background:#fff; cursor:pointer; user-select:none; }
@@ -55,10 +51,12 @@ details.build div { margin:6px 0 0 14px; font-size:12px; line-height:1.6; }
 .kv span { color:var(--muted); display:block; font-size:11px; }
 .chip { display:inline-block; background:var(--hl-soft); color:var(--hl); border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; margin-left:6px; }
 /* detail sheet */
-#sheet { position:fixed; top:0; right:0; height:100vh; width:500px; max-width:95vw; background:#fff; border-left:1px solid var(--line); box-shadow:-12px 0 30px rgba(31,41,51,.08); transform:translateX(105%); transition:transform .2s; overflow:auto; padding:18px 20px 40px; z-index:20; }
+#sheet { position:fixed; top:0; right:0; height:100vh; width:760px; max-width:92vw; background:#fff; border-left:1px solid var(--line); box-shadow:-12px 0 30px rgba(31,41,51,.08); transform:translateX(105%); transition:transform .2s; overflow:auto; padding:18px 20px 40px; z-index:20; }
 body.sheet-open #sheet { transform:none; }
 #sheet .sheet-head { display:flex; align-items:start; gap:10px; margin-bottom:8px; }
-#sheet h2 { flex:1; font-size:16px; word-break:break-all; margin:0; }
+#sheet h2 { flex:1; font-size:18px; word-break:break-all; margin:0; }
+#sheet-backdrop { position:fixed; inset:0; background:rgba(31,41,51,.18); z-index:19; display:none; }
+body.sheet-open #sheet-backdrop { display:block; }
 #sheet .kind { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
 #sheet .scroll { max-height:none; }
 #loading-plot { margin-bottom:8px; }
@@ -66,8 +64,7 @@ body.sheet-open #sheet { transform:none; }
 
 SCRIPT = r"""
 const state = { runs:[], run:null, genes:[], geneSets:[], selectedGeneSet:null, selectedGene:null,
-  geneSort:{col:'combined',desc:true}, gsSort:{col:'beta',desc:true}, highlighted:new Set(), highlightMode:'context' };
-const HL = '#d61ac7';
+  geneSort:{col:'combined',desc:true}, gsSort:{col:'beta',desc:true}, highlighted:new Set() };
 const $ = id => document.getElementById(id);
 const fmt = v => (v === null || v === undefined) ? '' : (Math.abs(v) >= 1000 ? (+v).toFixed(0) : (Math.abs(v) < 0.01 && v !== 0 ? (+v).toExponential(2) : (+v).toFixed(3)));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -154,25 +151,20 @@ async function loadGenes() {
   renderGeneTable();
 }
 function drawScatter() {
-  const g = state.genes, hl = state.highlighted, solo = state.highlightMode === 'solo' && hl.size > 0;
-  // context: everything drawn (dimmed) with the highlighted genes on top; solo: only the highlighted genes
-  const base = solo ? [] : g.filter(r => !hl.has(r.gene)), top = g.filter(r => hl.has(r.gene));
+  const g = state.genes, hl = state.highlighted;
+  // Highlighted genes keep the same combined colour scale but are drawn on top with a white ring;
+  // everything else fades so the set's genes stand out in context.
+  const base = g.filter(r => !hl.has(r.gene)), top = g.filter(r => hl.has(r.gene));
   const hover = '<b>%{text}</b><br>log_bf %{x:.3f}<br>prior %{y:.3f}<br>combined %{customdata[0]:.3f}<br>huge %{customdata[1]:.3f}<extra></extra>';
-  const traces = [{
-    name: 'genes', type: 'scattergl', mode: 'markers', x: base.map(r => r.log_bf), y: base.map(r => r.prior), text: base.map(r => r.gene),
-    customdata: base.map(r => [r.combined, r.huge_score]), hovertemplate: hover,
-    marker: { size: 6, opacity: hl.size ? 0.35 : 0.75, color: base.map(r => r.combined), colorscale: 'Viridis', colorbar: { title: 'combined', thickness: 12 } },
-  }];
-  if (top.length) traces.push({
-    name: 'highlighted', type: 'scattergl', mode: 'markers', x: top.map(r => r.log_bf), y: top.map(r => r.prior), text: top.map(r => r.gene),
-    customdata: top.map(r => [r.combined, r.huge_score]), hovertemplate: hover,
-    marker: { size: 11, symbol: 'diamond', color: HL, opacity: 0.95, line: { width: 1.5, color: '#fff' } },
-  });
-  const layout = { margin: { l: 55, r: 10, t: 10, b: 45 }, xaxis: { title: 'log_bf (direct)', zeroline: true }, yaxis: { title: 'prior (indirect)', zeroline: true }, height: 460, hovermode: 'closest', showlegend: false };
+  const vals = g.map(r => r.combined).filter(v => v !== null && v !== undefined);
+  const cmin = vals.length ? Math.min(...vals) : 0, cmax = vals.length ? Math.max(...vals) : 1;
+  const mk = rows => ({ type: 'scattergl', mode: 'markers', x: rows.map(r => r.log_bf), y: rows.map(r => r.prior), text: rows.map(r => r.gene), customdata: rows.map(r => [r.combined, r.huge_score]), hovertemplate: hover });
+  const traces = [Object.assign(mk(base), { name: 'genes', marker: { size: 6, opacity: hl.size ? 0.12 : 0.75, color: base.map(r => r.combined), colorscale: 'Viridis', cmin, cmax, colorbar: { title: 'combined', thickness: 12 } } })];
+  if (top.length) traces.push(Object.assign(mk(top), { name: 'in gene set', marker: { size: 10, opacity: 1, color: top.map(r => r.combined), colorscale: 'Viridis', cmin, cmax, showscale: false, line: { width: 2, color: '#fff' } } }));
+  const layout = { margin: { l: 55, r: 10, t: 10, b: 45 }, xaxis: { title: 'log_bf (direct)', zeroline: true }, yaxis: { title: 'prior (indirect)', zeroline: true }, height: 460, hovermode: 'closest', showlegend: false, plot_bgcolor: hl.size ? '#eef1f3' : '#fff' };
   Plotly.react('scatter', traces, layout, { responsive: true, displaylogo: false });
   $('scatter').on('plotly_click', ev => { const p = ev.points && ev.points[0]; if (p) showGene(p.text); });
-  $('scatter-count').innerHTML = (solo ? `${top.length} highlighted genes shown (solo)` : `${g.length.toLocaleString()} genes shown`) + (hl.size && !solo ? ` <span class="chip">${top.length} highlighted</span>` : '');
-  $('hl-mode').hidden = !hl.size;
+  $('scatter-count').innerHTML = `${g.length.toLocaleString()} genes shown` + (hl.size ? ` <span class="chip">${top.length} highlighted</span>` : '');
 }
 function renderGeneTable() {
   const s = state.geneSort;
@@ -197,7 +189,7 @@ function renderGeneSetTable() {
   const rows = sortRows(state.geneSets, s);
   $('gs-table').innerHTML = '<thead><tr>' + cols.map(([c,t,n]) => `<th class="${n?'num':''}" data-col="${c}">${t}${sortMark(s,c)}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map((r,i) => `<tr class="row ${r.gene_set===state.selectedGeneSet?'selected':''}" data-gs="${esc(r.gene_set)}"><td>${i+1}. ${esc(r.gene_set)}</td><td>${esc(r.label)}</td><td class="num">${fmt(r.n)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.beta_uncorrected)}</td><td class="num">${fmt(r.p_orig)}</td></tr>`).join('') + '</tbody>';
-  bindSort($('gs-table'), s, ['gene_set','label','p_orig'], renderGeneSetTable);
+  bindSort($('gs-table'), s, ['gene_set','label','p_orig'], () => { $('gs_sort').value = s.col; renderGeneSetTable(); });
   $('gs-table').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
   $('gs-count').textContent = `${rows.length.toLocaleString()} gene sets shown`;
 }
@@ -219,13 +211,13 @@ async function showGeneSet(id) {
   openSheet('Gene set', id,
     kv(d, ['label','n','beta','beta_uncorrected','p_orig','z_orig']) +
     `<h3>Gene loadings <span class="muted">${L.length.toLocaleString()} of ${d.n_loadings.toLocaleString()}, by weight then combined</span></h3>` +
-    `<div id="loading-plot" style="height:${Math.min(560, 60 + 15 * Math.min(L.length, 35))}px"></div>` +
+    `<div id="loading-plot" style="height:${Math.min(700, 60 + 16 * Math.min(L.length, 40))}px"></div>` +
     `<div class="scroll"><table id="loading-table"><thead><tr><th>Gene</th><th class="num">weight</th><th class="num">beta</th><th class="num">combined</th><th class="num">log_bf</th><th class="num">prior</th></tr></thead><tbody>` +
     L.map(r => `<tr class="row" data-gene="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.combined)}</td><td class="num">${fmt(r.log_bf)}</td><td class="num">${fmt(r.prior)}</td></tr>`).join('') + '</tbody></table></div>' +
     `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`);
   $('sheet-body').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGene(tr.dataset.gene));
-  const top = L.slice(0, 35).reverse();
-  if (top.length) Plotly.react('loading-plot', [{ type: 'bar', orientation: 'h', y: top.map(r => r.gene), x: top.map(r => r.combined ?? 0), marker: { color: HL, opacity: top.map(r => 0.35 + 0.65 * (r.weight ?? 0)) }, hovertemplate: '%{y}: combined %{x:.3f}<extra></extra>' }],
+  const top = L.slice(0, 40).reverse();
+  if (top.length) Plotly.react('loading-plot', [{ type: 'bar', orientation: 'h', y: top.map(r => r.gene), x: top.map(r => r.combined ?? 0), marker: { color: top.map(r => r.combined ?? 0), colorscale: 'Viridis', opacity: top.map(r => 0.45 + 0.55 * (r.weight ?? 0)) }, hovertemplate: '%{y}: combined %{x:.3f}, weight %{customdata:.2f}<extra></extra>', customdata: top.map(r => r.weight ?? 0) }],
     { margin: { l: 100, r: 10, t: 4, b: 30 }, xaxis: { title: 'combined (gene score)' }, yaxis: { automargin: true, tickfont: { size: 10 } } }, { responsive: true, displaylogo: false });
   setHighlight(L.map(r => r.gene));
   renderGeneSetTable();
@@ -253,8 +245,9 @@ $('run').onchange = e => { state.run = e.target.value; refreshRun(); };
 ['min_prior','min_log_bf','min_combined'].forEach(id => $(id).oninput = () => { clearTimeout(t1); t1 = setTimeout(loadGenes, 350); });
 ['min_beta','min_beta_uncorrected','gs_search'].forEach(id => $(id).oninput = () => { clearTimeout(t2); t2 = setTimeout(loadGeneSets, 350); });
 $('gene_search').onchange = () => { const v = $('gene_search').value.trim(); if (v) showGene(v.toUpperCase() === v ? v : (state.genes.find(g => g.gene.toLowerCase() === v.toLowerCase()) || {gene: v}).gene); };
+$('gs_sort').onchange = () => { const c = $('gs_sort').value; state.gsSort = { col: c, desc: !['gene_set','label','p_orig'].includes(c) }; renderGeneSetTable(); };
 $('sheet-close').onclick = closeSheet;
-$('hl-mode').querySelectorAll('button').forEach(b => b.onclick = () => { state.highlightMode = b.dataset.mode; $('hl-mode').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b)); drawScatter(); });
+$('sheet-backdrop').onclick = closeSheet;
 $('clear-highlight').onclick = () => { state.selectedGeneSet = null; state.selectedGene = null; setHighlight([]); renderGeneSetTable(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 loadRuns().catch(err => { $('run-summary').innerHTML = `<span class="warn">${esc(err.message)}</span>`; });
@@ -279,10 +272,7 @@ BODY = r"""
         <div><label>min prior</label><input id="min_prior" type="number" step="0.1"></div>
         <div><label>min log_bf</label><input id="min_log_bf" type="number" step="0.1"></div>
         <div><label>min combined</label><input id="min_combined" type="number" step="0.1"></div>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:end">
-          <div id="hl-mode" hidden><label>Highlight</label><div class="seg"><button type="button" data-mode="context" class="active" title="highlighted genes on top of all genes">Context</button><button type="button" data-mode="solo" title="only the highlighted genes">Solo</button></div></div>
-          <button id="clear-highlight" type="button">Clear highlight</button>
-        </div>
+        <div style="margin-left:auto"><button id="clear-highlight" type="button">Clear highlight</button></div>
       </div>
       <div id="scatter"></div>
       <div class="muted" id="scatter-count"></div>
@@ -294,6 +284,7 @@ BODY = r"""
       <div class="controls">
         <div><label>min beta</label><input id="min_beta" type="number" step="0.01"></div>
         <div><label>min beta_unc</label><input id="min_beta_uncorrected" type="number" step="0.01"></div>
+        <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option></select></div>
         <div style="flex:1"><label>search (id or label)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
       </div>
       <div class="scroll" style="max-height:820px"><table id="gs-table"></table></div>
@@ -301,6 +292,7 @@ BODY = r"""
     </section>
   </div>
 </div>
+<div id="sheet-backdrop"></div>
 <aside id="sheet" aria-label="detail">
   <div class="sheet-head"><div style="flex:1"><div class="kind" id="sheet-kind"></div><h2 id="sheet-title"></h2></div><button id="sheet-close" type="button" title="close (Esc)">✕</button></div>
   <div id="sheet-body"></div>
