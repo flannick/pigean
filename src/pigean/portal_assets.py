@@ -227,9 +227,21 @@ async function openResults() {
   setHash({ run: state.run });
   await refreshRun();
 }
+// Model / run switchers in the results bar, scoped to the trait currently shown.
+function populateBarSelectors(r) {
+  const same = state.runs.filter(x => (x.trait || x.run_id) === (r.trait || r.run_id));
+  const models = uniq(same.map(x => x.model));
+  $('bar_model').innerHTML = models.map(m => `<option value="${esc(m)}" ${m === r.model ? 'selected' : ''}>${esc(m)}</option>`).join('');
+  const runs = same.filter(x => x.model === r.model);
+  $('bar_run').innerHTML = runs.map(x => `<option value="${esc(x.run_id)}" ${x.run_id === r.run_id ? 'selected' : ''}>${esc(x.seed || x.title || x.run_id)}</option>`).join('');
+  $('bar_run').parentElement.hidden = runs.length < 2;
+  $('bar_model').parentElement.hidden = models.length < 2;
+}
+function switchRun(runId) { if (!runId || runId === state.run) return; state.run = runId; $('run').value = runId; openResults(); }
 function runSummary() {
   const r = state.runs.find(x => x.run_id === state.run);
   if (!r) { $('crumb').innerHTML = '<span class="warn">No run selected.</span>'; $('run-summary').innerHTML = ''; return; }
+  populateBarSelectors(r);
   const ph = r.phenotype, f = r.filters || {};
   $('crumb').innerHTML = `<strong>${esc(ph && ph.name ? ph.name : (r.trait || r.title || r.run_id))}</strong>` +
     `<span class="muted">${esc(r.trait || '')}${ph && ph.portal_id ? ' · ' + esc(ph.portal_id) : ''}${ph && ph.trait_group ? ' · ' + esc(ph.trait_group) : ''}</span>` +
@@ -442,6 +454,10 @@ async function prefetchGenes() { if (!state.run) return; try { const b = await a
 $('open').onclick = openWithGene;
 async function openWithGene() { await openResults(); const g = $('gene_landing').value.trim(); if (g) { const best = bestGene(g); $('gene_search').value = best; showGene(best); } }
 $('back').onclick = showLanding;
+$('bar_model').onchange = () => { const r = state.runs.find(x => x.run_id === state.run); const m = $('bar_model').value;
+  const same = state.runs.filter(x => (x.trait || x.run_id) === (r.trait || r.run_id) && x.model === m);
+  const keep = same.find(x => x.seed === r.seed) || same[0]; if (keep) switchRun(keep.run_id); };
+$('bar_run').onchange = () => switchRun($('bar_run').value);
 ['min_prior','min_log_bf','min_combined'].forEach(id => $(id).oninput = () => { clearTimeout(t1); t1 = setTimeout(loadGenes, 350); });
 ['min_beta','min_beta_uncorrected','gs_search'].forEach(id => $(id).oninput = () => { clearTimeout(t2); t2 = setTimeout(loadGeneSets, 350); });
 $('gs_sort').onchange = () => { const c = $('gs_sort').value; state.gsSort = { col: c, desc: !['gene_set','label','p_orig'].includes(c) }; renderGeneSetTable(); };
@@ -475,7 +491,11 @@ BODY = r"""
   <div class="bar">
     <button id="back" type="button" title="back to search">◀ Search</button>
     <div class="crumb" id="crumb"></div>
-    <div class="right"><div class="ta-wrap"><label for="gene_search">Gene</label><input id="gene_search" placeholder="e.g. TCF7L2" style="width:22ch" autocomplete="off"></div></div>
+    <div class="right">
+      <div><label for="bar_model">Model</label><select id="bar_model"></select></div>
+      <div><label for="bar_run">Run</label><select id="bar_run"></select></div>
+      <div class="ta-wrap"><label for="gene_search">Gene</label><input id="gene_search" placeholder="e.g. TCF7L2" style="width:22ch" autocomplete="off"></div>
+    </div>
   </div>
   <div id="run-summary"></div>
   <div class="grid">
