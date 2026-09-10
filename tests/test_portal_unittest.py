@@ -258,6 +258,7 @@ class PortalBuildTest(unittest.TestCase):
         # combined: GENE1 3.0 (1), GENE2 1.4 (2), GENE3 1.3 (3), GENELOW 0.2 (4) -> GENE3 is rank 3 even though GENE2 was filtered out
         self.assertEqual((ranks["GENE1"]["rank_combined"], ranks["GENE3"]["rank_combined"]), (1, 3))
         self.assertEqual((ranks["GENE1"]["rank_log_bf"], ranks["GENE3"]["rank_log_bf"]), (1, 2))
+        self.assertEqual(ranks["GENE3"]["rank_huge_score"], 1)  # huge 0.9 is the highest of the four
         gs = {r["gene_set"]: r for r in portal_db.query_gene_sets(conn, "demo")}
         self.assertEqual((gs["SET_A"]["rank_beta"], gs["SET_B"]["rank_beta"]), (1, 2))
         run = portal_db.list_runs(conn)[0]

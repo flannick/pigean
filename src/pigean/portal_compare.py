@@ -15,9 +15,9 @@ import math
 import sqlite3
 from typing import Iterable, Optional
 
-GENE_METRICS = ("combined", "prior", "log_bf")
+GENE_METRICS = ("combined", "prior", "log_bf", "huge_score")
 GENE_SET_METRICS = ("beta", "beta_uncorrected")
-GENE_EXTRA = ("huge_score", "n")
+GENE_EXTRA = ("n",)
 GENE_SET_EXTRA = ("label", "n")
 TOP_N_CHOICES = (50, 100, 250, 500, 1000, 0)  # 0 = all common
 

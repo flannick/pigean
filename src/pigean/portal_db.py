@@ -190,7 +190,7 @@ def _extra_json(row: dict[str, str], keep_numeric: bool = True) -> str:
     return json.dumps(payload, separators=(",", ":"))
 
 
-GENE_RANK_METRICS = ("combined", "prior", "log_bf")
+GENE_RANK_METRICS = ("combined", "prior", "log_bf", "huge_score")
 GENE_SET_RANK_METRICS = ("beta", "beta_uncorrected")
 
 
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS run_params (
 CREATE TABLE IF NOT EXISTS genes (
     run_id TEXT NOT NULL, gene TEXT NOT NULL, prior REAL, combined REAL, log_bf REAL, huge_score REAL,
     n REAL, chrom TEXT, start REAL, end REAL, extra_json TEXT,
-    rank_combined INTEGER, rank_prior INTEGER, rank_log_bf INTEGER, PRIMARY KEY (run_id, gene)
+    rank_combined INTEGER, rank_prior INTEGER, rank_log_bf INTEGER, rank_huge_score INTEGER, PRIMARY KEY (run_id, gene)
 );
 CREATE TABLE IF NOT EXISTS gene_sets (
     run_id TEXT NOT NULL, gene_set TEXT NOT NULL, label TEXT, n REAL, beta REAL, beta_uncorrected REAL,
@@ -365,7 +365,7 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
                           *(gene_ranks[m].get(row["gene"]) for m in GENE_RANK_METRICS)))
     conn.executemany(
         "INSERT OR REPLACE INTO genes (run_id, gene, prior, combined, log_bf, huge_score, n, chrom, start, end, "
-        "extra_json, rank_combined, rank_prior, rank_log_bf) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", gene_rows)
+        "extra_json, rank_combined, rank_prior, rank_log_bf, rank_huge_score) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", gene_rows)
     n_genes = len(gene_rows)
     if n_genes_in and not n_genes:
         warnings.append(f"run '{run_id}': no genes passed the gene filters")
@@ -454,7 +454,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if column not in existing:
             conn.execute(f"ALTER TABLE runs ADD COLUMN {column} INTEGER")
     # schema v5: ranks over the full (pre-threshold) PIGEAN output, used by the Comparer
-    for table, columns in (("genes", ("rank_combined", "rank_prior", "rank_log_bf")),
+    for table, columns in (("genes", ("rank_combined", "rank_prior", "rank_log_bf", "rank_huge_score")),
                            ("gene_sets", ("rank_beta", "rank_beta_uncorrected"))):
         have = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
         for column in columns:
@@ -539,7 +539,7 @@ def query_genes(conn: sqlite3.Connection, run_id: str, *, min_prior: Optional[fl
                 min_log_bf: Optional[float] = None, min_combined: Optional[float] = None,
                 search: str = "", sort: str = "combined", limit: int = 5000) -> list[dict]:
     sort_col = sort if sort in ("combined", "prior", "log_bf", "huge_score", "gene") else "combined"
-    sql = "SELECT gene, prior, combined, log_bf, huge_score, n, chrom, start, end, rank_combined, rank_prior, rank_log_bf FROM genes WHERE run_id=?"
+    sql = "SELECT gene, prior, combined, log_bf, huge_score, n, chrom, start, end, rank_combined, rank_prior, rank_log_bf, rank_huge_score FROM genes WHERE run_id=?"
     params: list = [run_id]
     for col, value in (("prior", min_prior), ("log_bf", min_log_bf), ("combined", min_combined)):
         if value is not None:

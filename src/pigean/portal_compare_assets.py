@@ -31,10 +31,16 @@ CSS = r"""
 .seg button { border:0; border-radius:0; font-weight:500; padding:6px 10px; }
 .seg button.active { background:var(--accent-soft); color:var(--accent); font-weight:700; }
 .grid.compare { grid-template-columns:1fr 1fr; }
+.tabs { display:flex; gap:6px; margin:0 0 12px; border-bottom:1px solid var(--line); }
+.tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; background:none; font-weight:600; color:var(--muted); padding:6px 12px; }
+.tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tabs button:hover { background:none; color:var(--ink); }
+.sumtable { width:auto; min-width:60%; }
+.sumtable th, .sumtable td { padding:6px 14px; }
 """
 
 SCRIPT = r"""
-const state = { runs:[], a:null, b:null, topN:100, geneMetric:'combined', gsMetric:'beta', view:'ab', geneRows:[], gsRows:[], params:null };
+const state = { runs:[], a:null, b:null, topN:100, geneMetric:'combined', gsMetric:'beta', view:'ab', geneRows:[], gsRows:[], params:null, summary:null, sumTab:'genes' };
 const RUN_KEYS = ['a', 'b'];
 const runById = id => state.runs.find(r => r.run_id === id);
 const runLabel = r => r ? `${r.phenotype && r.phenotype.name ? r.phenotype.name : (r.trait || r.run_id)} · ${r.model}${r.seed && r.seed !== 'main' ? ' · ' + r.seed : ''}` : '';
@@ -82,24 +88,28 @@ function swapRuns() { [state.a, state.b] = [state.b, state.a]; if (!$('view-resu
 
 // ---------- summary (top-N correlations)
 async function loadSummary() {
-  const d = await api('/api/compare/summary', { a: state.a, b: state.b, top_n: state.topN });
-  const c = d.genes.counts, cs = d.gene_sets.counts;
-  const row = m => `<tr><td>${esc(m.metric)}</td><td class="num">${m.n.toLocaleString()}</td><td class="num">${m.pearson === null ? '' : m.pearson.toFixed(3)}</td><td class="num">${m.spearman === null ? '' : m.spearman.toFixed(3)}</td><td class="num">${m.overlap === null || m.overlap === undefined ? '—' : `${m.overlap} / ${m.n_top_a}·${m.n_top_b}`}</td><td class="num">${m.jaccard === null || m.jaccard === undefined ? '—' : m.jaccard.toFixed(2)}</td><td class="num">${m.rank_pearson_all === null ? '' : m.rank_pearson_all.toFixed(3)}</td></tr>`;
+  state.summary = await api('/api/compare/summary', { a: state.a, b: state.b, top_n: state.topN });
+  renderSummary();
+}
+function renderSummary() {
+  const d = state.summary; if (!d) return;
+  const kind = state.sumTab, part = d[kind], c = part.counts, noun = kind === 'genes' ? 'genes' : 'gene sets';
+  const ranked = kind === 'genes' ? [d.ranked.a_genes, d.ranked.b_genes] : [d.ranked.a_gene_sets, d.ranked.b_gene_sets];
+  const row = m => `<tr><td><b>${esc(m.metric)}</b></td><td class="num">${m.n.toLocaleString()}</td><td class="num">${m.pearson === null ? '' : m.pearson.toFixed(3)}</td><td class="num">${m.spearman === null ? '' : m.spearman.toFixed(3)}</td><td class="num">${m.overlap === null || m.overlap === undefined ? '—' : m.overlap.toLocaleString()}</td><td class="num">${m.jaccard === null || m.jaccard === undefined ? '—' : m.jaccard.toFixed(2)}</td><td class="num">${m.n_common.toLocaleString()}</td><td class="num">${m.rank_pearson_all === null ? '' : m.rank_pearson_all.toFixed(3)}</td></tr>`;
   $('summary').innerHTML = `
+    <div class="tabs"><button data-tab="genes" class="${kind==='genes'?'active':''}">Genes</button><button data-tab="gene_sets" class="${kind==='gene_sets'?'active':''}">Gene sets</button></div>
     <div class="counts">
-      <div class="stat"><strong>${c.both.toLocaleString()}</strong><span class="muted">genes in both</span></div>
+      <div class="stat"><strong>${c.both.toLocaleString()}</strong><span class="muted">${noun} in both</span></div>
       <div class="stat"><strong>${c.a_only.toLocaleString()}</strong><span class="muted">A only</span></div>
       <div class="stat"><strong>${c.b_only.toLocaleString()}</strong><span class="muted">B only</span></div>
-      <div class="stat"><strong>${cs.both.toLocaleString()}</strong><span class="muted">gene sets in both</span></div>
-      <div class="stat"><strong>${cs.a_only.toLocaleString()}</strong><span class="muted">A only</span></div>
-      <div class="stat"><strong>${cs.b_only.toLocaleString()}</strong><span class="muted">B only</span></div>
+      <span class="muted">ranked over ${(ranked[0] || 0).toLocaleString()} (A) / ${(ranked[1] || 0).toLocaleString()} (B) ${noun} in the full PIGEAN output</span>
     </div>
     ${d.ranks_available ? '' : '<div class="warn">This database predates rank storage — rebuild it with the current pigean.portal to get ranks and top-N summaries.</div>'}
-    <table class="sumtable"><thead><tr><th>metric</th><th class="num">n (top-${state.topN || 'all'} ∪)</th><th class="num">Pearson</th><th class="num">Spearman</th><th class="num">top-N overlap</th><th class="num">Jaccard</th><th class="num">rank r (all common)</th></tr></thead><tbody>
-      <tr><td colspan="7" class="muted">genes</td></tr>${d.genes.metrics.map(row).join('')}
-      <tr><td colspan="7" class="muted">gene sets</td></tr>${d.gene_sets.metrics.map(row).join('')}
+    <table class="sumtable"><thead><tr><th>score</th><th class="num">n in top-${state.topN || 'all'}</th><th class="num">Pearson</th><th class="num">Spearman</th><th class="num">top-${state.topN || 'all'} overlap</th><th class="num">Jaccard</th><th class="num">n in both</th><th class="num">rank r (all)</th></tr></thead><tbody>
+      ${part.metrics.map(row).join('')}
     </tbody></table>
-    <div class="muted" style="margin-top:6px">Ranks are over the full PIGEAN output (${(d.ranked.a_genes || 0).toLocaleString()} / ${(d.ranked.b_genes || 0).toLocaleString()} genes, ${(d.ranked.a_gene_sets || 0).toLocaleString()} / ${(d.ranked.b_gene_sets || 0).toLocaleString()} gene sets); only rows that passed each build's thresholds are stored, so "A only" / "B only" means the other run fell below threshold. Top-N = union of A's and B's top N by that metric's rank.</div>`;
+    <div class="muted" style="margin-top:6px">Top-N = union of A's and B's top N by that score's rank; Pearson / Spearman are on the members of that union present in both runs. Only rows that passed each build's thresholds are stored, so "A only" / "B only" means the other run fell below threshold.</div>`;
+  $('summary').querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.sumTab = b.dataset.tab; renderSummary(); });
 }
 
 // ---------- scatters + ranking tables
@@ -153,7 +163,7 @@ async function loadGeneSets() {
 async function showLookup(kind, id) {
   let d;
   try { d = await api('/api/compare/lookup', { a: state.a, b: state.b, kind, id }); } catch (err) { openModal(id, `<span class="warn">${esc(err.message)}</span>`); return; }
-  const metrics = kind === 'gene' ? ['combined', 'prior', 'log_bf'] : ['beta', 'beta_uncorrected'];
+  const metrics = kind === 'gene' ? ['combined', 'prior', 'log_bf', 'huge_score'] : ['beta', 'beta_uncorrected'];
   const ra = runById(state.a), rb = runById(state.b);
   openModal(`${kind === 'gene' ? 'Gene' : 'Gene set'}: ${id}`,
     `<div class="muted" style="margin-bottom:8px">${statusHtml(d.status)}${d.label ? ' · library ' + esc(d.label) : ''}</div>
@@ -235,7 +245,7 @@ BODY = r"""
   <div class="controls" style="margin:4px 0 8px"><div><label>scatter view</label><div class="seg" id="view-toggle"><button type="button" data-view="ab" class="active" title="x = A, y = B">A vs B</button><button type="button" data-view="diff" title="x = mean, y = B − A">difference vs mean</button></div></div></div>
   <div class="grid compare">
     <section class="panel">
-      <div class="controls"><h2 style="margin:0">Genes</h2><div style="margin-left:auto"><label for="gene_metric">score</label><select id="gene_metric"><option value="combined">combined</option><option value="prior">prior</option><option value="log_bf">log_bf</option></select></div></div>
+      <div class="controls"><h2 style="margin:0">Genes</h2><div style="margin-left:auto"><label for="gene_metric">score</label><select id="gene_metric"><option value="combined">combined</option><option value="prior">prior</option><option value="log_bf">log_bf</option><option value="huge_score">huge_score</option></select></div></div>
       <div id="gene-scatter"></div>
       <div class="muted" id="gene-count"></div>
       <div class="controls" style="margin-top:8px">
