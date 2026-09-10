@@ -22,6 +22,9 @@ CSS = r"""
 .tag { display:inline-block; border-radius:6px; padding:1px 7px; font-size:11px; font-weight:700; margin-right:6px; }
 .tag.a { background:#dbeafe; color:#1d4ed8; } .tag.b { background:#fde68a; color:#92400e; }
 .vs { color:var(--muted); font-weight:600; margin:0 6px; }
+.crumb.stacked { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:baseline; }
+.crumb.stacked strong { font-size:19px; }
+.crumb.stacked .muted { margin-left:8px; font-size:12px; }
 .sumtable td.num, .sumtable th.num { text-align:right; }
 .status-both { color:var(--accent); } .status-a_only { color:#1d4ed8; } .status-b_only { color:#92400e; }
 .seg { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
@@ -71,7 +74,8 @@ async function openResults() {
   $('view-landing').hidden = true; $('view-results').hidden = false;
   setHash({ a: state.a, b: state.b });
   const ra = runById(state.a), rb = runById(state.b);
-  $('crumb').innerHTML = `<span class="tag a">A</span><strong>${esc(runLabel(ra))}</strong><span class="muted">${esc(ra.run_id)}</span><span class="vs">vs</span><span class="tag b">B</span><strong>${esc(runLabel(rb))}</strong><span class="muted">${esc(rb.run_id)}</span>`;
+  $('crumb').innerHTML = `<span class="tag a">A</span><div><strong>${esc(runLabel(ra))}</strong><span class="muted">${esc(ra.run_id)}</span></div>` +
+    `<span class="tag b">B</span><div><strong>${esc(runLabel(rb))}</strong><span class="muted">${esc(rb.run_id)}</span></div>`;
   await Promise.all([loadSummary(), loadGenes(), loadGeneSets(), loadParams()]);
 }
 function swapRuns() { [state.a, state.b] = [state.b, state.a]; if (!$('view-results').hidden) openResults(); else { $('a_run').value = state.a || ''; $('b_run').value = state.b || ''; } }
@@ -221,7 +225,7 @@ BODY = r"""
 <div id="view-results" class="shell" hidden>
   <div class="bar">
     <button id="back" type="button" title="back to search">◀ Search</button>
-    <div class="crumb" id="crumb"></div>
+    <div class="crumb stacked" id="crumb"></div>
     <div class="right"><button id="swap" type="button" title="swap A and B">⇄ swap</button></div>
   </div>
   <section class="panel">
