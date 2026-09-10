@@ -116,6 +116,10 @@ body.sheet-open #sheet-backdrop { display:block; }
 .tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
 .tabs button:hover { background:none; color:var(--ink); }
 .across-controls { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:8px; }
+.pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:6px 0 2px; font-size:12px; color:var(--muted); }
+.pager button { padding:3px 9px; font-weight:500; }
+.pager button:disabled { opacity:.4; cursor:default; }
+.sheet-controls { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin:6px 0 8px; }
 details.adv { margin-bottom:10px; }
 details.adv summary { cursor:pointer; color:var(--muted); font-size:12px; user-select:none; }
 details.adv .controls { margin:8px 0 0; }
@@ -410,41 +414,79 @@ async function renderAcross(kind, id, metrics) {
 function closeSheet() { document.body.classList.remove('sheet-open'); if (state.run && !$('view-results').hidden) setHash({ run: state.run }); window.dispatchEvent(new Event('resize')); }
 function setHighlight(genes) { state.highlighted = new Set(genes); drawScatter(); renderGeneTable(); }
 
+// Paginated table: renders `rows` into #{id} 25 at a time with a prev/next pager.
+function pagedTable(id, headerHtml, rows, rowHtml, onRow, pageSize = 25) {
+  const host = $(id); let page = 0;
+  const draw = () => {
+    const n = Math.max(1, Math.ceil(rows.length / pageSize)); page = Math.min(page, n - 1);
+    const slice = rows.slice(page * pageSize, (page + 1) * pageSize);
+    host.innerHTML = `<div class="pager"><span>${rows.length ? page * pageSize + 1 : 0}–${Math.min(rows.length, (page + 1) * pageSize)} of ${rows.length.toLocaleString()}</span><button type="button" data-p="first" ${page===0?'disabled':''}>«</button><button type="button" data-p="prev" ${page===0?'disabled':''}>‹</button><span>page ${page + 1} / ${n}</span><button type="button" data-p="next" ${page>=n-1?'disabled':''}>›</button><button type="button" data-p="last" ${page>=n-1?'disabled':''}>»</button></div>` +
+      `<div class="scroll"><table><thead>${headerHtml}</thead><tbody>${slice.map(rowHtml).join('')}</tbody></table></div>`;
+    host.querySelectorAll('.pager button').forEach(b => b.onclick = () => { page = { first: 0, prev: page - 1, next: page + 1, last: n - 1 }[b.dataset.p]; draw(); });
+    if (onRow) host.querySelectorAll('tr.row').forEach(onRow);
+  };
+  draw();
+}
+const byMetric = (rows, metric) => rows.slice().sort((a, b) => ((b[metric] ?? -Infinity) - (a[metric] ?? -Infinity)) || ((b.weight ?? 0) - (a.weight ?? 0)));
+function hBar(el, rows, labelKey, metric, colorKey, height) {
+  const top = rows.slice(0, 40).reverse();
+  if (!top.length) { Plotly.purge(el); return; }
+  Plotly.react(el, [{ type: 'bar', orientation: 'h', y: top.map(r => r[labelKey]), x: top.map(r => r[metric] ?? 0),
+      marker: { color: top.map(r => r[metric] ?? 0), colorscale: 'Viridis', opacity: colorKey ? top.map(r => 0.45 + 0.55 * Math.min(1, Math.max(0, r[colorKey] ?? 0))) : 0.9 },
+      customdata: top.map(r => colorKey ? (r[colorKey] ?? 0) : 0), hovertemplate: `%{y}: ${metric} %{x:.3f}${colorKey ? `, ${colorKey} %{customdata:.2f}` : ''}<extra></extra>` }],
+    { height, margin: { l: 110, r: 10, t: 4, b: 30 }, xaxis: { title: metric }, yaxis: { automargin: true, tickfont: { size: 10 } } }, { responsive: true, displaylogo: false });
+}
+
 async function showGeneSet(id) {
-  const d = await api('/api/gene_set', { run: state.run, id, limit: 1000 });
+  const d = await api('/api/gene_set', { run: state.run, id, limit: 100000 });
   state.selectedGeneSet = id; state.selectedGene = null; setHash({ run: state.run, gs: id });
   const L = d.loadings;
   openSheet('Gene set', id,
     kv(d, ['label','n','beta','beta_uncorrected','p_orig','z_orig']) +
-    `<h3>Gene loadings <span class="muted">${L.length.toLocaleString()} of ${d.n_loadings.toLocaleString()}, by weight then combined</span></h3>` +
-    `<div id="loading-plot" style="height:${Math.min(700, 60 + 16 * Math.min(L.length, 40))}px"></div>` +
-    `<div class="scroll"><table id="loading-table"><thead><tr><th>Gene</th><th class="num">weight</th><th class="num">beta</th><th class="num">combined</th><th class="num">log_bf</th><th class="num">prior</th></tr></thead><tbody>` +
-    L.map(r => `<tr class="row" data-gene="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.combined)}</td><td class="num">${fmt(r.log_bf)}</td><td class="num">${fmt(r.prior)}</td></tr>`).join('') + '</tbody></table></div>' +
+    `<h3>Gene loadings <span class="muted">${L.length.toLocaleString()} genes in this set (top 40 charted)</span></h3>` +
+    `<div class="sheet-controls"><div><label for="gs-metric">gene score</label><select id="gs-metric"><option value="combined">combined</option><option value="prior">prior</option><option value="log_bf">log_bf</option><option value="huge_score">huge_score</option></select></div><div class="ta-wrap" style="flex:1"><label for="gs-gene-filter">filter genes</label><input id="gs-gene-filter" placeholder="fuzzy, e.g. slc2" autocomplete="off"></div></div>` +
+    `<div id="loading-plot" style="height:${Math.min(700, 60 + 16 * Math.min(L.length, 40))}px"></div><div id="loading-table"></div>` +
     `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`,
     () => renderAcross('gene_set', id, ['beta', 'beta_uncorrected']));
-  $('sheet-body').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGene(tr.dataset.gene));
-  const top = L.slice(0, 40).reverse();
-  if (top.length) Plotly.react('loading-plot', [{ type: 'bar', orientation: 'h', y: top.map(r => r.gene), x: top.map(r => r.combined ?? 0), marker: { color: top.map(r => r.combined ?? 0), colorscale: 'Viridis', opacity: top.map(r => 0.45 + 0.55 * (r.weight ?? 0)) }, hovertemplate: '%{y}: combined %{x:.3f}, weight %{customdata:.2f}<extra></extra>', customdata: top.map(r => r.weight ?? 0) }],
-    { margin: { l: 100, r: 10, t: 4, b: 30 }, xaxis: { title: 'combined (gene score)' }, yaxis: { automargin: true, tickfont: { size: 10 } } }, { responsive: true, displaylogo: false });
+  const draw = () => {
+    const metric = $('gs-metric').value, q = $('gs-gene-filter').value.trim();
+    let rows = byMetric(L, metric);
+    if (q) rows = rows.map(r => [r, fuzzyScore(q, r.gene)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]);
+    hBar('loading-plot', rows, 'gene', metric, 'weight', Math.min(700, 60 + 16 * Math.min(rows.length, 40)));
+    pagedTable('loading-table', `<tr><th>Gene</th><th class="num">${metric}</th><th class="num">weight</th><th class="num">beta</th><th class="num">combined</th><th class="num">log_bf</th><th class="num">prior</th></tr>`, rows,
+      r => `<tr class="row" data-gene="${esc(r.gene)}"><td>${esc(r.gene)}</td><td class="num"><b>${fmt(r[metric])}</b></td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.combined)}</td><td class="num">${fmt(r.log_bf)}</td><td class="num">${fmt(r.prior)}</td></tr>`,
+      tr => tr.onclick = () => showGene(tr.dataset.gene));
+  };
+  $('gs-metric').onchange = draw; $('gs-gene-filter').oninput = draw; draw();
   setHighlight(L.map(r => r.gene));
   renderGeneSetTable();
 }
 async function showGene(gene) {
   let d;
-  try { d = await api('/api/gene', { run: state.run, id: gene, limit: 1000 }); }
+  try { d = await api('/api/gene', { run: state.run, id: gene, limit: 100000 }); }
   catch (err) { openSheet('Gene', gene, `<p class="warn">${esc(err.message)} — it may not have passed the build thresholds for this run.</p>`, () => renderAcross('gene', gene, ['combined', 'log_bf', 'prior', 'huge_score'])); return; }
   state.selectedGene = gene; setHash({ run: state.run, gene });
+  const G = d.gene_sets;
   openSheet('Gene', gene,
     kv(d, ['combined','log_bf','prior','huge_score','n','chrom','start','end']) +
-    `<h3>Gene sets <span class="muted">${d.gene_sets.length.toLocaleString()} loadings, by beta</span></h3>` +
-    `<div class="scroll"><table><thead><tr><th>Gene set</th><th>Label</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr></thead><tbody>` +
-    d.gene_sets.map(r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`).join('') + '</tbody></table></div>' +
+    `<h3>Gene sets <span class="muted">${G.length.toLocaleString()} sets load on this gene (top 40 charted)</span></h3>` +
+    `<div class="sheet-controls"><div><label for="g-metric">gene set score</label><select id="g-metric"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="weight">weight</option></select></div><div style="flex:1"><label for="g-gs-filter">filter gene sets</label><input id="g-gs-filter" placeholder="fuzzy, id or label" autocomplete="off"></div></div>` +
+    `<div id="gs-plot"></div><div id="gs-member-table"></div>` +
     `<details style="margin-top:10px"><summary class="muted">all columns</summary>${kv(d.extra, Object.keys(d.extra))}</details>`,
     () => renderAcross('gene', gene, ['combined', 'log_bf', 'prior', 'huge_score']));
-  $('sheet-body').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
+  const draw = () => {
+    const metric = $('g-metric').value, q = $('g-gs-filter').value.trim();
+    let rows = byMetric(G, metric);
+    if (q) rows = rows.map(r => [r, Math.max(fuzzyScore(q, r.gene_set), fuzzyScore(q, r.label || '') * 0.98)]).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(x => x[0]);
+    $('gs-plot').style.height = `${Math.min(700, 60 + 16 * Math.min(rows.length, 40))}px`;
+    hBar('gs-plot', rows.map(r => ({ ...r, short: r.gene_set.length > 38 ? r.gene_set.slice(0, 36) + '…' : r.gene_set })), 'short', metric, metric === 'weight' ? null : 'weight', Math.min(700, 60 + 16 * Math.min(rows.length, 40)));
+    pagedTable('gs-member-table', `<tr><th>Gene set</th><th>Label</th><th class="num">${metric}</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr>`, rows,
+      r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num"><b>${fmt(r[metric])}</b></td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`,
+      tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
+  };
+  $('g-metric').onchange = draw; $('g-gs-filter').oninput = draw; draw();
   setHighlight([gene]);
 }
-
 // ---------- wiring
 let t1, t2;
 $('model').onchange = () => { populateTraits(); populateRuns(); };
