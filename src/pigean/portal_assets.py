@@ -116,6 +116,9 @@ body.sheet-open #sheet-backdrop { display:block; }
 .tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
 .tabs button:hover { background:none; color:var(--ink); }
 .across-controls { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:8px; }
+details.adv { margin-bottom:10px; }
+details.adv summary { cursor:pointer; color:var(--muted); font-size:12px; user-select:none; }
+details.adv .controls { margin:8px 0 0; }
 """
 
 SCRIPT = r"""
@@ -494,7 +497,6 @@ BODY = r"""
     <div class="right">
       <div><label for="bar_model">Model</label><select id="bar_model"></select></div>
       <div><label for="bar_run">Run</label><select id="bar_run"></select></div>
-      <div class="ta-wrap"><label for="gene_search">Gene</label><input id="gene_search" placeholder="e.g. TCF7L2" style="width:22ch" autocomplete="off"></div>
     </div>
   </div>
   <div id="run-summary"></div>
@@ -502,11 +504,14 @@ BODY = r"""
     <section class="panel">
       <h2>Genes: direct (log_bf) vs indirect (prior)</h2>
       <div class="controls">
+        <div class="ta-wrap" style="flex:1"><label for="gene_search">search gene</label><input id="gene_search" placeholder="e.g. TCF7L2 — opens the gene card" style="width:100%" autocomplete="off"></div>
+        <div><button id="clear-highlight" type="button">Clear highlight</button></div>
+      </div>
+      <details class="adv"><summary>Advanced filters</summary><div class="controls">
         <div><label>min prior</label><input id="min_prior" type="number" step="0.1"></div>
         <div><label>min log_bf</label><input id="min_log_bf" type="number" step="0.1"></div>
         <div><label>min combined</label><input id="min_combined" type="number" step="0.1"></div>
-        <div style="margin-left:auto"><button id="clear-highlight" type="button">Clear highlight</button></div>
-      </div>
+      </div></details>
       <div id="scatter"></div>
       <div class="muted" id="scatter-count"></div>
       <div class="muted" id="gene-table-count" style="margin-top:8px"></div>
@@ -515,11 +520,13 @@ BODY = r"""
     <section class="panel">
       <h2>Top gene sets</h2>
       <div class="controls">
+        <div style="flex:1"><label>search gene set (id or label)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
+        <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option></select></div>
+      </div>
+      <details class="adv"><summary>Advanced filters</summary><div class="controls">
         <div><label>min beta</label><input id="min_beta" type="number" step="0.01"></div>
         <div><label>min beta_unc</label><input id="min_beta_uncorrected" type="number" step="0.01"></div>
-        <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option></select></div>
-        <div style="flex:1"><label>search (id or label)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
-      </div>
+      </div></details>
       <div class="scroll" style="max-height:820px"><table id="gs-table"></table></div>
       <div class="muted" id="gs-count"></div>
     </section>
