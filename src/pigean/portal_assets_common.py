@@ -92,9 +92,11 @@ dialog.modal .modal-body { padding:14px 18px 18px; overflow:auto; max-height:cal
 .scroll th:first-child, .scroll td:first-child { position:sticky; left:0; background:#fff; z-index:2; max-width:30ch; overflow:hidden; text-overflow:ellipsis; }
 .scroll th:first-child { z-index:3; }
 /* instant hover tooltip with the full (untruncated) id for cells carrying data-full */
-td[data-full] { position:relative; }
+/* the cell itself must not clip (the tooltip is its ::after), so truncation moves to an inner span */
+td[data-full] { position:relative; overflow:visible !important; }
+td[data-full] .trunc { display:block; max-width:30ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 td[data-full]:hover::after { content: attr(data-full); position:absolute; left:6px; top:100%; z-index:10; background:var(--ink); color:#fff; padding:6px 9px; border-radius:8px; font-size:12px; white-space:normal; word-break:break-all; max-width:60ch; min-width:20ch; box-shadow:0 8px 24px rgba(31,41,51,.25); pointer-events:none; }
-.scroll td[data-full]:first-child:hover { z-index:11; }  /* cell text stays truncated; only the tooltip shows the full id */
+.scroll td[data-full]:first-child:hover { z-index:11; }
 .scroll tr.selected td:first-child { background:var(--hl-soft); }
 .scroll tr.row:hover td:first-child { background:var(--accent-soft); }
 td.wrap { white-space:normal; min-width:18ch; max-width:34ch; line-height:1.25; }

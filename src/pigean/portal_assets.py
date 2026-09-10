@@ -180,7 +180,7 @@ function renderGeneSetTable() {
   const cols = [['gene_set','Gene set',false],['label','Library',false],['n','N',true],['beta','beta',true],['beta_uncorrected','beta_unc',true],['p_orig','P',true]];
   const rows = sortRows(state.geneSets, s);
   $('gs-table').innerHTML = '<thead><tr>' + cols.map(([c,t,n]) => `<th class="${n?'num':''}" data-col="${c}">${t}${sortMark(s,c)}</th>`).join('') + '</tr></thead><tbody>' +
-    rows.map((r,i) => `<tr class="row ${r.gene_set===state.selectedGeneSet?'selected':''}" data-gs="${esc(r.gene_set)}"><td data-full="${esc(r.gene_set)}">${i+1}. ${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num">${fmt(r.n)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.beta_uncorrected)}</td><td class="num">${fmt(r.p_orig)}</td></tr>`).join('') + '</tbody>';
+    rows.map((r,i) => `<tr class="row ${r.gene_set===state.selectedGeneSet?'selected':''}" data-gs="${esc(r.gene_set)}"><td data-full="${esc(r.gene_set)}"><span class="trunc">${i+1}. ${esc(r.gene_set)}</span></td><td class="wrap">${esc(r.label)}</td><td class="num">${fmt(r.n)}</td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.beta_uncorrected)}</td><td class="num">${fmt(r.p_orig)}</td></tr>`).join('') + '</tbody>';
   bindSort($('gs-table'), s, ['gene_set','label','p_orig'], () => { $('gs_sort').value = s.col; renderGeneSetTable(); });
   $('gs-table').querySelectorAll('tr.row').forEach(tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
   $('gs-count').textContent = `${rows.length.toLocaleString()} gene sets shown`;
@@ -286,7 +286,7 @@ async function showGene(gene) {
     $('gs-plot').style.height = `${Math.min(700, 60 + 16 * Math.min(rows.length, 40))}px`;
     hBar('gs-plot', rows.map(r => ({ ...r, short: r.gene_set.length > 38 ? r.gene_set.slice(0, 36) + '…' : r.gene_set })), 'short', metric, metric === 'weight' ? null : 'weight', Math.min(700, 60 + 16 * Math.min(rows.length, 40)));
     pagedTable('gs-member-table', `<tr><th>Gene set</th><th>Library</th><th class="num">${metric}</th><th class="num">beta</th><th class="num">weight</th><th class="num">beta_unc</th></tr>`, rows,
-      r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td data-full="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num"><b>${fmt(r[metric])}</b></td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`,
+      r => `<tr class="row" data-gs="${esc(r.gene_set)}"><td data-full="${esc(r.gene_set)}"><span class="trunc">${esc(r.gene_set)}</span></td><td class="wrap">${esc(r.label)}</td><td class="num"><b>${fmt(r[metric])}</b></td><td class="num">${fmt(r.beta)}</td><td class="num">${fmt(r.weight)}</td><td class="num">${fmt(r.beta_uncorrected)}</td></tr>`,
       tr => tr.onclick = () => showGeneSet(tr.dataset.gs));
   };
   $('g-metric').onchange = draw; $('g-gs-filter').oninput = draw; draw();
