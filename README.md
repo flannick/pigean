@@ -56,6 +56,7 @@ Use this as the index for the repo documentation set.
 - `docs/PIGEAN_CLI_REFERENCE.md`: human-written manual for how to run PIGEAN
 - `docs/GIBBS_STOPPING.md`: outer-Gibbs iteration, precision-stopping, and optional stall/restart controls
 - `docs/PIGEAN_DASHBOARD.md`: post-processing dashboard for existing PIGEAN/EAGGL outputs
+- `docs/PIGEAN_PORTAL.md`: thresholded SQLite + served viewer (gene scatter, ranked gene sets, gene loadings) for existing PIGEAN outputs
 - `docs/eaggl/CLI_REFERENCE.md`: human-written manual for how to run EAGGL
 - `docs/CLI_OPTIONS.md`: machine-generated exhaustive PIGEAN CLI inventory
 - `docs/eaggl/CLI_OPTIONS.md`: machine-generated exhaustive EAGGL CLI inventory
