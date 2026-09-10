@@ -162,7 +162,7 @@ async function loadGeneSets() {
   scatter('gs-scatter', d.rows, metric, 'gene_set', 'gene_set');
   $('gs-count').textContent = `${d.total.toLocaleString()} gene sets (${d.counts.both.toLocaleString()} in both); scatter shows gene sets present in both`;
   pagedTable('gs-table', `<tr><th>Gene set</th><th>Library</th><th class="num ca">rank A</th><th class="num cb">rank B</th><th class="num">Δrank</th><th class="num ca">A ${metric}</th><th class="num cb">B ${metric}</th><th class="num">Δ${metric}</th><th>status</th></tr>`, d.rows,
-    r => `<tr class="row" data-id="${esc(r.gene_set)}"><td title="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num ca">${rank(r[`a_rank_${metric}`])}</td><td class="num cb">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num ca">${fmt(r[`a_${metric}`])}</td><td class="num cb">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
+    r => `<tr class="row" data-id="${esc(r.gene_set)}"><td data-full="${esc(r.gene_set)}">${esc(r.gene_set)}</td><td class="wrap">${esc(r.label)}</td><td class="num ca">${rank(r[`a_rank_${metric}`])}</td><td class="num cb">${rank(r[`b_rank_${metric}`])}</td><td class="num">${delta(r[`delta_rank_${metric}`])}</td><td class="num ca">${fmt(r[`a_${metric}`])}</td><td class="num cb">${fmt(r[`b_${metric}`])}</td><td class="num">${delta(r[`delta_${metric}`])}</td><td>${statusHtml(r.status)}</td></tr>`,
     tr => tr.onclick = () => showLookup('gene_set', tr.dataset.id));
 }
 
