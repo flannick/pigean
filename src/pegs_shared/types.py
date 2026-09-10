@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import MISSING, dataclass, field, fields
 from os import PathLike
 from types import ModuleType
-from typing import Callable, Literal, TypeAlias
+from typing import Callable, Literal, Optional, Union
+try:
+    from typing import TypeAlias
+except ImportError:  # Python < 3.10
+    from typing_extensions import TypeAlias
 
 import numpy as np
 import scipy.sparse as sparse
@@ -18,24 +22,24 @@ from pegs_shared.x_runtime import (
 )
 
 
-MatrixLike: TypeAlias = np.ndarray | sparse.spmatrix
+MatrixLike: TypeAlias = Union[np.ndarray, sparse.spmatrix]
 VectorLike: TypeAlias = np.ndarray
-PathLikeStr: TypeAlias = str | PathLike[str]
-ColumnSpec: TypeAlias = int | str | None
+PathLikeStr: TypeAlias = Union[str, PathLike[str]]
+ColumnSpec: TypeAlias = Optional[Union[int, str]]
 StringList: TypeAlias = list[str]
-OptionalStringList: TypeAlias = list[str] | None
-BatchList: TypeAlias = list[str | None]
+OptionalStringList: TypeAlias = Optional[list[str]]
+BatchList: TypeAlias = list[Optional[str]]
 BoolList: TypeAlias = list[bool]
 IndexMap: TypeAlias = dict[str, int]
 FloatMap: TypeAlias = dict[str, float]
 ChromMap: TypeAlias = dict[str, str]
 PositionMap: TypeAlias = dict[str, tuple[int, int]]
 ChromGenePosMap: TypeAlias = dict[str, dict[str, set[int]]]
-DenseBlockCache: TypeAlias = tuple[MatrixLike, bool, bool, int | None, int | None, str | None]
-OptionalVectorLike: TypeAlias = VectorLike | None
-OptionalMatrixLike: TypeAlias = MatrixLike | None
-OptionalPathLikeStr: TypeAlias = PathLikeStr | None
-NumericScalar: TypeAlias = int | float
+DenseBlockCache: TypeAlias = tuple[MatrixLike, bool, bool, Optional[int], Optional[int], Optional[str]]
+OptionalVectorLike: TypeAlias = Optional[VectorLike]
+OptionalMatrixLike: TypeAlias = Optional[MatrixLike]
+OptionalPathLikeStr: TypeAlias = Optional[PathLikeStr]
+NumericScalar: TypeAlias = Union[int, float]
 Callback = Callable[..., object]
 PhewasInputMode: TypeAlias = Literal["skip", "reuse_loaded_matrix", "re_read_file"]
 PhewasInputReason: TypeAlias = Literal[
