@@ -154,14 +154,17 @@ The practical controls are summarized in `docs/GIBBS_STOPPING.md`. Use `--max-nu
 | `--gwas-in` | GWAS summary-statistics input |
 | `--gwas-chrom-col` | chromosome column |
 | `--gwas-pos-col` | base-pair position column |
-| `--gwas-p-col` | p-value column |
-| `--gwas-beta-col` | effect-size column when present |
-| `--gwas-se-col` | standard-error column when present |
-| `--gwas-n-col` | sample-size column when present |
+| `--gwas-p-col` | p-value column; supplies a fallback Z-score and an independent concordance check |
+| `--gwas-beta-col` | effect-size column; with an observed SE, supplies the default HuGE Z-score |
+| `--gwas-se-col` | standard-error column used with beta for the default HuGE Z-score and for uncertainty QC |
+| `--gwas-n-col` | sample-size column used for missingness/sample-size QC and for completing missing SE values |
 
 Notes:
-- prefer `--gwas-se-col` when the file provides it
-- if you provide `beta` without `se`, PIGEAN may need to infer z-scores conservatively from p-values instead
+- A HuGE Bayes factor needs one association-strength statistic. PIGEAN uses beta/SE when both values were observed. It uses the p-derived Z-score when beta is absent or SE had to be inferred from N; N-derived `1/sqrt(N)` is not treated as effect uncertainty.
+- When observed p, beta, and SE columns are all available, PIGEAN logs their Z-score concordance. It emits a warning when Pearson correlation is below 0.99, mean absolute Z disagreement exceeds 0.1, or more than 1% of variants differ by over 0.5 Z units. This is a diagnostic, not a reason to switch statistics automatically: non-Wald tests can disagree legitimately, while rounded, mis-scaled, or misaligned uncertainty columns can also cause disagreement.
+- The comparison uses `abs(SE)` because a standard error is an uncertainty magnitude. Negative reported SE values should still be corrected upstream.
+- The comparison is limited to retained HuGE candidate variants with observed p, beta, and SE values; SE values inferred from N are excluded.
+- Reported N governs sample-size/missingness QC when available. Observed SE separately governs effect uncertainty and the optional inverse-variance QC gate.
 
 ### Exome inputs
 
