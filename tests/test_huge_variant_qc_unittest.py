@@ -18,13 +18,11 @@ class HugeVariantQcTest(unittest.TestCase):
         self.assertEqual(normalize_reported_standard_error(0.25), (0.25, False))
         self.assertEqual(normalize_reported_standard_error(None), (None, False))
 
-    def test_observed_beta_and_se_take_precedence_for_z(self) -> None:
+    def test_p_takes_precedence_even_with_observed_beta_and_se(self) -> None:
         mask = select_p_derived_z_mask(
             np.array([0.01, 0.01, 0.01, np.nan]),
-            np.array([True, True, False, True]),
-            np.array([False, True, False, False]),
         )
-        np.testing.assert_array_equal(mask, np.array([False, True, True, False]))
+        np.testing.assert_array_equal(mask, np.array([True, True, True, False]))
 
     def test_reported_n_controls_sample_size_qc_even_when_se_is_present(self) -> None:
         mask = compute_huge_variant_qc_mask(
