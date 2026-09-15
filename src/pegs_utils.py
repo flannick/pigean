@@ -1551,6 +1551,121 @@ def compute_variant_z(
     return z
 
 
+def initialize_gwas_z_concordance_stats():
+    """Initialize streaming sufficient statistics for observed GWAS columns."""
+    return {
+        "n": 0,
+        "sum_p_z": 0.0,
+        "sum_beta_se_z": 0.0,
+        "sum_p_z2": 0.0,
+        "sum_beta_se_z2": 0.0,
+        "sum_cross": 0.0,
+        "sum_abs_delta": 0.0,
+        "num_abs_delta_gt_0_5": 0,
+        "num_inflated_gt_0_5": 0,
+        "num_deflated_gt_0_5": 0,
+    }
+
+
+def update_gwas_z_concordance_stats(stats, p, beta, se, *, se_was_inferred=None):
+    """Accumulate p-derived versus beta/|SE|-derived signed Z concordance."""
+    p = np.asarray(p, dtype=float)
+    beta = np.asarray(beta, dtype=float)
+    se = np.asarray(se, dtype=float)
+    if se_was_inferred is None:
+        se_was_inferred = np.zeros(p.shape, dtype=bool)
+    else:
+        se_was_inferred = np.asarray(se_was_inferred, dtype=bool)
+
+    observed = np.logical_and.reduce(
+        (
+            np.isfinite(p),
+            p > 0,
+            p <= 1,
+            np.isfinite(beta),
+            np.isfinite(se),
+            se != 0,
+            ~se_was_inferred,
+        )
+    )
+    if not np.any(observed):
+        return stats
+
+    p_safe = np.maximum(p[observed], 1e-300)
+    p_z_abs = np.abs(scipy.stats.norm.ppf(p_safe / 2))
+    beta_sign = np.sign(beta[observed])
+    beta_sign[beta_sign == 0] = 1
+    p_z = p_z_abs * beta_sign
+    beta_se_z = beta[observed] / np.abs(se[observed])
+    delta = beta_se_z - p_z
+    magnitude_delta = np.abs(beta_se_z) - np.abs(p_z)
+
+    stats["n"] += int(p_z.size)
+    stats["sum_p_z"] += float(np.sum(p_z))
+    stats["sum_beta_se_z"] += float(np.sum(beta_se_z))
+    stats["sum_p_z2"] += float(np.sum(np.square(p_z)))
+    stats["sum_beta_se_z2"] += float(np.sum(np.square(beta_se_z)))
+    stats["sum_cross"] += float(np.sum(p_z * beta_se_z))
+    stats["sum_abs_delta"] += float(np.sum(np.abs(delta)))
+    stats["num_abs_delta_gt_0_5"] += int(np.sum(np.abs(delta) > 0.5))
+    stats["num_inflated_gt_0_5"] += int(np.sum(magnitude_delta > 0.5))
+    stats["num_deflated_gt_0_5"] += int(np.sum(magnitude_delta < -0.5))
+    return stats
+
+
+def finalize_gwas_z_concordance_stats(stats):
+    """Convert streaming GWAS Z concordance statistics into reportable metrics."""
+    n = int(stats["n"])
+    if n == 0:
+        return None
+
+    centered_p_z2 = stats["sum_p_z2"] - np.square(stats["sum_p_z"]) / n
+    centered_beta_se_z2 = stats["sum_beta_se_z2"] - np.square(stats["sum_beta_se_z"]) / n
+    centered_cross = stats["sum_cross"] - stats["sum_p_z"] * stats["sum_beta_se_z"] / n
+    correlation_denominator = np.sqrt(max(centered_p_z2, 0) * max(centered_beta_se_z2, 0))
+    pearson = centered_cross / correlation_denominator if correlation_denominator > 0 else np.nan
+    slope = stats["sum_cross"] / stats["sum_p_z2"] if stats["sum_p_z2"] > 0 else np.nan
+
+    return {
+        "n": n,
+        "pearson": float(pearson),
+        "beta_se_on_p_slope": float(slope),
+        "mean_abs_delta_z": stats["sum_abs_delta"] / n,
+        "frac_abs_delta_gt_0_5": stats["num_abs_delta_gt_0_5"] / n,
+        "frac_inflated_gt_0_5": stats["num_inflated_gt_0_5"] / n,
+        "frac_deflated_gt_0_5": stats["num_deflated_gt_0_5"] / n,
+    }
+
+
+def gwas_z_concordance_is_material(metrics):
+    """Return whether observed association columns warrant a mismatch warning."""
+    if metrics is None or metrics["n"] < 100:
+        return False
+    return bool(
+        not np.isfinite(metrics["pearson"])
+        or metrics["pearson"] < 0.99
+        or metrics["mean_abs_delta_z"] > 0.1
+        or metrics["frac_abs_delta_gt_0_5"] > 0.01
+    )
+
+
+def format_gwas_z_concordance(metrics):
+    """Format the compact association-column comparison used in logs/warnings."""
+    return (
+        "n=%d, Pearson=%.4f, beta/SE-on-p Z slope=%.3f, mean |delta Z|=%.3f, "
+        "|delta Z|>0.5=%.2f%%, beta/SE inflated>0.5=%.2f%%, beta/SE deflated>0.5=%.2f%%"
+        % (
+            metrics["n"],
+            metrics["pearson"],
+            metrics["beta_se_on_p_slope"],
+            metrics["mean_abs_delta_z"],
+            100 * metrics["frac_abs_delta_gt_0_5"],
+            100 * metrics["frac_inflated_gt_0_5"],
+            100 * metrics["frac_deflated_gt_0_5"],
+        )
+    )
+
+
 from pegs_shared.output_tables import (
     write_factor_phewas_statistics,
     write_gene_gene_set_statistics,

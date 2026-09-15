@@ -63,6 +63,11 @@ pegs_calculate_V_internal = pegs_runtime_matrix.calculate_V_internal
 pegs_clean_chrom_name = pegs_io_common.clean_chrom_name
 pegs_complete_p_beta_se = pegs_utils_mod.complete_p_beta_se
 pegs_compute_variant_z = pegs_utils_mod.compute_variant_z
+pegs_finalize_gwas_z_concordance_stats = pegs_utils_mod.finalize_gwas_z_concordance_stats
+pegs_format_gwas_z_concordance = pegs_utils_mod.format_gwas_z_concordance
+pegs_gwas_z_concordance_is_material = pegs_utils_mod.gwas_z_concordance_is_material
+pegs_initialize_gwas_z_concordance_stats = pegs_utils_mod.initialize_gwas_z_concordance_stats
+pegs_update_gwas_z_concordance_stats = pegs_utils_mod.update_gwas_z_concordance_stats
 pegs_coerce_runtime_state_dict = pegs_huge_cache.coerce_runtime_state_dict
 pegs_compute_banded_y_corr_cholesky = pegs_runtime_matrix.compute_banded_y_corr_cholesky
 pegs_compute_beta_tildes = pegs_regression.compute_beta_tildes
@@ -2306,6 +2311,8 @@ class PigeanState(object):
             window_fun_intercept = None
             window_fun_slope = None
             warned_prefer_p_for_gwas_p = False
+            num_p_derived_z = 0
+            gwas_z_concordance_stats = pegs_initialize_gwas_z_concordance_stats()
 
             #second, compute the huge scores
             for learn_params in [True, False]:
@@ -2355,6 +2362,16 @@ class PigeanState(object):
                         beta_was_provided,
                         var_se_was_inferred,
                     )
+
+                    if learn_params:
+                        num_p_derived_z += int(np.sum(prefer_z_from_p_mask))
+                        pegs_update_gwas_z_concordance_stats(
+                            gwas_z_concordance_stats,
+                            var_p,
+                            var_beta,
+                            var_se,
+                            se_was_inferred=var_se_was_inferred,
+                        )
 
                     (var_p, var_beta, var_se) = pegs_complete_p_beta_se(
                         var_p,
@@ -2715,6 +2732,29 @@ class PigeanState(object):
                         )
 
                 if learn_params:
+                    if num_p_derived_z > 0:
+                        log(
+                            "Using p-derived Z magnitude for %d HuGE candidate variants without a complete observed beta/SE pair; complete observed beta/SE pairs remain the primary Z source"
+                            % num_p_derived_z,
+                            INFO,
+                        )
+                    gwas_z_concordance = pegs_finalize_gwas_z_concordance_stats(
+                        gwas_z_concordance_stats
+                    )
+                    if gwas_z_concordance is not None:
+                        gwas_z_concordance_text = pegs_format_gwas_z_concordance(
+                            gwas_z_concordance
+                        )
+                        log(
+                            "GWAS p-derived versus beta/absolute-SE-derived Z concordance among observed columns: %s"
+                            % gwas_z_concordance_text,
+                            INFO,
+                        )
+                        if pegs_gwas_z_concordance_is_material(gwas_z_concordance):
+                            warn(
+                                "GWAS association columns materially disagree: %s. PIGEAN will use observed beta/SE-derived Z for HuGE Bayes factors when that pair is complete, with p-derived Z as the fallback. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
+                                % gwas_z_concordance_text
+                            )
                     (
                         gwas_low_p,
                         allelic_var_k,
