@@ -2310,7 +2310,6 @@ class PigeanState(object):
             gene_covariate_genes = huge_buffers["gene_covariate_genes"]
             window_fun_intercept = None
             window_fun_slope = None
-            warned_prefer_p_for_gwas_p = False
             num_p_derived_z = 0
             gwas_z_concordance_stats = pegs_initialize_gwas_z_concordance_stats()
 
@@ -2353,15 +2352,10 @@ class PigeanState(object):
                     var_se = np.array(vars_zipped[3], dtype=float)
                     var_se_was_inferred = np.array(vars_zipped[5], dtype=bool)
                     var_n = np.array(vars_zipped[6], dtype=float)
-                    beta_was_provided = ~np.isnan(var_beta)
-                    # An observed beta/SE pair is the direct effect-size Z source.
-                    # Prefer p only when beta is absent or SE had to be inferred
-                    # from N, because inferred 1/sqrt(N) is not effect uncertainty.
-                    prefer_z_from_p_mask = _pigean_huge_module().select_p_derived_z_mask(
-                        var_p,
-                        beta_was_provided,
-                        var_se_was_inferred,
-                    )
+                    # Reported p-values are the canonical association-strength
+                    # source. Additional columns supply direction, uncertainty,
+                    # and sample-size QC in beta, SE, N order.
+                    prefer_z_from_p_mask = _pigean_huge_module().select_p_derived_z_mask(var_p)
 
                     if learn_params:
                         num_p_derived_z += int(np.sum(prefer_z_from_p_mask))
@@ -2379,13 +2373,6 @@ class PigeanState(object):
                         var_se,
                         warn_fn=warn,
                     )
-
-                    if np.sum(prefer_z_from_p_mask) > 0 and not warned_prefer_p_for_gwas_p:
-                        warn(
-                            "Using p-derived z-scores for %d variants without a complete observed beta/SE pair; observed beta and SE reconstruct Z when both are available, while N is reserved for sample-size QC"
-                            % np.sum(prefer_z_from_p_mask)
-                        )
-                        warned_prefer_p_for_gwas_p = True
 
                     var_z = pegs_compute_variant_z(
                         var_p,
@@ -2734,7 +2721,7 @@ class PigeanState(object):
                 if learn_params:
                     if num_p_derived_z > 0:
                         log(
-                            "Using p-derived Z magnitude for %d HuGE candidate variants without a complete observed beta/SE pair; complete observed beta/SE pairs remain the primary Z source"
+                            "Using p-derived Z magnitude for %d HuGE candidate variants; beta supplies direction, observed SE supplies effect uncertainty, and reported N supplies sample-size QC"
                             % num_p_derived_z,
                             INFO,
                         )
@@ -2752,7 +2739,7 @@ class PigeanState(object):
                         )
                         if pegs_gwas_z_concordance_is_material(gwas_z_concordance):
                             warn(
-                                "GWAS association columns materially disagree: %s. PIGEAN will use observed beta/SE-derived Z for HuGE Bayes factors when that pair is complete, with p-derived Z as the fallback. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
+                                "GWAS association columns materially disagree: %s. PIGEAN will use p-derived Z magnitude for HuGE Bayes factors. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
                                 % gwas_z_concordance_text
                             )
                     (

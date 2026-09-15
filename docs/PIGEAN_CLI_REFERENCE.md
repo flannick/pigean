@@ -154,17 +154,18 @@ The practical controls are summarized in `docs/GIBBS_STOPPING.md`. Use `--max-nu
 | `--gwas-in` | GWAS summary-statistics input |
 | `--gwas-chrom-col` | chromosome column |
 | `--gwas-pos-col` | base-pair position column |
-| `--gwas-p-col` | p-value column; supplies a fallback Z-score and an independent concordance check |
-| `--gwas-beta-col` | effect-size column; with an observed SE, supplies the default HuGE Z-score |
-| `--gwas-se-col` | standard-error column used with beta for the default HuGE Z-score and for uncertainty QC |
+| `--gwas-p-col` | p-value column; when available, its Z-score magnitude drives HuGE Bayes factors |
+| `--gwas-beta-col` | effect-size column; supplies the direction of the p-derived Z-score |
+| `--gwas-se-col` | standard-error column used for effect uncertainty, QC, and completing missing quantities |
 | `--gwas-n-col` | sample-size column used for missingness/sample-size QC and for completing missing SE values |
 
 Notes:
-- A HuGE Bayes factor needs one association-strength statistic. PIGEAN uses beta/SE when both values were observed. It uses the p-derived Z-score when beta is absent or SE had to be inferred from N; N-derived `1/sqrt(N)` is not treated as effect uncertainty.
+- A HuGE Bayes factor needs one association-strength statistic. When p is available, PIGEAN always converts p to an absolute Z-score and uses beta only for direction; beta/SE does not replace the p-derived magnitude.
+- Additional association columns are used in the order beta, SE, then N: beta provides direction, observed SE provides effect uncertainty and optional inverse-variance QC, and reported N provides sample-size/missingness QC or a last-resort scale when SE is absent. N-derived `1/sqrt(N)` is not treated as observed effect uncertainty.
 - When observed p, beta, and SE columns are all available, PIGEAN logs their Z-score concordance. It emits a warning when Pearson correlation is below 0.99, mean absolute Z disagreement exceeds 0.1, or more than 1% of variants differ by over 0.5 Z units. This is a diagnostic, not a reason to switch statistics automatically: non-Wald tests can disagree legitimately, while rounded, mis-scaled, or misaligned uncertainty columns can also cause disagreement.
 - The comparison uses `abs(SE)` because a standard error is an uncertainty magnitude. Negative reported SE values should still be corrected upstream.
 - The comparison is limited to retained HuGE candidate variants with observed p, beta, and SE values; SE values inferred from N are excluded.
-- Reported N governs sample-size/missingness QC when available. Observed SE separately governs effect uncertainty and the optional inverse-variance QC gate.
+- If p is absent, an observed beta/SE pair supplies the Z-score.
 
 ### Exome inputs
 

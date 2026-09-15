@@ -1060,12 +1060,9 @@ def compute_huge_variant_qc_mask(
     return variants_keep
 
 
-def select_p_derived_z_mask(var_p, beta_was_provided, se_was_inferred):
-    """Select p-derived Z only when an observed beta/SE pair is unavailable."""
-    return (
-        ~np.isnan(var_p)
-        & (~np.asarray(beta_was_provided, dtype=bool) | np.asarray(se_was_inferred, dtype=bool))
-    )
+def select_p_derived_z_mask(var_p):
+    """Select p-derived Z wherever a reported p-value is available."""
+    return ~np.isnan(var_p)
 
 
 def normalize_reported_standard_error(se):
