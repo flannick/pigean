@@ -154,18 +154,30 @@ The practical controls are summarized in `docs/GIBBS_STOPPING.md`. Use `--max-nu
 | `--gwas-in` | GWAS summary-statistics input |
 | `--gwas-chrom-col` | chromosome column |
 | `--gwas-pos-col` | base-pair position column |
-| `--gwas-p-col` | p-value column; when available, its Z-score magnitude drives HuGE Bayes factors |
+| `--gwas-p-col` | p-value column; supplies HuGE Z magnitude by default |
 | `--gwas-beta-col` | effect-size column; supplies the direction of the p-derived Z-score |
 | `--gwas-se-col` | standard-error column used for effect uncertainty, QC, and completing missing quantities |
 | `--gwas-n-col` | sample-size column used for missingness/sample-size QC and for completing missing SE values |
+| `--gwas-z-source` | select `auto`, `p`, or `beta-se` independently of column detection/mapping; default `auto` |
 
 Notes:
-- A HuGE Bayes factor needs one association-strength statistic. When p is available, PIGEAN always converts p to an absolute Z-score and uses beta only for direction; beta/SE does not replace the p-derived magnitude.
+- A HuGE Bayes factor needs one association-strength statistic. With the default `--gwas-z-source auto`, PIGEAN converts available p to an absolute Z-score and uses beta for direction; beta/SE supplies Z when p is unavailable. Specifying beta/SE columns does not override a detected p column.
+- `--gwas-z-source p` requires a reported p column and skips rows without valid p, without falling back to beta/SE. Other columns can still supply direction, effect uncertainty and QC; the usual requirements for completing those quantities still apply.
+- `--gwas-z-source beta-se` requires observed beta and SE columns (explicitly mapped or detected). It uses beta/absolute-SE for Z even if a p column is present, and recomputes two-sided normal p-values for candidate filtering, `--gwas-ignore-p-threshold`, signal selection and power calibration. Reported p is retained only for the mismatch diagnostic. Missing, nonfinite or zero-SE rows are skipped with a warning; N-derived or p-derived SE is not a fallback in this mode.
+- The chosen mode and missing-required-evidence count are recorded as `gwas_z_source` and `gwas_z_source_missing_variants` in `--params-out`; the mode is also logged. Missing required columns are errors. Explicit modes require `--gwas-in` and cannot reinterpret `--huge-statistics-in` caches or supplied gene scores: regenerate a cache from GWAS using the desired mode.
 - Additional association columns are used in the order beta, SE, then N: beta provides direction, observed SE provides effect uncertainty and optional inverse-variance QC, and reported N provides sample-size/missingness QC or a last-resort scale when SE is absent. N-derived `1/sqrt(N)` is not treated as observed effect uncertainty.
 - When observed p, beta, and SE columns are all available, PIGEAN logs their Z-score concordance. It emits a warning when Pearson correlation is below 0.99, mean absolute Z disagreement exceeds 0.1, or more than 1% of variants differ by over 0.5 Z units. This is a diagnostic, not a reason to switch statistics automatically: non-Wald tests can disagree legitimately, while rounded, mis-scaled, or misaligned uncertainty columns can also cause disagreement.
 - The comparison uses `abs(SE)` because a standard error is an uncertainty magnitude. Negative reported SE values should still be corrected upstream.
 - The comparison is limited to retained HuGE candidate variants with observed p, beta, and SE values; SE values inferred from N are excluded.
-- If p is absent, an observed beta/SE pair supplies the Z-score.
+- Column flags select which columns represent p, beta and SE; the source flag selects which statistic drives association strength. It does not disable uncertainty or sample-size QC, or change the supplied-credible-set mechanism.
+
+For example, to force beta/SE despite an automatically detected p column, add:
+
+```bash
+--gwas-z-source beta-se --gwas-beta-col BETA --gwas-se-col SE
+```
+
+Use `--gwas-z-source p --gwas-p-col pValue` to require the specified p-values. Omit the source flag (or use `auto`) to retain p-first fallback behavior.
 
 ### Exome inputs
 

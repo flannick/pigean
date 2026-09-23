@@ -4,12 +4,12 @@
     "debug_only": 8,
     "engineering": 119,
     "experimental": 2,
-    "method_optional": 198,
+    "method_optional": 199,
     "method_required": 20
   },
   "entrypoint": "src/pigean/cli.py",
   "module": "pigean.cli",
-  "num_options": 366,
+  "num_options": 367,
   "options": [
     {
       "action": null,
@@ -1521,7 +1521,7 @@
       "source_line": 322,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 57
+      "usage_references": 58
     },
     {
       "action": null,
@@ -2487,7 +2487,7 @@
       "source_line": 264,
       "summary": "gene location table used for correlation and locus-aware operations",
       "type": null,
-      "usage_references": 80
+      "usage_references": 81
     },
     {
       "action": null,
@@ -2508,7 +2508,7 @@
       "source_line": 265,
       "summary": "gene location table used during HuGE score construction",
       "type": null,
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -3306,7 +3306,7 @@
       "source_line": 281,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 65
+      "usage_references": 66
     },
     {
       "action": null,
@@ -3621,7 +3621,7 @@
       "source_line": 150,
       "summary": null,
       "type": null,
-      "usage_references": 12
+      "usage_references": 15
     },
     {
       "action": null,
@@ -3831,7 +3831,7 @@
       "source_line": 158,
       "summary": null,
       "type": "float",
-      "usage_references": 2
+      "usage_references": 5
     },
     {
       "action": null,
@@ -3852,7 +3852,7 @@
       "source_line": 143,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 67
+      "usage_references": 72
     },
     {
       "action": null,
@@ -4020,7 +4020,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 21
     },
     {
       "action": null,
@@ -4062,7 +4062,7 @@
       "source_line": 151,
       "summary": null,
       "type": null,
-      "usage_references": 13
+      "usage_references": 15
     },
     {
       "action": null,
@@ -4084,6 +4084,27 @@
       "summary": null,
       "type": "float",
       "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "auto",
+      "deprecation_timeline": null,
+      "dest": "gwas_z_source",
+      "documentation_target": "expert_help",
+      "flags": [
+        "",
+        "--gwas-z-source"
+      ],
+      "help": "HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength",
+      "primary_flag": "--gwas-z-source",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 159,
+      "summary": "HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength",
+      "type": "choice",
+      "usage_references": 19
     },
     {
       "action": "store_true",
@@ -4125,7 +4146,7 @@
       "source_line": 320,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 30
+      "usage_references": 31
     },
     {
       "action": "store_true",
@@ -4188,7 +4209,7 @@
       "source_line": 144,
       "summary": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
       "type": null,
-      "usage_references": 26
+      "usage_references": 29
     },
     {
       "action": null,
@@ -5049,7 +5070,7 @@
       "source_line": 421,
       "summary": "exclude variants whose inverse variance is below this fraction of the chromosome reference; set to 0 to disable",
       "type": "float",
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": null,
@@ -5070,7 +5091,7 @@
       "source_line": 420,
       "summary": "exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable",
       "type": "float",
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -5574,7 +5595,7 @@
       "source_line": 273,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": "store_false",
@@ -5889,7 +5910,7 @@
       "source_line": 293,
       "summary": "choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions",
       "type": null,
-      "usage_references": 14
+      "usage_references": 16
     },
     {
       "action": "append",
@@ -5952,7 +5973,7 @@
       "source_line": 313,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 82
+      "usage_references": 84
     },
     {
       "action": "store_true",
@@ -6372,7 +6393,7 @@
       "source_line": 324,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 117
+      "usage_references": 118
     },
     {
       "action": null,
@@ -7699,7 +7720,7 @@
     }
   ],
   "visibilities": {
-    "expert": 322,
+    "expert": 323,
     "hidden": 9,
     "normal": 35
   }

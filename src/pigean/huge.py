@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import scipy.sparse as sparse
+from scipy.stats import norm
 
 from pegs_shared.io_common import resolve_column_index
 from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
@@ -1060,9 +1061,31 @@ def compute_huge_variant_qc_mask(
     return variants_keep
 
 
-def select_p_derived_z_mask(var_p):
+def select_p_derived_z_mask(var_p, source="auto"):
     """Select p-derived Z wherever a reported p-value is available."""
+    if source == "beta-se":
+        return np.zeros(np.shape(var_p), dtype=bool)
+    if source not in ("auto", "p"):
+        raise ValueError("--gwas-z-source must be auto, p, or beta-se")
     return ~np.isnan(var_p)
+
+
+def select_explicit_gwas_p(p, beta, se, source):
+    """Return the selected significance, or None for unusable required evidence.
+
+    Call before missing SE is inferred from N. The selected p is used by all
+    candidate filters, clumping and power calibration, not just the final BF.
+    """
+    if source == "p":
+        return max(p, 1e-250) if p is not None and np.isfinite(p) and 0 <= p <= 1 else None
+    if source == "beta-se":
+        if beta is None or se is None or not np.isfinite(beta) or not np.isfinite(se) or se <= 0:
+            return None
+        z = beta / se
+        if not np.isfinite(z):
+            return None
+        return max(float(2 * norm.sf(abs(z))), 1e-250)
+    raise ValueError("Explicit GWAS source must be p or beta-se")
 
 
 def normalize_reported_standard_error(se):

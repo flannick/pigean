@@ -1917,7 +1917,9 @@ class PigeanState(object):
             window_fun_intercept,
         )
 
-    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, inverse_variance_reference="winsorized_mean", inverse_variance_reference_quantile=0.9, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
+    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, inverse_variance_reference="winsorized_mean", inverse_variance_reference_quantile=0.9, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, gwas_z_source="auto", **kwargs):
+        if gwas_z_source not in ("auto", "p", "beta-se"):
+            bail("--gwas-z-source must be auto, p, or beta-se")
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
             gene_loc_file=gene_loc_file,
@@ -1975,10 +1977,16 @@ class PigeanState(object):
                 debug_just_check_header=self.debug_just_check_header,
             )
 
+        if gwas_z_source == "p" and gwas_p_col is None:
+            bail("--gwas-z-source p requires a reported p-value column")
+        if gwas_z_source == "beta-se" and (gwas_beta_col is None or gwas_se_col is None):
+            bail("--gwas-z-source beta-se requires observed beta and SE columns; N-derived SE is not permitted")
+        log("HuGE GWAS association source: %s (column mapping does not change source precedence)" % gwas_z_source)
         reported_n_available = gwas_n_col is not None or gwas_n is not None
         sample_size_qc_source = "reported_n" if reported_n_available else "inverse_variance_proxy"
         self._record_params({
             "gwas_sample_size_qc_source": sample_size_qc_source,
+            "gwas_z_source": gwas_z_source,
             "gwas_chrom_col_resolved": gwas_chrom_col,
             "gwas_pos_col_resolved": gwas_pos_col,
             "gwas_locus_col_resolved": gwas_locus_col,
@@ -2085,11 +2093,12 @@ class PigeanState(object):
             warned_pos = False
             warned_stats = False
             negative_se_count = 0
+            missing_source_count = 0
 
             not_enough_info = 0
             for line in gwas_fh:
                 cols = line.strip('\n').split(split_char)
-                if (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (locus_col is not None and locus_col >= len(cols)) or (p_col is not None and p_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (n_col is not None and n_col >= len(cols)) or (freq_col is not None and freq_col >= len(cols) or (filter_col is not None and filter_col >= len(cols))):
+                if (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (locus_col is not None and locus_col >= len(cols)) or (p_col is not None and p_col >= len(cols)) or (beta_col is not None and beta_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (n_col is not None and n_col >= len(cols)) or (freq_col is not None and freq_col >= len(cols) or (filter_col is not None and filter_col >= len(cols))):
                     warn("Skipping line due to too few columns: %s" % line)
                     continue
 
@@ -2133,6 +2142,8 @@ class PigeanState(object):
                                 warned_stats = True
                         p = None
 
+                    if gwas_z_source != "auto" and p is not None and (not np.isfinite(p) or p < 0 or p > 1):
+                        p = None
                     if p is not None:
                         min_p = 1e-250
                         if p < min_p:
@@ -2144,7 +2155,7 @@ class PigeanState(object):
                                 warned_stats = True
                             p = None
 
-                        if gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
+                        if gwas_z_source != "beta-se" and gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
                             continue
 
                 beta = None
@@ -2194,6 +2205,15 @@ class PigeanState(object):
                 if se_was_negative:
                     negative_se_count += 1
 
+                observed_p = p
+                if gwas_z_source != "auto":
+                    p = _pigean_huge_module().select_explicit_gwas_p(p, beta, se, gwas_z_source)
+                    if p is None:
+                        missing_source_count += 1
+                        continue
+                    if gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
+                        continue
+
                 if se is None:
                     if n is not None:
                         se = 1 / np.sqrt(n)
@@ -2232,7 +2252,11 @@ class PigeanState(object):
                 if chrom not in chrom_pos_p_beta_se_freq:
                     chrom_pos_p_beta_se_freq[chrom] = []
 
-                chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq, se_was_inferred, n))
+                variant = (pos, p, beta, se, freq, se_was_inferred, n)
+                if gwas_z_source == "beta-se":
+                    # Preserve row identity even for duplicate positions. Used only for diagnostics.
+                    variant += (observed_p,)
+                chrom_pos_p_beta_se_freq[chrom].append(variant)
                 if chrom not in seen_chrom_pos:
                     seen_chrom_pos[chrom] = set()
                 seen_chrom_pos[chrom].add(pos)
@@ -2240,6 +2264,9 @@ class PigeanState(object):
 
             if not_enough_info > 0:
                 warn("Skipped %d variants due to not enough information" % (not_enough_info))
+            self._record_params({"gwas_z_source_missing_variants": missing_source_count})
+            if missing_source_count:
+                warn("Skipped %d variants missing valid required evidence for --gwas-z-source %s; no association-source fallback was used" % (missing_source_count, gwas_z_source))
             if negative_se_count > 0:
                 warn(
                     "Read %d variants with negative standard errors. Standard errors are expected to be non-negative; values are retained, with their magnitude used for uncertainty calculations. Check whether the SE column contains signed statistics."
@@ -2355,13 +2382,13 @@ class PigeanState(object):
                     # Reported p-values are the canonical association-strength
                     # source. Additional columns supply direction, uncertainty,
                     # and sample-size QC in beta, SE, N order.
-                    prefer_z_from_p_mask = _pigean_huge_module().select_p_derived_z_mask(var_p)
+                    prefer_z_from_p_mask = _pigean_huge_module().select_p_derived_z_mask(var_p, gwas_z_source)
 
                     if learn_params:
                         num_p_derived_z += int(np.sum(prefer_z_from_p_mask))
                         pegs_update_gwas_z_concordance_stats(
                             gwas_z_concordance_stats,
-                            var_p,
+                            np.array([row[7] if len(row) > 7 else None for row in chrom_pos_p_beta_se_freq[chrom]], dtype=float) if gwas_z_source == "beta-se" else var_p,
                             var_beta,
                             var_se,
                             se_was_inferred=var_se_was_inferred,
@@ -2739,8 +2766,8 @@ class PigeanState(object):
                         )
                         if pegs_gwas_z_concordance_is_material(gwas_z_concordance):
                             warn(
-                                "GWAS association columns materially disagree: %s. PIGEAN will use p-derived Z magnitude for HuGE Bayes factors. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
-                                % gwas_z_concordance_text
+                                "GWAS association columns materially disagree: %s. PIGEAN will use %s for HuGE Bayes factors. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
+                                % (gwas_z_concordance_text, "beta/absolute-SE-derived Z" if gwas_z_source == "beta-se" else "p-derived Z magnitude")
                             )
                     (
                         gwas_low_p,
