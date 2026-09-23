@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `366`
+- Total options: `367`
 - `method_required`: `20`
-- `method_optional`: `198`
+- `method_optional`: `199`
 - `engineering`: `119`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `322`
+- visibility `expert`: `323`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -121,6 +121,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gwas-low-p-posterior` | `expert` | `yes` | `expert_help` | `gwas_low_p_posterior` | `0.75` | - |
 | `--gwas-n` | `expert` | `yes` | `expert_help` | `gwas_n` | `None` | - |
 | `--gwas-units` | `expert` | `yes` | `expert_help` | `gwas_units` | `None` | - |
+| `--gwas-z-source` | `expert` | `yes` | `expert_help` | `gwas_z_source` | `auto` | HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--increase-filter-gene-set-p` | `expert` | `yes` | `expert_help` | `increase_filter_gene_set_p` | `0.01` | - |
 | `--independent-betas-only` | `expert` | `yes` | `advanced_workflows` | `independent_betas_only` | `False` | for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve |

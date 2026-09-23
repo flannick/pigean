@@ -343,6 +343,8 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gwas-p-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_huge_cache_round_trip_runs"],
             "--gwas-beta-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--gwas-se-col": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
+            "--gwas-z-source": ["test_default_p_precedence_even_with_explicit_beta_se", "test_beta_se_ignores_detected_p_including_early_filter"],
+            "--gwas-ignore-p-threshold": ["test_beta_se_ignores_detected_p_including_early_filter"],
             "--gwas-n-col": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_reference_huge_cache_round_trip_runs"],
             "--min-n-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip"],
             "--min-gwas-inverse-variance-ratio": ["test_reference_gwas_and_exome_schema_flags_round_trip", "test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables"],
@@ -400,6 +402,7 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--params-out": ["test_toy_outputs_are_nonempty_and_include_expected_t2d_genes", "test_validation_outputs_survive_without_qc_override", "test_reference_gene_list_file_mode_runs", "test_reference_huge_cache_round_trip_runs"],
         }
         test_files = [
+            self.repo_root / "tests/test_gwas_z_source_unittest.py",
             self.repo_root / "tests/test_pigean_cli_reference_unittest.py",
             self.repo_root / "tests/test_pigean_cli_unittest.py",
             self.repo_root / "tests/test_beta_uncorrected_full_universe_unittest.py",

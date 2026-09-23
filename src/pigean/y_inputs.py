@@ -68,6 +68,7 @@ def build_main_y_read_contract(options):
         gwas_p_col=options.gwas_p_col,
         gwas_beta_col=options.gwas_beta_col,
         gwas_se_col=options.gwas_se_col,
+        gwas_z_source=getattr(options, "gwas_z_source", "auto"),
         gwas_n_col=options.gwas_n_col,
         gwas_n=options.gwas_n,
         gwas_units=options.gwas_units,

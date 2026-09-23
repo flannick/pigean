@@ -156,7 +156,7 @@ parser.add_option("","--gwas-freq-col",default=None)
 parser.add_option("","--gwas-filter-col",default=None) #if specified, only include rows of the gwas file where this column matches --gwas-filter-val
 parser.add_option("","--gwas-filter-value",default=None) #if specified, only include rows of the gwas file where this value is observed in --gwas-filter-col
 parser.add_option("","--gwas-ignore-p-threshold",type=float,default=None) #completely ignore anything with p above this threshold
-
+parser.add_option("","--gwas-z-source",type="choice",choices=["auto", "p", "beta-se"],default="auto",help="HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength")
 #credible sets
 parser.add_option("","--credible-sets-in",default=None) #pass in credible sets to use 
 parser.add_option("","--credible-sets-id-col",default=None)
@@ -1457,6 +1457,10 @@ def _is_advanced_option_explicit(dest, cli_dests, config_dests):
 def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
     # HuGE cache read/write dispatch must be explicit.
     _options.max_probability = validate_max_probability(_options.max_probability, bail_fn=bail)
+    if _options.gwas_z_source not in ("auto", "p", "beta-se"):
+        bail("--gwas-z-source must be auto, p, or beta-se")
+    if _options.gwas_z_source != "auto" and (_options.huge_statistics_in is not None or _options.gwas_in is None):
+        bail("Explicit --gwas-z-source requires --gwas-in without --huge-statistics-in; cached scores cannot be reinterpreted")
 
     if _options.huge_statistics_in is not None and _options.huge_statistics_out is not None:
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
