@@ -227,7 +227,7 @@ def validate_factor_workflow_selection(options, workflow, projection_only, bail_
             (
                 getattr(options, "factor_gene_clusters_in", None) is not None
                 and (
-                    getattr(options, "gene_set_clusters_out", None) is not None
+                    (getattr(options, "gene_set_clusters_out", None) is not None or getattr(options, "gene_set_clusters_marginal_out", None) is not None)
                     or getattr(options, "gene_clusters_full_out", None) is not None
                 )
             )
@@ -306,6 +306,8 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
         "clustering_executed": bool(mode_state.get("run_factor") and not mode_state.get("factor_projection_only")),
         "projection_only": bool(mode_state.get("factor_projection_only")),
         "precomputed_factors_loaded": bool(mode_state.get("factor_projection_only")),
+        "gene_set_projection_mode": getattr(options, "gene_set_projection_mode", "joint"),
+        "factor_gene_clusters_layout": getattr(options, "factor_gene_clusters_layout", "genes-by-factors"),
         "anchor_mode": anchor_mode,
         "anchor_values": anchor_values,
         "anchor_count": len(anchor_values),
@@ -352,6 +354,7 @@ def build_clustering_provenance(options, mode_state, outputs_written=None):
             "factors_out": getattr(options, "factors_out", None),
             "factor_metrics_out": getattr(options, "factor_metrics_out", None),
             "gene_set_clusters_out": getattr(options, "gene_set_clusters_out", None),
+            "gene_set_clusters_marginal_out": getattr(options, "gene_set_clusters_marginal_out", None),
             "gene_clusters_out": getattr(options, "gene_clusters_out", None),
             "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
             "trait_factor_links_out": getattr(options, "trait_factor_links_out", None),

@@ -68,6 +68,7 @@ def run_main_pipeline(domain, options):
         "factor_metrics_out": options.factor_metrics_out,
         "consensus_stats_out": options.consensus_stats_out,
         "gene_set_clusters_out": options.gene_set_clusters_out,
+        "gene_set_clusters_marginal_out": getattr(options, "gene_set_clusters_marginal_out", None),
         "gene_clusters_out": options.gene_clusters_out,
         "gene_clusters_full_out": getattr(options, "gene_clusters_full_out", None),
         "gene_clusters_full_via_gene_sets_out": getattr(options, "gene_clusters_full_via_gene_sets_out", None),

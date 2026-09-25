@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `301`
+- Total options: `304`
 - `method_required`: `11`
-- `method_optional`: `188`
-- `engineering`: `85`
+- `method_optional`: `190`
+- `engineering`: `86`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `245`
+- visibility `expert`: `248`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -60,7 +60,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
-| `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors |
+| `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load a gene-factor table and project gene sets, genes, phenotypes, and/or factor-PheWAS without refitting factors |
+| `--factor-gene-clusters-layout` | `expert` | `yes` | `expert_help` | `factor_gene_clusters_layout` | `genes-by-factors` | supplied gene-factor table layout: genes-by-factors (default) or factors-by-genes (Factor column followed by genes) |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
 | `--factor-output-scope` | `normal` | `yes` | `core_help` | `factor_output_scope` | `primary` | choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
@@ -102,6 +103,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
+| `--gene-set-projection-mode` | `expert` | `yes` | `expert_help` | `gene_set_projection_mode` | `joint` | supplied-factor gene-set projection: joint (default), marginal, or both; use separate output paths |
 | `--gene-sets-for-labeling` | `expert` | `yes` | `advanced_workflows` | `gene_sets_for_labeling` | `None` | restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--label-gene-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_clusters_in` | `None` | label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns |
@@ -264,6 +266,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-phewas-stats-log-bf-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_log_bf_col` | `None` | - |
 | `--gene-phewas-stats-pheno-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_pheno_col` | `None` | - |
 | `--gene-phewas-stats-prior-col` | `expert` | `no` | `expert_help` | `gene_phewas_bfs_prior_col` | `None` | - |
+| `--gene-set-clusters-marginal-out` | `expert` | `no` | `expert_help` | `gene_set_clusters_marginal_out` | `None` | write one-factor-at-a-time gene-set projections in the standard gene-set cluster format |
 | `--gene-set-clusters-out` | `expert` | `no` | `advanced_workflows` | `gene_set_clusters_out` | `None` | - |
 | `--gene-set-overlap-stats-out` | `expert` | `no` | `expert_help` | `gene_set_overlap_stats_out` | `None` | - |
 | `--gene-set-phewas-stats-beta-col` | `expert` | `no` | `expert_help` | `gene_set_phewas_stats_beta_col` | `None` | - |

@@ -502,3 +502,65 @@ Current reference tests should cover:
 Cluster files report raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*`. Cosine is the row loading vector's cosine similarity to the one-hot factor indicator; Euclidean is the row loading vector's distance to that indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.
 
 `--factor-top-loading-type` controls the metric used to choose top entities for `factors.out` summaries and labels. It defaults to `euclidean`; valid values are `euclidean`, `cosine`, and `raw`.
+
+### Project GMT gene sets onto supplied gene factors
+
+No factor fitting or association statistics are required. Use the existing gene-cluster
+output as input, or provide a tab-separated table with `Gene` and raw `Factor1` through
+`FactorK` columns. Plain-text and gzip inputs are supported.
+
+```bash
+python -m eaggl factor \
+  --factor-gene-clusters-in gene_clusters.out.gz \
+  --X-in annotations.gmt.gz \
+  --gene-set-projection-mode both \
+  --gene-set-clusters-out joint.gene_set_clusters.out.gz \
+  --gene-set-clusters-marginal-out marginal.gene_set_clusters.out.gz \
+  --cluster-row-min-max-loading 0 \
+  --seed 1
+```
+
+| Flag | Meaning |
+|---|---|
+| `--gene-set-projection-mode` | `joint` (default), `marginal`, or `both`; applies to supplied gene factors |
+| `--gene-set-clusters-marginal-out` | Separate marginal gene-set cluster output; required for `marginal` and `both` |
+| `--factor-gene-clusters-layout` | `genes-by-factors` (default) or `factors-by-genes` |
+
+For joint projection, use `--gene-set-clusters-out`. For marginal-only projection,
+use only `--gene-set-clusters-marginal-out`. Mode `both` requires two distinct output
+paths. Both outputs use the existing gene-set cluster schema, including raw factor,
+cosine, and Euclidean columns. Supplied-factor gene-set projection defaults to all factors and retains zero-loading
+rows (with `NA` cluster and label). Explicit `--factor-output-scope` and
+`--cluster-row-min-max-loading` options can restrict output; factor discovery keeps
+its existing defaults.
+Use `--X-list` with a text file listing GMT paths to project multiple collections.
+Existing GMT parsing, weight handling, and explicit gene-set size filters apply.
+
+For many factors, `--factor-gene-clusters-layout factors-by-genes` accepts this layout:
+
+```text
+Factor	GENE1	GENE2	GENE3
+My_first_factor	0.8	0.2	0
+My_second_factor	0	0.5	1
+```
+
+Factor row order determines output `Factor1` through `FactorK`; supplied names become
+factor labels. Genes and factor names must be unique and loadings finite and
+nonnegative. No factor-number limit or factor fitting is applied to supplied factors.
+Use the raw loading matrix when transposing; omit cluster-summary and cosine columns.
+
+Joint projection fits all factor coefficients together with the existing fixed-basis
+multiplicative solver (100 iterations maximum, relative tolerance `1e-4`). Marginal
+projection fits each factor independently: `clip(dot(w, x) / dot(w, w), 0, 1)`.
+Both use raw factor scales and coefficients bounded to `[0, 1]`, with no intercept
+or sum-to-one normalization. A zero factor receives zero marginal loadings. Shared
+signal can appear in multiple marginal factors, while joint factors compete to
+explain it. These are descriptive projection loadings, not association p-values.
+
+As in existing supplied-factor projection, fitting uses genes shared by the factor
+table and the loaded X gene universe. Include the intended background genes in your
+factor input; GMT genes outside that basis do not contribute. Marginal projection
+uses sparse X multiplication and avoids a factor-by-factor Gram matrix. Joint
+projection retains the existing dense solver, so thousands of factors with large
+GMT collections can require substantial time and memory; joint convergence is
+approximate, especially for strongly overlapping factors.

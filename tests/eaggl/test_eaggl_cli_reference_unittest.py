@@ -26,6 +26,20 @@ class EagglCliReferenceTest(unittest.TestCase):
         if hasattr(cls, "_tmpdir_ctx"):
             cls._tmpdir_ctx.cleanup()
 
+    def test_supplied_factor_projection_flags_round_trip(self):
+        proc = self._run_ok(
+            "factor", "--factor-gene-clusters-in", "factors.tsv.gz",
+            "--factor-gene-clusters-layout", "factors-by-genes",
+            "--X-in", "sets.gmt.gz", "--gene-set-projection-mode", "both",
+            "--gene-set-clusters-out", "joint.tsv.gz",
+            "--gene-set-clusters-marginal-out", "marginal.tsv.gz",
+            "--print-effective-config",
+        )
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["gene_set_projection_mode"], "both")
+        self.assertEqual(options["factor_gene_clusters_layout"], "factors-by-genes")
+        self.assertEqual(options["gene_set_clusters_marginal_out"], "marginal.tsv.gz")
+
     def _env(self) -> dict[str, str]:
         env = dict(os.environ)
         env["PYTHONHASHSEED"] = "0"
@@ -615,6 +629,9 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
+            "--gene-set-projection-mode": ["test_supplied_factor_projection_flags_round_trip"],
+            "--gene-set-clusters-marginal-out": ["test_supplied_factor_projection_flags_round_trip"],
+            "--factor-gene-clusters-layout": ["test_supplied_factor_projection_flags_round_trip"],
             "--config": ["test_reference_runtime_flags_round_trip", "test_missing_config_returns_config_error_without_traceback"],
             "--deterministic": ["test_reference_runtime_flags_round_trip", "test_deterministic_sets_seed_zero"],
             "--seed": ["test_reference_runtime_flags_round_trip", "test_deterministic_keeps_explicit_seed"],
