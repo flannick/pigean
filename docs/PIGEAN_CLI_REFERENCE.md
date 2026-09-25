@@ -4,6 +4,7 @@ This is the canonical human-written manual for the stable, routinely used `pytho
 
 Use this document for practical command shapes and option semantics.
 Use `docs/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
+Use `docs/GIBBS_STOPPING.md` for the outer-Gibbs iteration budget, precision stopping, and optional stall/restart controller.
 Use `README.md` for the full repository documentation map.
 Use `docs/ADVANCED_SET_B.md` for retained advanced workflows such as HuGE cache I/O, precomputed stats ingestion, deprecated expert output PheWAS, PheWAS-as-Y beta sampling, and native multi-Y trait batching.
 The gene-level PheWAS output stage (`--run-phewas`) is deprecated expert compatibility functionality. It regresses each phenotype's gene-level support surface against the current run's PIGEAN gene-level results, producing summaries such as `log_bf_vs_log_bf` and `combined_vs_combined`. It is not the same as native `--multi-y-in`, which treats each trait as a separate response and estimates gene-set beta outputs for the supplied gene-set matrix. Prefer native `--multi-y-in` for trait-wise PIGEAN beta workflows and EAGGL trait-linkage outputs for factor-to-trait summaries. If this legacy stage is used, the default is the matched comparison set; use `--phewas-comparison-set diagnostic` only when you explicitly want the cross-family diagnostics.
@@ -62,6 +63,25 @@ PYTHONPATH=src python -m pigean gibbs \
 
 `--params-out` is the resolved run record. It includes learned/internal quantities such as `p`, `sigma2`, Gibbs diagnostics, and other stage-specific outputs, and it also includes the resolved CLI/config state under `option_*` rows so the effective run settings can be reconstructed after the fact.
 
+### GWAS column resolution and variant QC
+
+PIGEAN infers every recognized GWAS column that was not named explicitly, even when some column flags were supplied. Explicit mappings always win. For example, specifying `--gwas-p-col pValue` does not prevent PIGEAN from discovering available beta, SE, N, frequency, chromosome, or position columns. The resolved mappings and the sample-size QC source are written to `--params-out`.
+
+When beta and an observed SE are available, PIGEAN reconstructs Z as `beta / SE`; p is used to reconstruct Z only when that observed pair is incomplete. Reported N is kept separately for sample-size and missingness QC and is not substituted for effect uncertainty. A negative SE is invalid as an uncertainty measure: PIGEAN emits an aggregate warning and uses its absolute magnitude. This preserves a usable uncertainty value while making potentially mislabelled signed-statistic columns visible to the user.
+
+The two variant-QC controls have separate meanings:
+
+| Flag | Meaning |
+|---|---|
+| `--min-n-ratio` | Exclude variants whose reported N is below this fraction of the chromosome mean. The default is `0.5`. If no N column or scalar N is available, inverse SE squared is retained as a compatibility fallback. Set to `0` to disable this gate. |
+| `--min-gwas-inverse-variance-ratio` | When an observed SE is available, exclude variants whose inverse variance, `1 / SE^2`, is below this fraction of the chromosome reference. The default is `0.5`; set it to `0` to disable this gate. Reconstructed SE values are not eligible for this separate gate. |
+| `--gwas-inverse-variance-reference` | Choose the chromosome reference. The default, `winsorized_mean`, caps inverse variances at their chromosome 90th percentile before taking the mean, so a small high-information tail cannot make the large-SE cutoff overly aggressive. Use `mean` to restore the earlier arithmetic-mean rule. |
+| `--gwas-inverse-variance-reference-quantile` | Set the upper cap quantile for `winsorized_mean`. The default is `0.9`. |
+
+Thus reported N measures participation/missingness, while inverse variance measures the effective information in the fitted effect. Keeping the gates separate avoids treating `1 / SE^2` as though it were literal sample size. The winsorized reference is a robust location estimate: it preserves the original relative large-SE rule while reducing its sensitivity to an extreme upper information tail. It is still a relative QC rule rather than a universal information threshold, because SE also depends on allele frequency, phenotype scaling, and model type. The rule is computed from input uncertainty only; downstream genes and factors do not select its threshold.
+
+PIGEAN logs the resolved QC sources and settings plus the input count, sample-size-eligible count, observed-SE-eligible count, inverse-variance removals, genome-wide-significant (`p <= 5e-8`) retention, final retained count, and forced credible-set positions for each chromosome and overall. It warns when N is unavailable and inverse variance must proxy sample size, when inferred/unusable SE values cause the separate inverse-variance gate to be skipped, when inverse-variance QC removes at least 25% of eligible variants, or when it retains less than 90% of genome-wide-significant variants that passed sample-size QC. These are diagnostics to review column semantics and information distributions; they do not tune the filter from downstream results.
+
 HuGE cache build:
 
 ```bash
@@ -108,6 +128,12 @@ PYTHONPATH=src python -m pigean priors \
 | `--max-gb` | set memory budget used for batching heuristics |
 | `--print-effective-config` | print the fully resolved config/options and exit |
 
+### Outer-Gibbs stopping
+
+The default `gibbs` controller runs one uninterrupted epoch for at most 500 outer iterations. It can still stop earlier when the across-chain precision checks pass. Stall-triggered epoch exits and restarts are disabled by default and are available with `--enable-stall-detection`.
+
+The practical controls are summarized in `docs/GIBBS_STOPPING.md`. Use `--max-num-iter` to change the default one-epoch cap, the MCSE/R-hat flags to define acceptable precision, and `--strict-stopping` for the stricter bundled precision preset.
+
 ### Gene-set matrix inputs
 
 | Flag | Meaning |
@@ -128,14 +154,30 @@ PYTHONPATH=src python -m pigean priors \
 | `--gwas-in` | GWAS summary-statistics input |
 | `--gwas-chrom-col` | chromosome column |
 | `--gwas-pos-col` | base-pair position column |
-| `--gwas-p-col` | p-value column |
-| `--gwas-beta-col` | effect-size column when present |
-| `--gwas-se-col` | standard-error column when present |
-| `--gwas-n-col` | sample-size column when present |
+| `--gwas-p-col` | p-value column; supplies HuGE Z magnitude by default |
+| `--gwas-beta-col` | effect-size column; supplies the direction of the p-derived Z-score |
+| `--gwas-se-col` | standard-error column used for effect uncertainty, QC, and completing missing quantities |
+| `--gwas-n-col` | sample-size column used for missingness/sample-size QC and for completing missing SE values |
+| `--gwas-z-source` | select `auto`, `p`, or `beta-se` independently of column detection/mapping; default `auto` |
 
 Notes:
-- prefer `--gwas-se-col` when the file provides it
-- if you provide `beta` without `se`, PIGEAN may need to infer z-scores conservatively from p-values instead
+- A HuGE Bayes factor needs one association-strength statistic. With the default `--gwas-z-source auto`, PIGEAN converts available p to an absolute Z-score and uses beta for direction; beta/SE supplies Z when p is unavailable. Specifying beta/SE columns does not override a detected p column.
+- `--gwas-z-source p` requires a reported p column and skips rows without valid p, without falling back to beta/SE. Other columns can still supply direction, effect uncertainty and QC; the usual requirements for completing those quantities still apply.
+- `--gwas-z-source beta-se` requires observed beta and SE columns (explicitly mapped or detected). It uses beta/absolute-SE for Z even if a p column is present, and recomputes two-sided normal p-values for candidate filtering, `--gwas-ignore-p-threshold`, signal selection and power calibration. Reported p is retained only for the mismatch diagnostic. Missing, nonfinite or zero-SE rows are skipped with a warning; N-derived or p-derived SE is not a fallback in this mode.
+- The chosen mode and missing-required-evidence count are recorded as `gwas_z_source` and `gwas_z_source_missing_variants` in `--params-out`; the mode is also logged. Missing required columns are errors. Explicit modes require `--gwas-in` and cannot reinterpret `--huge-statistics-in` caches or supplied gene scores: regenerate a cache from GWAS using the desired mode.
+- Additional association columns are used in the order beta, SE, then N: beta provides direction, observed SE provides effect uncertainty and optional inverse-variance QC, and reported N provides sample-size/missingness QC or a last-resort scale when SE is absent. N-derived `1/sqrt(N)` is not treated as observed effect uncertainty.
+- When observed p, beta, and SE columns are all available, PIGEAN logs their Z-score concordance. It emits a warning when Pearson correlation is below 0.99, mean absolute Z disagreement exceeds 0.1, or more than 1% of variants differ by over 0.5 Z units. This is a diagnostic, not a reason to switch statistics automatically: non-Wald tests can disagree legitimately, while rounded, mis-scaled, or misaligned uncertainty columns can also cause disagreement.
+- The comparison uses `abs(SE)` because a standard error is an uncertainty magnitude. Negative reported SE values should still be corrected upstream.
+- The comparison is limited to retained HuGE candidate variants with observed p, beta, and SE values; SE values inferred from N are excluded.
+- Column flags select which columns represent p, beta and SE; the source flag selects which statistic drives association strength. It does not disable uncertainty or sample-size QC, or change the supplied-credible-set mechanism.
+
+For example, to force beta/SE despite an automatically detected p column, add:
+
+```bash
+--gwas-z-source beta-se --gwas-beta-col BETA --gwas-se-col SE
+```
+
+Use `--gwas-z-source p --gwas-p-col pValue` to require the specified p-values. Omit the source flag (or use `auto`) to retain p-first fallback behavior.
 
 ### Exome inputs
 

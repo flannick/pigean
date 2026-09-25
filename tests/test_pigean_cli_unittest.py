@@ -31,6 +31,130 @@ class PigeanCliTest(unittest.TestCase):
             check=False,
         )
 
+    def test_default_controller_uses_one_epoch_capped_at_500(self) -> None:
+        proc = self._run("gibbs", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertTrue(options["disable_stall_detection"])
+        self.assertEqual(options["max_num_restarts"], 0)
+        self.assertEqual(options["gibbs_reruns"], 1)
+        self.assertEqual(options["max_num_iter"], 500)
+        self.assertEqual(options["total_num_iter_gibbs"], 500)
+        self.assertEqual(options["burn_in_stall_window"], 0)
+        self.assertEqual(options["stall_window"], 0)
+        self.assertEqual(options["stall_recent_window"], 0)
+        # Precision stopping remains active even though stall stopping is off.
+        self.assertEqual(options["stop_patience"], 2)
+        self.assertEqual(options["max_rel_mcse_beta"], 0.20)
+        self.assertEqual(options["max_abs_mcse_d"], 0.10)
+        self.assertEqual(options["max_post_beta_rhat"], 1.25)
+        self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.50)
+
+    def test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables(self) -> None:
+        default_proc = self._run("gibbs", "--print-effective-config")
+        self.assertEqual(default_proc.returncode, 0, msg=default_proc.stderr)
+        default_options = json.loads(default_proc.stdout)["options"]
+        self.assertEqual(default_options["min_gwas_inverse_variance_ratio"], 0.5)
+        self.assertEqual(default_options["gwas_inverse_variance_reference"], "winsorized_mean")
+        self.assertEqual(default_options["gwas_inverse_variance_reference_quantile"], 0.9)
+
+        explicit_proc = self._run(
+            "gibbs", "--min-gwas-inverse-variance-ratio", "0", "--print-effective-config"
+        )
+        self.assertEqual(explicit_proc.returncode, 0, msg=explicit_proc.stderr)
+        self.assertEqual(
+            json.loads(explicit_proc.stdout)["options"]["min_gwas_inverse_variance_ratio"],
+            0,
+        )
+    def test_gibbs_reruns_expand_fixed_controller_budget(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gibbs-reruns",
+            "3",
+            "--num-chains",
+            "20",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["gibbs_reruns"], 3)
+        self.assertEqual(options["num_chains"], 20)
+        self.assertEqual(options["total_num_iter_gibbs"], 1500)
+        self.assertEqual(options["max_num_restarts"], 0)
+
+    def test_gibbs_reruns_reject_adaptive_controller(self) -> None:
+        proc = self._run("gibbs", "--gibbs-reruns", "2", "--enable-stall-detection")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("cannot be combined with --enable-stall-detection", (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_gibbs_reruns_reject_small_total_budget(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--gibbs-reruns",
+            "2",
+            "--total-num-iter-gibbs",
+            "999",
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("must be at least --max-num-iter * --gibbs-reruns", (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_gibbs_reruns_must_be_positive(self) -> None:
+        proc = self._run("gibbs", "--gibbs-reruns", "0")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("--gibbs-reruns must be >= 1", (proc.stderr or "") + (proc.stdout or ""))
+
+    def test_adaptive_controller_remains_explicitly_available(self) -> None:
+        proc = self._run("gibbs", "--enable-stall-detection", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertFalse(options["disable_stall_detection"])
+        self.assertEqual(options["max_num_restarts"], 10)
+        self.assertGreater(options["burn_in_stall_window"], 0)
+        self.assertGreater(options["stall_window"], 0)
+
+    def test_fixed_controller_preserves_explicit_iteration_and_precision_controls(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--max-num-iter",
+            "350",
+            "--total-num-iter-gibbs",
+            "275",
+            "--min-num-burn-in",
+            "25",
+            "--min-num-post-burn-in",
+            "40",
+            "--max-rel-mcse-beta",
+            "0.12",
+            "--max-abs-mcse-d",
+            "0.04",
+            "--stop-patience",
+            "3",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertTrue(options["disable_stall_detection"])
+        self.assertEqual(options["max_num_iter"], 350)
+        self.assertEqual(options["total_num_iter_gibbs"], 275)
+        self.assertEqual(options["min_num_burn_in"], 25)
+        self.assertEqual(options["min_num_post_burn_in"], 40)
+        self.assertEqual(options["max_rel_mcse_beta"], 0.12)
+        self.assertEqual(options["max_abs_mcse_d"], 0.04)
+        self.assertEqual(options["stop_patience"], 3)
+
+    def test_stall_detection_preserves_explicit_restart_limit(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--enable-stall-detection",
+            "--max-num-restarts",
+            "2",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertFalse(options["disable_stall_detection"])
+        self.assertEqual(options["max_num_restarts"], 2)
+
     def test_repeated_gene_set_stats_in_values_are_preserved_in_order(self) -> None:
         proc = self._run(
             "gibbs",
@@ -718,6 +842,17 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["max_post_beta_rhat"], 1.15)
         self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.30)
 
+    def test_strict_stopping_selects_strict_precision_thresholds(self) -> None:
+        proc = self._run("gibbs", "--strict-stopping", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["gibbs_stopping_preset"], "strict")
+        self.assertEqual(options["stop_mcse_quantile"], 0.95)
+        self.assertEqual(options["max_rel_mcse_beta"], 0.05)
+        self.assertEqual(options["max_abs_mcse_d"], 0.03)
+        self.assertEqual(options["max_post_beta_rhat"], 1.10)
+        self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.25)
+
     def test_gene_stats_input_with_metric_z_zero_disables_qc_prefilter(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1060,6 +1195,8 @@ print(json.dumps(mask.tolist()))
         self.assertNotIn("--run-phewas-from-gene-phewas-stats-in", proc.stdout)
         self.assertNotIn("--huge-statistics-in", proc.stdout)
         self.assertIn("--gene-list", proc.stdout)
+        self.assertIn("--enable-stall-detection", proc.stdout)
+        self.assertNotIn("--disable-stall-detection", proc.stdout)
         self.assertNotIn("--positive-controls-list", proc.stdout)
 
     def test_help_expert_includes_set_b_flags(self) -> None:

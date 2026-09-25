@@ -156,6 +156,7 @@ def _options(**overrides):
         gene_clusters_out=None,
         gene_clusters_full_out=None,
         gene_clusters_full_via_gene_sets_out=None,
+        full_gene_projection_method="gene_set_loadings",
         cluster_row_min_max_loading=0.01,
         factor_output_scope="primary",
         trait_factor_links_out=None,
@@ -607,7 +608,7 @@ class FactorStageHelpersTest(unittest.TestCase):
             runtime.calls[3],
             ("write_clusters", "gs_cluster.tsv", "g_cluster.tsv", None, False, 0.02, "primary_secondary"),
         )
-        self.assertEqual(runtime.calls[4], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary", "auto"))
+        self.assertEqual(runtime.calls[4], ("write_full_gene_clusters", "g_cluster_full.tsv", 0.02, "primary_secondary", "gene_set_loadings"))
         self.assertEqual(runtime.calls[5], ("write_trait_factor_links", "trait_links.tsv", "main"))
         self.assertEqual(runtime.calls[6], ("write_gene_pheno_statistics", "gene_pheno.tsv", 0.2))
 

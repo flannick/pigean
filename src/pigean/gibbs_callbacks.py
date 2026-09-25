@@ -117,11 +117,13 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             "iterations_run_this_epoch": (iteration_num + 1),
             "remaining_total_iter": run_state.remaining_total_iter,
             "num_completed_epochs": run_state.num_completed_epochs,
+            "completed_epoch_iterations": list(run_state.completed_epoch_iterations),
             "target_num_epochs": epoch_phase_config.target_num_epochs,
             "num_attempts": run_state.num_attempts,
             "max_num_attempt_restarts": run_state.max_num_attempt_restarts,
             "stop_due_to_stall": epoch_control["stop_due_to_stall"],
             "stop_due_to_precision": epoch_control["stop_due_to_precision"],
+            "continue_after_precision": epoch_phase_config.independent_reruns,
             "num_mad": epoch_phase_config.num_mad,
             "adjust_priors": epoch_phase_config.adjust_priors,
             "gibbs_summary_mode": epoch_phase_config.gibbs_summary_mode,
@@ -135,11 +137,13 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         iterations_run_this_epoch = finalize_context["iterations_run_this_epoch"]
         remaining_total_iter = finalize_context["remaining_total_iter"]
         num_completed_epochs = finalize_context["num_completed_epochs"]
+        completed_epoch_iterations = finalize_context["completed_epoch_iterations"]
         target_num_epochs = finalize_context["target_num_epochs"]
         num_attempts = finalize_context["num_attempts"]
         max_num_attempt_restarts = finalize_context["max_num_attempt_restarts"]
         stop_due_to_stall = finalize_context["stop_due_to_stall"]
         stop_due_to_precision = finalize_context["stop_due_to_precision"]
+        continue_after_precision = finalize_context["continue_after_precision"]
         num_mad = finalize_context["num_mad"]
         adjust_priors = finalize_context["adjust_priors"]
         gibbs_summary_mode = finalize_context["gibbs_summary_mode"]
@@ -154,6 +158,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             return {
                 "remaining_total_iter": remaining_total_iter,
                 "num_completed_epochs": num_completed_epochs,
+                "iterations_run_this_epoch": iterations_run_this_epoch,
                 "should_continue": True,
             }
 
@@ -181,11 +186,13 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             max_num_attempt_restarts=max_num_attempt_restarts,
             stop_due_to_stall=stop_due_to_stall,
             stop_due_to_precision=stop_due_to_precision,
+            continue_after_precision=continue_after_precision,
         )
         if should_continue:
             return {
                 "remaining_total_iter": remaining_total_iter,
                 "num_completed_epochs": num_completed_epochs,
+                "iterations_run_this_epoch": iterations_run_this_epoch,
                 "should_continue": True,
             }
 
@@ -194,6 +201,14 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
             include_missing=include_missing,
         )
         num_chains_effective = stacked["sum_betas_m"].shape[0]
+        state._record_param("gibbs_reruns_completed", num_completed_epochs, overwrite=True)
+        state._record_param("gibbs_effective_chains", num_chains_effective, overwrite=True)
+        state._record_param("num_gibbs_epochs_completed", num_completed_epochs, overwrite=True)
+        state._record_param(
+            "gibbs_rerun_iterations",
+            ",".join(str(value) for value in completed_epoch_iterations + [iterations_run_this_epoch]),
+            overwrite=True,
+        )
         final_summary = legacy_module._summarize_gibbs_chain_aggregates(
             state,
             stacked["sum_Ys_m"],
@@ -233,6 +248,7 @@ def build_gibbs_callbacks(legacy_module, *, open_gz_fn, log_fn, bail_fn, info_le
         return {
             "remaining_total_iter": remaining_total_iter,
             "num_completed_epochs": num_completed_epochs,
+            "iterations_run_this_epoch": iterations_run_this_epoch,
             "should_continue": False,
         }
 

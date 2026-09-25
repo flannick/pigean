@@ -180,6 +180,7 @@ def build_main_gibbs_stage_config(options):
         run_kwargs=dict(
             max_num_iter=options.max_num_iter,
             total_num_iter=options.total_num_iter_gibbs,
+            gibbs_reruns=options.gibbs_reruns,
             max_num_restarts=options.max_num_restarts,
             num_chains=options.num_chains,
             num_mad=options.num_mad,

@@ -34,8 +34,8 @@ For EAGGL directories, the dashboard looks for:
 - `factors.out.gz`
 - optional `factor_metrics.out.gz`
 - `gene_clusters.out.gz`
-- optional `gene_clusters_full.out.gz`
-- optional `gene_clusters_full_via_gene_sets.out.gz`
+- optional `gene_clusters_full.out.gz` (gene-set-routed by default when produced by EAGGL)
+- optional `gene_clusters_full_via_gene_sets.out.gz` (recommended explicit full-gene output)
 - `gene_set_clusters.out.gz`
 - optional `trait_factor_links.out.gz`
 - optional `factor_graph.html` and `factor_graph.json`

@@ -63,6 +63,11 @@ pegs_calculate_V_internal = pegs_runtime_matrix.calculate_V_internal
 pegs_clean_chrom_name = pegs_io_common.clean_chrom_name
 pegs_complete_p_beta_se = pegs_utils_mod.complete_p_beta_se
 pegs_compute_variant_z = pegs_utils_mod.compute_variant_z
+pegs_finalize_gwas_z_concordance_stats = pegs_utils_mod.finalize_gwas_z_concordance_stats
+pegs_format_gwas_z_concordance = pegs_utils_mod.format_gwas_z_concordance
+pegs_gwas_z_concordance_is_material = pegs_utils_mod.gwas_z_concordance_is_material
+pegs_initialize_gwas_z_concordance_stats = pegs_utils_mod.initialize_gwas_z_concordance_stats
+pegs_update_gwas_z_concordance_stats = pegs_utils_mod.update_gwas_z_concordance_stats
 pegs_coerce_runtime_state_dict = pegs_huge_cache.coerce_runtime_state_dict
 pegs_compute_banded_y_corr_cholesky = pegs_runtime_matrix.compute_banded_y_corr_cholesky
 pegs_compute_beta_tildes = pegs_regression.compute_beta_tildes
@@ -1912,7 +1917,9 @@ class PigeanState(object):
             window_fun_intercept,
         )
 
-    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, **kwargs):
+    def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, inverse_variance_reference="winsorized_mean", inverse_variance_reference_quantile=0.9, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, gwas_z_source="auto", **kwargs):
+        if gwas_z_source not in ("auto", "p", "beta-se"):
+            bail("--gwas-z-source must be auto, p, or beta-se")
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
             gene_loc_file=gene_loc_file,
@@ -1924,7 +1931,16 @@ class PigeanState(object):
             signal_max_logp_ratio=signal_max_logp_ratio,
         )
 
-        self._record_params({"gwas_low_p": gwas_low_p, "gwas_high_p": gwas_high_p, "gwas_low_p_posterior": gwas_low_p_posterior, "gwas_high_p_posterior": gwas_high_p_posterior, "detect_low_power": detect_low_power, "detect_high_power": detect_high_power, "detect_adjust_huge": detect_adjust_huge, "closest_gene_prob": closest_gene_prob, "max_closest_gene_prob": max_closest_gene_prob, "scale_raw_closest_gene": scale_raw_closest_gene, "cap_raw_closest_gene": cap_raw_closest_gene, "cap_region_posterior": cap_region_posterior, "scale_region_posterior": scale_region_posterior, "max_signal_p": max_signal_p, "signal_window_size": signal_window_size, "signal_min_sep": signal_min_sep, "max_closest_gene_dist": max_closest_gene_dist, "min_n_ratio": min_n_ratio})
+        if min_n_ratio is not None and min_n_ratio < 0:
+            bail("--min-n-ratio must be non-negative")
+        if min_inverse_variance_ratio is not None and min_inverse_variance_ratio < 0:
+            bail("--min-gwas-inverse-variance-ratio must be non-negative")
+        if inverse_variance_reference not in ("winsorized_mean", "mean"):
+            bail("--gwas-inverse-variance-reference is invalid")
+        if not 0 < inverse_variance_reference_quantile <= 1:
+            bail("--gwas-inverse-variance-reference-quantile must be in (0, 1]")
+
+        self._record_params({"gwas_low_p": gwas_low_p, "gwas_high_p": gwas_high_p, "gwas_low_p_posterior": gwas_low_p_posterior, "gwas_high_p_posterior": gwas_high_p_posterior, "detect_low_power": detect_low_power, "detect_high_power": detect_high_power, "detect_adjust_huge": detect_adjust_huge, "closest_gene_prob": closest_gene_prob, "max_closest_gene_prob": max_closest_gene_prob, "scale_raw_closest_gene": scale_raw_closest_gene, "cap_raw_closest_gene": cap_raw_closest_gene, "cap_region_posterior": cap_region_posterior, "scale_region_posterior": scale_region_posterior, "max_signal_p": max_signal_p, "signal_window_size": signal_window_size, "signal_min_sep": signal_min_sep, "max_closest_gene_dist": max_closest_gene_dist, "min_n_ratio": min_n_ratio, "min_gwas_inverse_variance_ratio": min_inverse_variance_ratio, "gwas_inverse_variance_reference": inverse_variance_reference, "gwas_inverse_variance_reference_quantile": inverse_variance_reference_quantile})
 
         need_columns = _needs_gwas_column_detection(
             gwas_pos_col=gwas_pos_col,
@@ -1935,6 +1951,7 @@ class PigeanState(object):
             gwas_se_col=gwas_se_col,
             gwas_n_col=gwas_n_col,
             gwas_n=gwas_n,
+            gwas_freq_col=gwas_freq_col,
         )
         if need_columns:
             (
@@ -1958,6 +1975,42 @@ class PigeanState(object):
                 gwas_n_col=gwas_n_col,
                 gwas_n=gwas_n,
                 debug_just_check_header=self.debug_just_check_header,
+            )
+
+        if gwas_z_source == "p" and gwas_p_col is None:
+            bail("--gwas-z-source p requires a reported p-value column")
+        if gwas_z_source == "beta-se" and (gwas_beta_col is None or gwas_se_col is None):
+            bail("--gwas-z-source beta-se requires observed beta and SE columns; N-derived SE is not permitted")
+        log("HuGE GWAS association source: %s (column mapping does not change source precedence)" % gwas_z_source)
+        reported_n_available = gwas_n_col is not None or gwas_n is not None
+        sample_size_qc_source = "reported_n" if reported_n_available else "inverse_variance_proxy"
+        self._record_params({
+            "gwas_sample_size_qc_source": sample_size_qc_source,
+            "gwas_z_source": gwas_z_source,
+            "gwas_chrom_col_resolved": gwas_chrom_col,
+            "gwas_pos_col_resolved": gwas_pos_col,
+            "gwas_locus_col_resolved": gwas_locus_col,
+            "gwas_p_col_resolved": gwas_p_col,
+            "gwas_beta_col_resolved": gwas_beta_col,
+            "gwas_se_col_resolved": gwas_se_col,
+            "gwas_n_col_resolved": gwas_n_col,
+            "gwas_freq_col_resolved": gwas_freq_col,
+        })
+        log(
+            "GWAS uncertainty QC: sample-size source=%s; inverse-variance "
+            "reference=%s (upper quantile=%.3g), minimum ratio=%s"
+            % (
+                sample_size_qc_source,
+                inverse_variance_reference,
+                inverse_variance_reference_quantile,
+                str(min_inverse_variance_ratio),
+            )
+        )
+        if not reported_n_available:
+            warn(
+                "No reported GWAS N was supplied or inferred; sample-size QC is "
+                "using inverse variance as a proxy. Supply --gwas-n-col or --gwas-n "
+                "to separate sample-size/missingness QC from effect-uncertainty QC."
             )
 
         location_data = _load_huge_gene_and_exon_locations(
@@ -2037,15 +2090,15 @@ class PigeanState(object):
             #read in the gwas associations
             total_num_vars = 0
 
-            mean_n = 0
-
             warned_pos = False
             warned_stats = False
+            negative_se_count = 0
+            missing_source_count = 0
 
             not_enough_info = 0
             for line in gwas_fh:
                 cols = line.strip('\n').split(split_char)
-                if (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (locus_col is not None and locus_col >= len(cols)) or (p_col is not None and p_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (n_col is not None and n_col >= len(cols)) or (freq_col is not None and freq_col >= len(cols) or (filter_col is not None and filter_col >= len(cols))):
+                if (chrom_col is not None and chrom_col >= len(cols)) or (pos_col is not None and pos_col >= len(cols)) or (locus_col is not None and locus_col >= len(cols)) or (p_col is not None and p_col >= len(cols)) or (beta_col is not None and beta_col >= len(cols)) or (se_col is not None and se_col >= len(cols)) or (n_col is not None and n_col >= len(cols)) or (freq_col is not None and freq_col >= len(cols) or (filter_col is not None and filter_col >= len(cols))):
                     warn("Skipping line due to too few columns: %s" % line)
                     continue
 
@@ -2089,6 +2142,8 @@ class PigeanState(object):
                                 warned_stats = True
                         p = None
 
+                    if gwas_z_source != "auto" and p is not None and (not np.isfinite(p) or p < 0 or p > 1):
+                        p = None
                     if p is not None:
                         min_p = 1e-250
                         if p < min_p:
@@ -2100,7 +2155,7 @@ class PigeanState(object):
                                 warned_stats = True
                             p = None
 
-                        if gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
+                        if gwas_z_source != "beta-se" and gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
                             continue
 
                 beta = None
@@ -2126,32 +2181,41 @@ class PigeanState(object):
                                 warned_stats = True
                         se = None
 
-                if se is None:
-                    if n_col is not None:
-                        try:
-                            n = float(cols[n_col])
-                            if n <= 0:
-                                if not warned_stats:
-                                    warn("Skipping invalid N value %s" % (n))
-                                    warned_stats = True
-                                n = None
-
-                        except ValueError:
-                            if not cols[n_col] == "NA":
-                                if not warned_stats:
-                                    warn("Skipping unconvertible n value %s" % (cols[n_col]))
-                                    warned_stats = True
+                n = None
+                if n_col is not None:
+                    try:
+                        n = float(cols[n_col])
+                        if n <= 0:
+                            if not warned_stats:
+                                warn("Skipping invalid N value %s" % (n))
+                                warned_stats = True
                             n = None
+                    except ValueError:
+                        if not cols[n_col] == "NA":
+                            if not warned_stats:
+                                warn("Skipping unconvertible n value %s" % (cols[n_col]))
+                                warned_stats = True
+                        n = None
+                elif gwas_n is not None:
+                    if gwas_n <= 0:
+                        bail("Invalid gwas-n value: %s" % (gwas_n))
+                    n = gwas_n
 
-                        if n is not None:
-                            se = 1 / np.sqrt(n)
-                            se_was_inferred = True
+                se, se_was_negative = _pigean_huge_module().normalize_reported_standard_error(se)
+                if se_was_negative:
+                    negative_se_count += 1
 
-                    elif gwas_n is not None:
-                        if gwas_n <= 0:
-                            bail("Invalid gwas-n value: %s" % (gwas_n))
+                observed_p = p
+                if gwas_z_source != "auto":
+                    p = _pigean_huge_module().select_explicit_gwas_p(p, beta, se, gwas_z_source)
+                    if p is None:
+                        missing_source_count += 1
+                        continue
+                    if gwas_ignore_p_threshold is not None and p > gwas_ignore_p_threshold:
+                        continue
 
-                        n = gwas_n
+                if se is None:
+                    if n is not None:
                         se = 1 / np.sqrt(n)
                         se_was_inferred = True
 
@@ -2188,7 +2252,11 @@ class PigeanState(object):
                 if chrom not in chrom_pos_p_beta_se_freq:
                     chrom_pos_p_beta_se_freq[chrom] = []
 
-                chrom_pos_p_beta_se_freq[chrom].append((pos, p, beta, se, freq, se_was_inferred))
+                variant = (pos, p, beta, se, freq, se_was_inferred, n)
+                if gwas_z_source == "beta-se":
+                    # Preserve row identity even for duplicate positions. Used only for diagnostics.
+                    variant += (observed_p,)
+                chrom_pos_p_beta_se_freq[chrom].append(variant)
                 if chrom not in seen_chrom_pos:
                     seen_chrom_pos[chrom] = set()
                 seen_chrom_pos[chrom].add(pos)
@@ -2196,6 +2264,14 @@ class PigeanState(object):
 
             if not_enough_info > 0:
                 warn("Skipped %d variants due to not enough information" % (not_enough_info))
+            self._record_params({"gwas_z_source_missing_variants": missing_source_count})
+            if missing_source_count:
+                warn("Skipped %d variants missing valid required evidence for --gwas-z-source %s; no association-source fallback was used" % (missing_source_count, gwas_z_source))
+            if negative_se_count > 0:
+                warn(
+                    "Read %d variants with negative standard errors. Standard errors are expected to be non-negative; values are retained, with their magnitude used for uncertainty calculations. Check whether the SE column contains signed statistics."
+                    % negative_se_count
+                )
 
             log("Read in %d variants" % total_num_vars)
             chrom_pos_to_gene_prob = _pigean_huge_module().read_huge_s2g_probabilities(
@@ -2261,11 +2337,25 @@ class PigeanState(object):
             gene_covariate_genes = huge_buffers["gene_covariate_genes"]
             window_fun_intercept = None
             window_fun_slope = None
-            warned_prefer_p_for_gwas_p = False
+            num_p_derived_z = 0
+            gwas_z_concordance_stats = pegs_initialize_gwas_z_concordance_stats()
 
             #second, compute the huge scores
             for learn_params in [True, False]:
                 index_var_chrom_pos_ps = {}
+                qc_totals = {
+                    "input_variants": 0,
+                    "sample_size_kept": 0,
+                    "inverse_variance_eligible": 0,
+                    "inverse_variance_removed": 0,
+                    "final_kept": 0,
+                    "forced_retained": 0,
+                    "strong_signal_sample_size_kept": 0,
+                    "strong_signal_inverse_variance_eligible": 0,
+                    "strong_signal_inverse_variance_removed": 0,
+                    "strong_signal_qc_kept": 0,
+                    "strong_signal_final_kept": 0,
+                }
                 if learn_params:
                     log("Learning window function and allelic var scale factor")
                 else:
@@ -2288,7 +2378,21 @@ class PigeanState(object):
                     var_beta = np.array(vars_zipped[2], dtype=float)
                     var_se = np.array(vars_zipped[3], dtype=float)
                     var_se_was_inferred = np.array(vars_zipped[5], dtype=bool)
-                    prefer_z_from_p_mask = ~np.isnan(var_p)
+                    var_n = np.array(vars_zipped[6], dtype=float)
+                    # Reported p-values are the canonical association-strength
+                    # source. Additional columns supply direction, uncertainty,
+                    # and sample-size QC in beta, SE, N order.
+                    prefer_z_from_p_mask = _pigean_huge_module().select_p_derived_z_mask(var_p, gwas_z_source)
+
+                    if learn_params:
+                        num_p_derived_z += int(np.sum(prefer_z_from_p_mask))
+                        pegs_update_gwas_z_concordance_stats(
+                            gwas_z_concordance_stats,
+                            np.array([row[7] if len(row) > 7 else None for row in chrom_pos_p_beta_se_freq[chrom]], dtype=float) if gwas_z_source == "beta-se" else var_p,
+                            var_beta,
+                            var_se,
+                            se_was_inferred=var_se_was_inferred,
+                        )
 
                     (var_p, var_beta, var_se) = pegs_complete_p_beta_se(
                         var_p,
@@ -2297,13 +2401,6 @@ class PigeanState(object):
                         warn_fn=warn,
                     )
 
-                    if np.sum(prefer_z_from_p_mask) > 0 and not warned_prefer_p_for_gwas_p:
-                        warn(
-                            "Using p-derived z-scores for %d variants because p-values were provided; beta/se/N are used only to complete missing quantities and determine sign/scale where needed"
-                            % np.sum(prefer_z_from_p_mask)
-                        )
-                        warned_prefer_p_for_gwas_p = True
-
                     var_z = pegs_compute_variant_z(
                         var_p,
                         var_beta,
@@ -2311,9 +2408,6 @@ class PigeanState(object):
                         prefer_p_mask=prefer_z_from_p_mask,
                     )
                     var_se2 = np.square(var_se)
-
-                    #this will vary slightly by chromosome but probably okay
-                    mean_n = np.mean(1 / var_se2)
 
                     #sorted arrays of gene positions and p-values
                     if chrom not in gene_chrom_name_pos:
@@ -2412,6 +2506,7 @@ class PigeanState(object):
                         var_posterior_detect,
                         var_logp,
                         var_freq,
+                        variant_qc,
                     ) = _pigean_huge_module().filter_huge_variants_for_signal_search(
                         self,
                         var_pos=var_pos,
@@ -2426,11 +2521,36 @@ class PigeanState(object):
                         vars_zipped=vars_zipped,
                         freq_col=freq_col,
                         min_n_ratio=min_n_ratio,
-                        mean_n=mean_n,
+                        var_n=var_n,
+                        reported_n_available=reported_n_available,
+                        min_inverse_variance_ratio=min_inverse_variance_ratio,
+                        inverse_variance_eligible=~var_se_was_inferred,
+                        inverse_variance_reference=inverse_variance_reference,
+                        inverse_variance_reference_quantile=inverse_variance_reference_quantile,
                         learn_params=learn_params,
                         chrom=chrom,
                         added_chrom_pos=added_chrom_pos,
                     )
+
+                    if not learn_params:
+                        for key in qc_totals:
+                            qc_totals[key] += variant_qc[key]
+                        log(
+                            "GWAS variant QC chromosome %s: input=%d, sample-size-kept=%d, "
+                            "observed-SE-eligible=%d, inverse-variance-removed=%d, "
+                            "strong-signals-kept=%d/%d, final-kept=%d, forced-retained=%d"
+                            % (
+                                chrom,
+                                variant_qc["input_variants"],
+                                variant_qc["sample_size_kept"],
+                                variant_qc["inverse_variance_eligible"],
+                                variant_qc["inverse_variance_removed"],
+                                variant_qc["strong_signal_qc_kept"],
+                                variant_qc["strong_signal_sample_size_kept"],
+                                variant_qc["final_kept"],
+                                variant_qc["forced_retained"],
+                            )
+                        )
 
                     variants_left = np.full(len(var_pos), True)
                     cs_ignore = np.full(len(var_pos), False)
@@ -2575,7 +2695,80 @@ class PigeanState(object):
                                 gene_prob_col_num=gene_prob_col_num,
                             )
 
+                if not learn_params:
+                    sample_size_kept = qc_totals["sample_size_kept"]
+                    eligible = qc_totals["inverse_variance_eligible"]
+                    removed = qc_totals["inverse_variance_removed"]
+                    removed_fraction = removed / eligible if eligible else 0.0
+                    strong_input = qc_totals["strong_signal_sample_size_kept"]
+                    strong_kept = qc_totals["strong_signal_qc_kept"]
+                    strong_retained_fraction = strong_kept / strong_input if strong_input else 1.0
+                    log(
+                        "GWAS variant QC overall: input=%d, sample-size-kept=%d, "
+                        "observed-SE-eligible=%d, inverse-variance-removed=%d "
+                        "(%.2f%% of observed-SE-eligible), strong-signals-kept=%d/%d "
+                        "(%.2f%%), final-kept=%d, forced-retained=%d"
+                        % (
+                            qc_totals["input_variants"],
+                            sample_size_kept,
+                            eligible,
+                            removed,
+                            100 * removed_fraction,
+                            strong_kept,
+                            strong_input,
+                            100 * strong_retained_fraction,
+                            qc_totals["final_kept"],
+                            qc_totals["forced_retained"],
+                        )
+                    )
+                    inferred_or_unusable = sample_size_kept - eligible
+                    if min_inverse_variance_ratio and inferred_or_unusable > 0:
+                        warn(
+                            "Inverse-variance QC was skipped for %d variants without an "
+                            "observed usable SE; those variants remain governed by the "
+                            "sample-size and other GWAS QC gates."
+                            % inferred_or_unusable
+                        )
+                    if min_inverse_variance_ratio and removed_fraction >= 0.25:
+                        warn(
+                            "Inverse-variance QC removed %.2f%% of variants that passed "
+                            "sample-size QC. This unusually large effect may indicate that "
+                            "reported N overstates effective information, or that GWAS SE "
+                            "scale/column selection needs review."
+                            % (100 * removed_fraction)
+                        )
+                    if min_inverse_variance_ratio and strong_input and strong_retained_fraction < 0.9:
+                        warn(
+                            "Inverse-variance QC retained only %.2f%% of genome-wide-significant "
+                            "variants (p <= 5e-8) that passed sample-size QC. Review GWAS "
+                            "uncertainty-column semantics and the QC summary."
+                            % (100 * strong_retained_fraction)
+                        )
+
                 if learn_params:
+                    if num_p_derived_z > 0:
+                        log(
+                            "Using p-derived Z magnitude for %d HuGE candidate variants; beta supplies direction, observed SE supplies effect uncertainty, and reported N supplies sample-size QC"
+                            % num_p_derived_z,
+                            INFO,
+                        )
+                    gwas_z_concordance = pegs_finalize_gwas_z_concordance_stats(
+                        gwas_z_concordance_stats
+                    )
+                    if gwas_z_concordance is not None:
+                        gwas_z_concordance_text = pegs_format_gwas_z_concordance(
+                            gwas_z_concordance
+                        )
+                        log(
+                            "GWAS p-derived versus beta/absolute-SE-derived Z concordance among observed columns: %s"
+                            % gwas_z_concordance_text,
+                            INFO,
+                        )
+                        if pegs_gwas_z_concordance_is_material(gwas_z_concordance):
+                            warn(
+                                "GWAS association columns materially disagree: %s. PIGEAN will use %s for HuGE Bayes factors. This can be expected for non-Wald p-values, but may indicate rounded, mis-scaled, or misaligned beta/SE columns."
+                                % (gwas_z_concordance_text, "beta/absolute-SE-derived Z" if gwas_z_source == "beta-se" else "p-derived Z magnitude")
+                            )
                     (
                         gwas_low_p,
                         allelic_var_k,
@@ -3910,7 +4103,7 @@ class PigeanState(object):
             if self.priors_adj is not None:
                 self.combined_prior_Ys_adj = self.priors_adj + self.Y
 
-    def run_gibbs(self, max_num_iter=100, total_num_iter=None, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
+    def run_gibbs(self, max_num_iter=100, total_num_iter=None, gibbs_reruns=1, max_num_restarts=3, num_chains=10, num_mad=3, r_threshold_burn_in=1.10, use_max_r_for_convergence=True, increase_hyper_if_betas_below=None, experimental_hyper_mutation=False, update_huge_scores=True, top_gene_prior=None, min_num_burn_in=10, max_num_burn_in=None, min_num_post_burn_in=None, max_num_post_burn_in=None, max_num_iter_betas=1100, min_num_iter_betas=10, num_chains_betas=4, r_threshold_burn_in_betas=1.01, use_max_r_for_convergence_betas=True, max_frac_sem_betas=0.01, use_mean_betas=True, warm_start=False, gibbs_summary_mode="raw_common_mask", write_gibbs_global_filtered_summaries=False, gene_set_p_active_threshold=0.01, burn_in_rhat_quantile=0.95, burn_in_patience=2, burn_in_stall_window=10, burn_in_stall_delta=0.01, stop_mcse_quantile=0.95, stop_patience=2, stop_top_gene_k=200, stop_min_gene_d=None, max_abs_mcse_d=0.05, max_rel_mcse_beta=0.20, max_post_beta_rhat=1.25, max_rel_prior_beta_inconsistency=0.50, active_beta_top_k=200, active_beta_min_abs=0.01, beta_rel_mcse_denom_floor=0.10, stall_window=8, stall_min_burn_in=50, stall_min_post_burn_in=50, stall_delta_rhat=0.01, stall_delta_mcse=0.01, stall_recent_window=4, stall_recent_eps=0.0, stopping_preset_name="lenient", diag_every=5, sparse_frac_gibbs=0.01, sparse_max_gibbs=0.001, sparse_solution=False, sparse_frac_betas=None, pre_filter_batch_size=None, pre_filter_small_batch_size=500, max_allowed_batch_correlation=None, gauss_seidel_betas=False, gauss_seidel=False, num_batches_parallel=10, max_mb_X_h=200, initial_linear_filter=True, correct_betas_mean=True, correct_betas_var=True, adjust_priors=True, gene_set_stats_trace_out=None, gene_stats_trace_out=None, gene_prior_terms_trace_out=None, gene_prior_terms_trace_genes=None, betas_trace_out=None, debug_zero_sparse=False, eps=0.01):
         from pigean import gibbs as pigean_gibbs
         from pigean import gibbs_callbacks as pigean_gibbs_callbacks
 
@@ -3926,6 +4119,7 @@ class PigeanState(object):
             callbacks,
             max_num_iter=max_num_iter,
             total_num_iter=total_num_iter,
+            gibbs_reruns=gibbs_reruns,
             max_num_restarts=max_num_restarts,
             num_chains=num_chains,
             num_mad=num_mad,
@@ -3999,90 +4193,9 @@ class PigeanState(object):
         )
 
     def _sparse_correlation_with_dot_product_threshold(self, X_sparse, beta, dot_product_threshold=0.01, Y=None):
-        """
-        Compute the sparse correlation matrix of (X * beta + Y) with dot-product thresholding,
-        mean adjustment, and normalization, for k beta vectors in parallel.
-
-        Parameters:
-        - X_sparse (scipy.sparse.csc_matrix): Sparse matrix X of shape (n, m).
-        - beta (np.array): Dense array of shape (k, m) for k beta vectors.
-        - dot_product_threshold (float): Threshold for absolute dot product values.
-        - Y (np.array, optional): Dense array of shape (k, n) or None. Defaults to None.
-
-        Returns:
-        - scipy.sparse.csc_matrix: Sparse block diagonal correlation matrix for k beta vectors.
-        """
-
-        # Handle Y as an optional argument
-        if Y is not None:
-            if beta.shape[0] != Y.shape[0] or X_sparse.shape[0] != Y.shape[1]:
-                raise DataValidationError("Y must have shape (k, n) where k matches beta's rows and n matches X's rows.")
-            Y = np.square(Y.flatten())
-
-        # Ensure beta is 2D
-        if beta.ndim == 1:
-            beta = beta[np.newaxis, :]  # Convert to shape (1, m) if beta is a single vector
-
-        k, m = beta.shape  # Number of beta vectors and features
-        n = X_sparse.shape[0]  # Number of rows (samples) in X
-
-        # Step 1: Scale X_sparse by each beta vector and construct block diagonal matrix
-        scaled_blocks = [X_sparse.multiply(beta[i, :]) for i in range(k)]
-        X_scaled = sparse.block_diag(scaled_blocks, format='csc')  # Shape: (k * n, k * m)
-
-        var_threshold = 0.05
-        prior_threshold = 0.1
-        X_scaled_sum = X_scaled.sum(axis=1).A1
-        keep_mask = np.logical_and((np.square(X_scaled_sum) / ((Y if Y is not None else 0) + np.square(X_scaled_sum) + 1e-20) > var_threshold), (X_scaled_sum > prior_threshold))
-
-        X_scaled = (X_scaled.T.multiply(keep_mask)).T
-        X_scaled.eliminate_zeros()
-
-        # Step 2: Compute uncentered second moment for all scaled X_sparse blocks
-
-        X_scaled_dot_X_scaled = X_scaled.dot(X_scaled.T).multiply(1.0 / m).tocsr()  # n x n
-
-        # Retain only the rows, columns, and values that pass the threshold
-        threshold_mask = np.abs(X_scaled_dot_X_scaled.data) < (dot_product_threshold / m)
-        X_scaled_dot_X_scaled.data[threshold_mask] = 0
-        X_scaled_dot_X_scaled.eliminate_zeros()
-
-        #We now have E[XBi*XBj]
-
-        #calculate E[Xbi] and E2[Xbi]
-
-        E_X_scaled = X_scaled.mean(axis=1).A1
-        E2_X_scaled = X_scaled_dot_X_scaled.diagonal()
-
-        # Identify block and local indices
-        if type(X_scaled_dot_X_scaled) is not sparse.csr_matrix:
-            X_scaled_dot_X_scaled = X_scaled_dot_X_scaled.tocsr()
-
-        #get indices of columns
-        rows = np.repeat(np.arange(len(X_scaled_dot_X_scaled.indptr) - 1), np.diff(X_scaled_dot_X_scaled.indptr))
-        cols = X_scaled_dot_X_scaled.indices  # Directly use indices for rows
-
-        #subtract E[betai]E[betaj]
-        X_scaled_dot_X_scaled.data -= E_X_scaled[rows] * E_X_scaled[cols]
-        if Y is not None:
-            X_scaled_dot_X_scaled.data += Y[rows] * Y[cols]
-        #divide by the variances
-        X_scaled_dot_X_scaled.data /= (np.sqrt((E2_X_scaled[rows] - np.square(E_X_scaled)[rows] + np.square(Y[rows] if Y is not None else 0)) * (E2_X_scaled[cols] - np.square(E_X_scaled)[cols] + np.square(Y[cols] if Y is not None else 0))) + 1e-20)
-
-        cor_threshold = 0.01
-        X_scaled_dot_X_scaled.data[X_scaled_dot_X_scaled.data <= cor_threshold] = 0
-        X_scaled_dot_X_scaled.eliminate_zeros()
-
-        # Step 5: Construct sparse block diagonal correlation matrix
-        X_scaled_dot_X_scaled = X_scaled_dot_X_scaled + sparse.diags(np.ones(k * n), format="csr")
-        X_scaled_dot_X_scaled = X_scaled_dot_X_scaled.multiply(sparse.diags(1.0 / X_scaled_dot_X_scaled.diagonal(), format="csr"))
-        sparse_corr_matrix = X_scaled_dot_X_scaled
-
-        # Step 6: Return sparse correlation matrix or list of matrices
-        if k == 1:
-            return sparse_corr_matrix
-        else:
-            return [sparse_corr_matrix[i * n:(i + 1) * n, i * n:(i + 1) * n] for i in range(k)]
+        """PSD annotation correlation operator; avoids unsafe pairwise thresholding."""
+        from pegs_shared.covariance import annotation_correlations
+        return annotation_correlations(X_sparse, beta, Y)
 
     def read_gene_phewas(self):
         return self.gene_pheno_Y is not None or  self.gene_pheno_combined_prior_Ys is not None and self.gene_pheno_priors is not None
@@ -8090,6 +8203,7 @@ def _evaluate_burn_in_diagnostics(
         num_active_betas,
         beta_rhat_q,
         beta_rhat_max,
+        active_beta_panel_saturated,
     ) = _compute_burn_in_active_beta_rhat_stats(
         all_sum_betas_m=all_sum_betas_m,
         all_sum_betas2_m=all_sum_betas2_m,
@@ -8100,7 +8214,7 @@ def _evaluate_burn_in_diagnostics(
         burn_in_rhat_quantile=burn_in_rhat_quantile,
     )
 
-    if beta_rhat_q <= r_threshold_burn_in:
+    if not active_beta_panel_saturated and beta_rhat_q <= r_threshold_burn_in:
         burn_in_pass_streak += 1
     else:
         burn_in_pass_streak = 0
@@ -8161,6 +8275,7 @@ def _evaluate_burn_in_diagnostics(
         "beta_rhat_q": beta_rhat_q,
         "beta_rhat_max": beta_rhat_max,
         "num_active_betas": num_active_betas,
+        "active_beta_panel_saturated": active_beta_panel_saturated,
         "burn_stall_plateau": burn_stall_plateau,
         "burn_stall_recent_worse": burn_stall_recent_worse,
         "burn_stall_detected": burn_stall_detected,
@@ -8215,7 +8330,12 @@ def _compute_burn_in_active_beta_rhat_stats(
     burn_in_rhat_quantile,
 ):
     (_, _, R_beta_v, _) = _calculate_rhat_from_sums(all_sum_betas_m, all_sum_betas2_m, num_samples)
-    active_beta_mask_v, _, _ = _get_active_beta_mask(all_sum_betas_m, all_num_sum_m, active_beta_top_k, active_beta_min_abs)
+    active_beta_mask_v, _, _, active_beta_panel_saturated = _get_active_beta_mask(
+        all_sum_betas_m,
+        all_num_sum_m,
+        active_beta_top_k,
+        active_beta_min_abs,
+    )
     num_active_betas = int(np.sum(active_beta_mask_v))
     if num_active_betas > 0:
         R_beta_active_v = R_beta_v[active_beta_mask_v]
@@ -8225,7 +8345,14 @@ def _compute_burn_in_active_beta_rhat_stats(
     else:
         beta_rhat_q = 1.0
         beta_rhat_max = 1.0
-    return (R_beta_v, active_beta_mask_v, num_active_betas, beta_rhat_q, beta_rhat_max)
+    return (
+        R_beta_v,
+        active_beta_mask_v,
+        num_active_betas,
+        beta_rhat_q,
+        beta_rhat_max,
+        active_beta_panel_saturated,
+    )
 
 
 def _handle_gibbs_burn_in_max_iter(
@@ -8307,6 +8434,7 @@ def _handle_gibbs_burn_in_diag_path(
     beta_rhat_q = burn_diag["beta_rhat_q"]
     beta_rhat_max = burn_diag["beta_rhat_max"]
     num_active_betas = burn_diag["num_active_betas"]
+    active_beta_panel_saturated = burn_diag["active_beta_panel_saturated"]
     burn_stall_plateau = burn_diag["burn_stall_plateau"]
     burn_stall_recent_worse = burn_diag["burn_stall_recent_worse"]
     burn_stall_detected = burn_diag["burn_stall_detected"]
@@ -8322,7 +8450,7 @@ def _handle_gibbs_burn_in_diag_path(
     burn_in_stall_delta = burn_in_config["burn_in_stall_delta"]
 
     log(
-        "Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        "Gibbs burn-in iter %d: beta_Rhat_q(%.2f)=%.4g; beta_Rhat_max=%.4g; active_betas=%d/%d; active_beta_panel_saturated=%s; burn_streak=%d/%d; stop_streak=%d/%d"
         % (
             num_samples,
             burn_in_rhat_quantile,
@@ -8330,6 +8458,7 @@ def _handle_gibbs_burn_in_diag_path(
             beta_rhat_max,
             num_active_betas,
             num_full_gene_sets,
+            str(active_beta_panel_saturated),
             burn_in_pass_streak,
             burn_in_patience,
             stop_pass_streak,
@@ -8337,7 +8466,7 @@ def _handle_gibbs_burn_in_diag_path(
         ),
         INFO,
     )
-    if burn_in_pass_streak >= burn_in_patience:
+    if not active_beta_panel_saturated and burn_in_pass_streak >= burn_in_patience:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -8349,7 +8478,7 @@ def _handle_gibbs_burn_in_diag_path(
             % (num_samples, burn_in_rhat_quantile, r_threshold_burn_in, burn_in_patience),
             INFO,
         )
-    elif burn_stall_detected:
+    elif not active_beta_panel_saturated and burn_stall_detected:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -8362,7 +8491,7 @@ def _handle_gibbs_burn_in_diag_path(
             % (num_samples, str(burn_stall_plateau), str(burn_stall_recent_worse)),
             INFO,
         )
-    elif burn_window_plateau_detected:
+    elif not active_beta_panel_saturated and burn_window_plateau_detected:
         in_burn_in, burn_in_pass_streak, stop_pass_streak = _end_gibbs_burn_in(
             post_burn_reset_arrays=post_burn_reset_arrays,
             post_burn_reset_missing_arrays=post_burn_reset_missing_arrays,
@@ -9265,15 +9394,28 @@ def _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_pos
 
 
 def _calculate_rhat_from_sums(sum_m, sum2_m, num):
-    if num <= 1:
+    num_m = np.asarray(num, dtype=float)
+    if num_m.ndim == 0:
+        num_m = np.full(sum_m.shape, float(num_m))
+    else:
+        num_m = np.broadcast_to(num_m, sum_m.shape)
+
+    num_chains = sum_m.shape[0]
+    if num_chains <= 1 or np.any(num_m <= 1):
         default_v = np.ones(sum_m.shape[1])
         return (default_v, default_v, default_v, default_v)
-    mean_m = sum_m / float(num)
+
+    mean_m = sum_m / num_m
     mean_v = np.mean(mean_m, axis=0)
-    var_m = (sum2_m - float(num) * np.power(mean_m, 2)) / (float(num) - 1)
-    B_v = (float(num) / (mean_m.shape[0] - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
-    W_v = (1.0 / float(mean_m.shape[0])) * np.sum(var_m, axis=0)
-    var_given_y_v = np.add((float(num) - 1) / float(num) * W_v, (1.0 / float(num)) * B_v)
+    var_m = (sum2_m - num_m * np.power(mean_m, 2)) / (num_m - 1.0)
+    within_df_m = num_m - 1.0
+    W_v = np.sum(within_df_m * var_m, axis=0) / np.sum(within_df_m, axis=0)
+    harmonic_num_v = float(num_chains) / np.sum(1.0 / num_m, axis=0)
+    B_v = (harmonic_num_v / float(num_chains - 1)) * np.sum(np.power(mean_m - mean_v, 2), axis=0)
+    var_given_y_v = np.add(
+        (harmonic_num_v - 1.0) / harmonic_num_v * W_v,
+        (1.0 / harmonic_num_v) * B_v,
+    )
     var_given_y_v[var_given_y_v < 0] = 0
     R_v = np.ones(len(W_v))
     R_non_zero_mask = W_v > 0
@@ -9289,7 +9431,7 @@ def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_
     num_beta = len(beta_mean_v)
     active_mask_v = np.zeros(num_beta, dtype=bool)
     if num_beta == 0:
-        return (active_mask_v, beta_chain_means_m, beta_mean_v)
+        return (active_mask_v, beta_chain_means_m, beta_mean_v, False)
 
     top_k = min(max(active_beta_top_k, 1), num_beta)
     if top_k >= num_beta:
@@ -9303,7 +9445,8 @@ def _get_active_beta_mask(sum_betas_for_diag_m, num_sum_beta_for_diag_m, active_
         if np.any(filtered_mask_v):
             active_mask_v = filtered_mask_v
 
-    return (active_mask_v, beta_chain_means_m, beta_mean_v)
+    active_beta_panel_saturated = top_k < num_beta and int(np.sum(active_mask_v)) >= top_k
+    return (active_mask_v, beta_chain_means_m, beta_mean_v, active_beta_panel_saturated)
 
 
 def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mean_betas, max_mb_X_h, log_fun):
@@ -9843,7 +9986,7 @@ def _compute_post_burn_beta_diagnostics(
     stop_mcse_quantile,
     beta_rel_mcse_denom_floor,
 ):
-    active_beta_mask, beta_chain_means_m, beta_mean_v = _get_active_beta_mask(
+    active_beta_mask, beta_chain_means_m, beta_mean_v, active_beta_panel_saturated = _get_active_beta_mask(
         diag_sum_betas_m,
         diag_num_sum_beta_m,
         active_beta_top_k,
@@ -9870,6 +10013,7 @@ def _compute_post_burn_beta_diagnostics(
         "active_beta_mask": active_beta_mask,
         "beta_mean_v": beta_mean_v,
         "num_active_betas": num_active_betas,
+        "active_beta_panel_saturated": active_beta_panel_saturated,
         "beta_mcse_v": beta_mcse_v,
         "num_post_burn_beta": num_post_burn_beta,
         "beta_rhat_q_post": beta_rhat_q_post,
@@ -10067,14 +10211,11 @@ def _summarize_gibbs_chain_aggregates(
     sum_Ds_missing_m=None,
     num_sum_priors_missing_m=None,
 ):
-    num_post_burn_in_Y = int(np.min(num_sum_Y_m))
-    num_post_burn_in_beta = int(np.min(num_sum_beta_m))
-
-    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_post_burn_in_Y)
-    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_post_burn_in_Y)
-    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_post_burn_in_Y)
-    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_post_burn_in_beta)
-    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_post_burn_in_beta)
+    _, _, prior_r_hat_v, _ = _calculate_rhat_from_sums(sum_priors_m, sum_priors2_m, num_sum_Y_m)
+    _, _, combined_r_hat_v, _ = _calculate_rhat_from_sums(sum_log_po_raws_m, sum_log_po_raws2_m, num_sum_Y_m)
+    _, _, log_bf_r_hat_v, _ = _calculate_rhat_from_sums(sum_bf_orig_raw_m, sum_bf_orig_raw2_m, num_sum_Y_m)
+    _, _, beta_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_m, sum_betas2_m, num_sum_beta_m)
+    _, _, beta_uncorrected_r_hat_v, _ = _calculate_rhat_from_sums(sum_betas_uncorrected_m, sum_betas_uncorrected2_m, num_sum_beta_m)
 
     prior_chain_means_m = _means_from_sums(sum_priors_m, num_sum_Y_m)
     combined_chain_means_m = _means_from_sums(sum_log_po_raws_m, num_sum_Y_m)
@@ -11883,6 +12024,7 @@ def _log_gibbs_post_burn_diagnostics(
     prior_beta_rel_inconsistency_q,
     max_rel_prior_beta_inconsistency,
     num_active_betas,
+    active_beta_panel_saturated,
     num_full_gene_sets,
     num_chains_effective_for_diag,
     burn_in_pass_streak,
@@ -11892,7 +12034,7 @@ def _log_gibbs_post_burn_diagnostics(
 ):
     if stop_min_gene_d is None:
         log(
-            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+            "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; active_beta_panel_saturated=%s; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
             % (
                 epoch_iter_num,
                 total_iter_num,
@@ -11912,6 +12054,7 @@ def _log_gibbs_post_burn_diagnostics(
                 max_rel_prior_beta_inconsistency,
                 num_active_betas,
                 num_full_gene_sets,
+                str(active_beta_panel_saturated),
                 num_chains_effective_for_diag,
                 burn_in_pass_streak,
                 burn_in_patience,
@@ -11923,7 +12066,7 @@ def _log_gibbs_post_burn_diagnostics(
         return
 
     log(
-        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
+        "Gibbs iteration %d (global %d): beta_Rhat_q(%.2f)=%.4g (threshold=%.4g); beta_rel_mcse_q(%.2f)=%.4g (threshold=%.4g, denom_floor=%.4g); D_mcse_q(%.2f, topK=%d, minD=%.4g, monitored=%d, eligible=%d)=%.4g (threshold=%.4g); prior_beta_rel_inconsistency_q(%.2f)=%.4g (threshold=%.4g); active_betas=%d/%d; active_beta_panel_saturated=%s; eff_chains=%d; burn_streak=%d/%d; stop_streak=%d/%d"
         % (
             epoch_iter_num,
             total_iter_num,
@@ -11946,6 +12089,7 @@ def _log_gibbs_post_burn_diagnostics(
             max_rel_prior_beta_inconsistency,
             num_active_betas,
             num_full_gene_sets,
+            str(active_beta_panel_saturated),
             num_chains_effective_for_diag,
             burn_in_pass_streak,
             burn_in_patience,
@@ -12101,6 +12245,7 @@ def _compute_gibbs_post_burn_diag_metrics(
     return {
         "num_chains_effective_for_diag": num_chains_effective_for_diag,
         "num_active_betas": beta_diag["num_active_betas"],
+        "active_beta_panel_saturated": beta_diag["active_beta_panel_saturated"],
         "beta_mcse_v": beta_diag["beta_mcse_v"],
         "beta_rhat_q_post": beta_diag["beta_rhat_q_post"],
         "beta_ratio_q": beta_diag["beta_ratio_q"],
@@ -12117,6 +12262,7 @@ def _compute_gibbs_post_burn_diag_metrics(
 
 def _update_gibbs_post_burn_precision_streak(
     stop_pass_streak,
+    active_beta_panel_saturated,
     beta_ratio_q,
     D_mcse_q,
     beta_rhat_q_post,
@@ -12130,7 +12276,8 @@ def _update_gibbs_post_burn_precision_streak(
 ):
     min_post_burn_reached = num_post_burn_D >= min_num_post_burn_in_for_epoch
     precision_pass = (
-        beta_ratio_q <= max_rel_mcse_beta
+        not active_beta_panel_saturated
+        and beta_ratio_q <= max_rel_mcse_beta
         and D_mcse_q <= max_abs_mcse_d
         and beta_rhat_q_post <= max_post_beta_rhat
         and prior_beta_rel_inconsistency_q <= max_rel_prior_beta_inconsistency
@@ -12171,6 +12318,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
 
     stop_pass_streak, min_post_burn_reached = _update_gibbs_post_burn_precision_streak(
         stop_pass_streak=stop_pass_streak,
+        active_beta_panel_saturated=diag_metrics["active_beta_panel_saturated"],
         beta_ratio_q=diag_metrics["beta_ratio_q"],
         D_mcse_q=diag_metrics["D_mcse_q"],
         beta_rhat_q_post=diag_metrics["beta_rhat_q_post"],
@@ -12201,6 +12349,7 @@ def _evaluate_gibbs_post_burn_diagnostics_and_decision(
         prior_beta_rel_inconsistency_q=diag_metrics["prior_beta_rel_inconsistency_q"],
         max_rel_prior_beta_inconsistency=diag_config["max_rel_prior_beta_inconsistency"],
         num_active_betas=diag_metrics["num_active_betas"],
+        active_beta_panel_saturated=diag_metrics["active_beta_panel_saturated"],
         num_full_gene_sets=diag_config["num_full_gene_sets"],
         num_chains_effective_for_diag=diag_metrics["num_chains_effective_for_diag"],
         burn_in_pass_streak=burn_in_pass_streak,

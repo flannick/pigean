@@ -31,6 +31,7 @@ Useful common outputs:
 --factors-out results/factors.out \
 --gene-set-clusters-out results/gene_set_clusters.out \
 --gene-clusters-out results/gene_clusters.out \
+--gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
 --trait-factor-links-out results/trait_factor_links.out \
 --params-out results/params.out
 ```
@@ -151,11 +152,12 @@ $PYTHON -m eaggl factor \
   --factor-phewas-stats-out results/factor_phewas_stats.out.gz
 ```
 
-Full-gene projection policy for gene-by-gene workflows:
+Full-gene projection policy:
 
-1. The recommended/default display projection is gene-set-routed full-gene projection, written with `--gene-clusters-full-via-gene-sets-out`.
-2. Direct full-gene projection, written with `--gene-clusters-full-out`, remains available as a diagnostic and comparison output.
-3. Dashboards and factor graphs prefer `gene_clusters_full_via_gene_sets.out.gz` when both full-gene outputs are present.
+1. When `--gene-clusters-full-out` is requested, the default projection basis is gene-set-routed (`gene_set_loadings`). This keeps full-gene display loadings tied to the retained gene-set factor representation.
+2. The explicit `--gene-clusters-full-via-gene-sets-out` output always uses gene-set-routed projection and is the recommended named output for user-facing runs.
+3. Use `--full-gene-projection-method direct_gene_gene` with `--gene-clusters-full-out` only for a direct gene-gene diagnostic or comparison; `auto` preserves the legacy dispatch behavior.
+4. Dashboards and factor graphs prefer `gene_clusters_full_via_gene_sets.out.gz` when both full-gene outputs are present.
 
 Projection-only recommended full-gene output from gene-set factors:
 
@@ -173,6 +175,7 @@ $PYTHON -m eaggl factor \
   --factor-gene-clusters-in results/gene_clusters.out.gz \
   --X-in /path/to/annotations.gmt \
   --gene-set-stats-in /path/to/gene_set_stats.out.gz \
+  --full-gene-projection-method direct_gene_gene \
   --gene-clusters-full-out results/gene_clusters_full.direct.out.gz
 ```
 
@@ -184,6 +187,7 @@ $PYTHON -m eaggl factor \
   --factor-gene-set-clusters-in results/gene_set_clusters.out.gz \
   --X-in /path/to/annotations.gmt \
   --gene-set-stats-in /path/to/gene_set_stats.out.gz \
+  --full-gene-projection-method direct_gene_gene \
   --gene-clusters-full-out results/gene_clusters_full.direct.out.gz \
   --gene-clusters-full-via-gene-sets-out results/gene_clusters_full.via_gene_sets.out.gz
 ```

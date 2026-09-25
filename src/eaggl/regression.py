@@ -88,6 +88,11 @@ def compute_robust_betas(
     log_fn,
     debug_level,
 ):
+    if resid_correlation_matrix is not None:
+        raise DataValidationError(
+            "Huber inference with residual correlations is not validated; "
+            "use the linear marginal/joint covariance path instead."
+        )
     log_fn("Calculating robust beta tildes", debug_level)
 
     Y = Y.T
@@ -151,28 +156,7 @@ def compute_robust_betas(
     diag_inv = np.diag(XtX_inv)
     base_ses = np.sqrt(sigma2[:, None] * diag_inv[None, :])
 
-    if resid_correlation_matrix is None:
-        ses = base_ses
-    else:
-        if len(resid_correlation_matrix) != n_phenos:
-            raise DataValidationError("resid_correlation_matrix must match number of phenotypes.")
-
-        ses = np.zeros_like(base_ses)
-
-        for p_idx in range(n_phenos):
-            R_p = resid_correlation_matrix[p_idx]
-            w_vec = np.sqrt(weights[:, p_idx])
-            WeightedX = X * w_vec[:, None]
-
-            if sparse.issparse(R_p):
-                WeightedX_R = R_p.dot(WeightedX)
-            else:
-                WeightedX_R = R_p @ WeightedX
-
-            XtRprimeX = WeightedX.T @ WeightedX_R
-            var_betas_p = XtX_inv @ XtRprimeX @ XtX_inv
-            se_p = np.sqrt(np.diag(var_betas_p))
-            ses[p_idx, :] = se_p
+    ses = base_ses
 
     if covs is not None or add_intercept:
         betas = betas[:, :n_factors]

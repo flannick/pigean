@@ -685,15 +685,35 @@ class PegsUtilsBundleTest(unittest.TestCase):
             self.assertIn("SE", set(result[7]))
             self.assertIn("N", set(result[9]))
 
+    def test_infer_columns_accepts_pvalue_and_signed_standard_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "signed_se.tsv"
+            path.write_text(
+                "chromosome\tposition\tpValue\tbeta\tstdErr\tn\n"
+                "1\t12345\t0.02\t-0.1\t-0.03\t10000\n",
+                encoding="utf-8",
+            )
+            result = pegs_utils.infer_columns_from_table_file(
+                str(path),
+                lambda p: open(p, "rt", encoding="utf-8"),
+            )
+            self.assertEqual(set(result[5]), {"pValue"})
+            self.assertEqual(set(result[7]), {"stdErr"})
+
     def test_needs_gwas_column_detection(self) -> None:
         self.assertTrue(
             pegs_utils.needs_gwas_column_detection(
                 None, None, None, "P", None, "SE", "N", None
             )
         )
-        self.assertFalse(
+        self.assertTrue(
             pegs_utils.needs_gwas_column_detection(
                 "POS", "CHROM", None, "P", None, "SE", "N", None
+            )
+        )
+        self.assertFalse(
+            pegs_utils.needs_gwas_column_detection(
+                "POS", "CHROM", None, "P", "BETA", "SE", "N", None, "AF"
             )
         )
 
@@ -734,6 +754,20 @@ class PegsUtilsBundleTest(unittest.TestCase):
         self.assertEqual(out[5], "SE")
         self.assertEqual(out[6], "AF")
         self.assertEqual(out[7], "N")
+
+        partially_explicit = pegs_utils.autodetect_gwas_columns(
+            "dummy", None, None, None, "EXPLICIT_P", None, None, None,
+            "EXPLICIT_N", None,
+            infer_columns_fn=lambda _gwas: inferred,
+            log_fn=lambda _m: None,
+            bail_fn=lambda m: (_ for _ in ()).throw(ValueError(m)),
+            debug_just_check_header=False,
+        )
+        self.assertEqual(partially_explicit[3], "EXPLICIT_P")
+        self.assertEqual(partially_explicit[4], "BETA")
+        self.assertEqual(partially_explicit[5], "SE")
+        self.assertEqual(partially_explicit[6], "AF")
+        self.assertEqual(partially_explicit[7], "EXPLICIT_N")
 
     def test_huge_statistics_path_and_bundle_helpers(self) -> None:
         self.assertTrue(pegs_utils.is_huge_statistics_bundle_path("x.tar.gz"))

@@ -5,16 +5,16 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `358`
+- Total options: `367`
 - `method_required`: `20`
-- `method_optional`: `193`
-- `engineering`: `116`
+- `method_optional`: `199`
+- `engineering`: `119`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `315`
+- visibility `expert`: `323`
 - visibility `hidden`: `9`
-- visibility `normal`: `34`
+- visibility `normal`: `35`
 
 ## Method Required
 
@@ -78,7 +78,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--cross-val-folds` | `expert` | `yes` | `advanced_workflows` | `cross_val_folds` | `4` | number of folds for cross-validation tuning |
 | `--cross-val-max-num-tries` | `expert` | `yes` | `advanced_workflows` | `cross_val_max_num_tries` | `2` | maximum cross-validation boundary expansions |
 | `--cross-val-num-explore-each-direction` | `expert` | `yes` | `advanced_workflows` | `cross_val_num_explore_each_direction` | `3` | cross-validation exploration breadth for sigma tuning |
-| `--disable-stall-detection` | `expert` | `yes` | `expert_help` | `disable_stall_detection` | `False` | - |
+| `--disable-stall-detection` | `expert` | `yes` | `expert_help` | `disable_stall_detection` | `True` | disable stall-triggered Gibbs epoch exits and restarts (the default) |
+| `--enable-stall-detection` | `normal` | `yes` | `core_help` | `disable_stall_detection` | `-` | opt in to stall-triggered Gibbs epoch exits and restarts |
 | `--exomes-high-p` | `expert` | `yes` | `expert_help` | `exomes_high_p` | `0.05` | - |
 | `--exomes-high-p-posterior` | `expert` | `yes` | `expert_help` | `exomes_high_p_posterior` | `0.1` | - |
 | `--exomes-low-p` | `expert` | `yes` | `expert_help` | `exomes_low_p` | `2.5e-06` | - |
@@ -114,10 +115,13 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gwas-high-p` | `expert` | `yes` | `expert_help` | `gwas_high_p` | `0.01` | - |
 | `--gwas-high-p-posterior` | `expert` | `yes` | `expert_help` | `gwas_high_p_posterior` | `0.01` | - |
 | `--gwas-ignore-p-threshold` | `expert` | `yes` | `expert_help` | `gwas_ignore_p_threshold` | `None` | - |
+| `--gwas-inverse-variance-reference` | `expert` | `yes` | `expert_help` | `gwas_inverse_variance_reference` | `winsorized_mean` | choose the chromosome inverse-variance reference; the default upper-winsorized mean resists a high-information tail, while mean restores legacy behavior |
+| `--gwas-inverse-variance-reference-quantile` | `expert` | `yes` | `expert_help` | `gwas_inverse_variance_reference_quantile` | `0.9` | set the upper winsorization quantile used by the default inverse-variance reference |
 | `--gwas-low-p` | `expert` | `yes` | `expert_help` | `gwas_low_p` | `5e-08` | - |
 | `--gwas-low-p-posterior` | `expert` | `yes` | `expert_help` | `gwas_low_p_posterior` | `0.75` | - |
 | `--gwas-n` | `expert` | `yes` | `expert_help` | `gwas_n` | `None` | - |
 | `--gwas-units` | `expert` | `yes` | `expert_help` | `gwas_units` | `None` | - |
+| `--gwas-z-source` | `expert` | `yes` | `expert_help` | `gwas_z_source` | `auto` | HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
 | `--increase-filter-gene-set-p` | `expert` | `yes` | `expert_help` | `increase_filter_gene_set_p` | `0.01` | - |
 | `--independent-betas-only` | `expert` | `yes` | `advanced_workflows` | `independent_betas_only` | `False` | for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve |
@@ -136,26 +140,28 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-no-write-gene-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_gene_set_beta` | `0` | - |
 | `--max-no-write-gene-set-beta` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta` | `None` | - |
 | `--max-no-write-gene-set-beta-uncorrected` | `expert` | `yes` | `expert_help` | `max_no_write_gene_set_beta_uncorrected` | `None` | - |
-| `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | - |
+| `--max-num-burn-in` | `expert` | `yes` | `expert_help` | `max_num_burn_in` | `None` | optional maximum burn-in iterations in one epoch |
 | `--max-num-gene-sets` | `expert` | `yes` | `expert_help` | `max_num_gene_sets` | `5000` | - |
 | `--max-num-gene-sets-hyper` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_hyper` | `5000` | - |
 | `--max-num-gene-sets-initial` | `expert` | `yes` | `expert_help` | `max_num_gene_sets_initial` | `None` | - |
-| `--max-num-iter` | `normal` | `yes` | `core_help` | `max_num_iter` | `500` | legacy per-epoch outer Gibbs iteration cap used when phase-specific bounds are not set |
+| `--max-num-iter` | `normal` | `yes` | `core_help` | `max_num_iter` | `500` | maximum outer Gibbs iterations in one epoch (500 by default) |
 | `--max-num-iter-betas` | `expert` | `yes` | `expert_help` | `max_num_iter_betas` | `1100` | - |
-| `--max-num-post-burn-in` | `expert` | `yes` | `expert_help` | `max_num_post_burn_in` | `None` | - |
-| `--max-num-restarts` | `expert` | `yes` | `expert_help` | `max_num_restarts` | `10` | - |
+| `--max-num-post-burn-in` | `expert` | `yes` | `expert_help` | `max_num_post_burn_in` | `None` | optional maximum retained post-burn iterations in one epoch |
+| `--max-num-restarts` | `expert` | `yes` | `expert_help` | `max_num_restarts` | `0` | maximum additional Gibbs epochs allowed after stall-triggered exits |
 | `--max-post-beta-rhat` | `normal` | `yes` | `core_help` | `max_post_beta_rhat` | `None` | require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop |
+| `--max-probability` | `expert` | `yes` | `expert_help` | `max_probability` | `DEFAULT_MAX_PROBABILITY` | - |
 | `--max-rel-mcse-beta` | `normal` | `yes` | `core_help` | `max_rel_mcse_beta` | `None` | stop Gibbs once active beta MCSE is below this relative threshold |
 | `--max-rel-prior-beta-inconsistency` | `normal` | `yes` | `core_help` | `max_rel_prior_beta_inconsistency` | `None` | require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop |
 | `--min-gene-phewas-read-value` | `expert` | `yes` | `advanced_workflows` | `min_gene_phewas_read_value` | `1` | minimum value filter for advanced gene-phewas ingestion |
 | `--min-gene-set-read-beta` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta` | `1e-20` | - |
 | `--min-gene-set-read-beta-uncorrected` | `expert` | `yes` | `expert_help` | `min_gene_set_read_beta_uncorrected` | `1e-20` | - |
 | `--min-gene-set-size` | `expert` | `yes` | `expert_help` | `min_gene_set_size` | `None` | - |
-| `--min-n-ratio` | `expert` | `yes` | `expert_help` | `min_n_ratio` | `0.5` | - |
-| `--min-num-burn-in` | `expert` | `yes` | `expert_help` | `min_num_burn_in` | `10` | - |
+| `--min-gwas-inverse-variance-ratio` | `expert` | `yes` | `expert_help` | `min_gwas_inverse_variance_ratio` | `0.5` | exclude variants whose inverse variance is below this fraction of the chromosome reference; set to 0 to disable |
+| `--min-n-ratio` | `expert` | `yes` | `expert_help` | `min_n_ratio` | `0.5` | exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable |
+| `--min-num-burn-in` | `expert` | `yes` | `expert_help` | `min_num_burn_in` | `10` | minimum burn-in iterations before burn-in may end |
 | `--min-num-gene-sets` | `expert` | `yes` | `expert_help` | `min_num_gene_sets` | `1` | - |
 | `--min-num-iter-betas` | `expert` | `yes` | `expert_help` | `min_num_iter_betas` | `10` | - |
-| `--min-num-post-burn-in` | `expert` | `yes` | `expert_help` | `min_num_post_burn_in` | `10` | - |
+| `--min-num-post-burn-in` | `expert` | `yes` | `expert_help` | `min_num_post_burn_in` | `10` | minimum retained post-burn iterations before precision stopping may occur |
 | `--min-var-posterior` | `expert` | `yes` | `expert_help` | `min_var_posterior` | `0.01` | - |
 | `--multi-y-in` | `expert` | `yes` | `advanced_workflows` | `multi_y_in` | `None` | run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs |
 | `--no-add-bottom` | `expert` | `yes` | `expert_help` | `add_bottom` | `True` | - |
@@ -216,18 +222,18 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--stall-recent-eps` | `expert` | `yes` | `expert_help` | `stall_recent_eps` | `0.05` | - |
 | `--stall-recent-window` | `expert` | `yes` | `expert_help` | `stall_recent_window` | `4` | - |
 | `--stall-window` | `expert` | `yes` | `expert_help` | `stall_window` | `3` | - |
-| `--stop-mcse-quantile` | `expert` | `yes` | `expert_help` | `stop_mcse_quantile` | `None` | - |
+| `--stop-mcse-quantile` | `expert` | `yes` | `expert_help` | `stop_mcse_quantile` | `None` | quantile across monitored effects and genes used for precision stopping |
 | `--stop-min-gene-d` | `expert` | `yes` | `expert_help` | `stop_min_gene_d` | `0.3` | - |
-| `--stop-patience` | `expert` | `yes` | `expert_help` | `stop_patience` | `2` | - |
+| `--stop-patience` | `expert` | `yes` | `expert_help` | `stop_patience` | `2` | number of consecutive passing precision checks required to stop |
 | `--stop-top-gene-k` | `expert` | `yes` | `expert_help` | `stop_top_gene_k` | `200` | - |
 | `--strict-stopping` | `normal` | `yes` | `core_help` | `strict_stopping` | `False` | tighten Gibbs stopping thresholds relative to the default lenient preset |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-prior` | `expert` | `yes` | `expert_help` | `top_gene_prior` | `None` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
-| `--total-num-iter-gibbs` | `normal` | `yes` | `core_help` | `total_num_iter_gibbs` | `None` | total outer Gibbs iteration budget across all restart epochs |
+| `--total-num-iter-gibbs` | `normal` | `yes` | `core_help` | `total_num_iter_gibbs` | `None` | maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default |
 | `--track-filtered-beta-uncorrected-mode` | `expert` | `yes` | `advanced_workflows` | `track_filtered_beta_uncorrected_mode` | `None` | for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default) |
 | `--update-hyper` | `normal` | `yes` | `core_help` | `update_hyper` | `None` | choose whether outer Gibbs updates p, sigma, both, or neither during adaptation |
-| `--update-hyper-min-gene-sets` | `expert` | `yes` | `expert_help` | `update_hyper_min_gene_sets` | `1000` | - |
+| `--update-hyper-min-gene-sets` | `expert` | `yes` | `expert_help` | `update_hyper_min_gene_sets` | `100` | - |
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
@@ -266,7 +272,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--ctrl-counts-tot-col` | `expert` | `no` | `expert_help` | `ctrl_counts_tot_col` | `None` | - |
 | `--debug-level` | `expert` | `no` | `core_help` | `debug_level` | `None` | set logging verbosity for progress and diagnostic output |
 | `--deterministic` | `expert` | `no` | `core_help` | `deterministic` | `False` | force deterministic random seed behavior (seed=0 unless --seed is set) |
-| `--diag-every` | `expert` | `no` | `expert_help` | `diag_every` | `4` | - |
+| `--diag-every` | `expert` | `no` | `expert_help` | `diag_every` | `4` | number of outer iterations between convergence and precision diagnostics |
 | `--eaggl-bundle-out` | `expert` | `no` | `expert_help` | `eaggl_bundle_out` | `None` | write bundled PIGEAN outputs for direct eaggl.py consumption |
 | `--exomes-beta-col` | `expert` | `no` | `expert_help` | `exomes_beta_col` | `None` | - |
 | `--exomes-gene-col` | `expert` | `no` | `expert_help` | `exomes_gene_col` | `None` | - |
@@ -315,6 +321,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-no-header` | `expert` | `no` | `expert_help` | `gene_universe_has_header` | `True` | declare that the explicit gene-universe file has no header row |
 | `--gibbs-max-mb-X-h` | `expert` | `no` | `expert_help` | `gibbs_max_mb_X_h` | `100` | - |
 | `--gibbs-num-batches-parallel` | `expert` | `no` | `expert_help` | `gibbs_num_batches_parallel` | `10` | - |
+| `--gibbs-reruns` | `expert` | `no` | `expert_help` | `gibbs_reruns` | `1` | run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains |
 | `--gibbs-summary-mode` | `normal` | `no` | `core_help` | `gibbs_summary_mode` | `raw_common_mask` | choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask |
 | `--gwas-beta-col` | `expert` | `no` | `expert_help` | `gwas_beta_col` | `None` | - |
 | `--gwas-chrom-col` | `expert` | `no` | `expert_help` | `gwas_chrom_col` | `None` | - |
@@ -336,13 +343,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
 | `--multi-y-combined-col` | `expert` | `no` | `expert_help` | `multi_y_combined_col` | `None` | combined-support column for --multi-y-in |
+| `--multi-y-gene-correlation-list` | `expert` | `no` | `expert_help` | `multi_y_gene_correlation_list` | `None` | trait-labelled residual correlations for vectorized multi-Y marginal inference |
 | `--multi-y-id-col` | `expert` | `no` | `expert_help` | `multi_y_id_col` | `None` | gene ID column for --multi-y-in |
 | `--multi-y-log-bf-col` | `expert` | `no` | `expert_help` | `multi_y_log_bf_col` | `None` | log BF column for --multi-y-in |
 | `--multi-y-max-phenos-per-batch` | `expert` | `no` | `expert_help` | `multi_y_max_phenos_per_batch` | `None` | expert override for the number of traits loaded per native multi-Y batch |
 | `--multi-y-pheno-col` | `expert` | `no` | `expert_help` | `multi_y_pheno_col` | `None` | trait column for --multi-y-in |
 | `--multi-y-prior-col` | `expert` | `no` | `expert_help` | `multi_y_prior_col` | `None` | prior-support column for --multi-y-in |
 | `--multi-y-prob-col` | `expert` | `no` | `expert_help` | `multi_y_prob_col` | `None` | probability column for --multi-y-in |
-| `--multi-y-response-col` | `expert` | `no` | `expert_help` | `multi_y_response_col` | `combined` | which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob; explicit --multi-y-prob-col defaults this to prob unless overridden |
+| `--multi-y-response-col` | `expert` | `no` | `expert_help` | `multi_y_response_col` | `combined` | which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob |
 | `--multi-y-trait-blacklist-in` | `expert` | `no` | `expert_help` | `multi_y_trait_blacklist_in` | `None` | file of trait labels to exclude from --multi-y-in before batching |
 | `--multi-y-vectorize-betas` | `expert` | `no` | `expert_help` | `multi_y_vectorize_betas` | `False` | expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems |
 | `--output-detail` | `normal` | `no` | `core_help` | `output_detail` | `main` | choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions |

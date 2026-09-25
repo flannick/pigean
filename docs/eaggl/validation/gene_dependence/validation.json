@@ -1,0 +1,15 @@
+{
+  "tests_passed": 4,
+  "tests": [
+    "Closed-form logistic uncertainty versus explicit information matrix",
+    "Sparse structural-overlap stresses versus dense logistic sandwich, including binary feasibility bounds",
+    "Explicit unavailable statuses for missing groups and separation",
+    "Dashboard marginal P preserved independently of Bayesian coefficient"
+  ],
+  "production_match": "Full-data closed-form fits match corrected production logistic beta and SE at relative tolerance 1e-9 with rel_tol=1e-10.",
+  "simulations_run": 0,
+  "raw_GWAS_access": false,
+  "raw_arrays_saved": false,
+  "documentation": "EAGGL methods supplement S.2.5, pages 12-14; compiled without warnings/overflow after local TeX repairs.",
+  "runtime_models_changed": false
+}

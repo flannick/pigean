@@ -1,0 +1,64 @@
+\subsection{Gene dependence in factor--phenotype enrichment}
+\label{sec:gene_dependence_robustness}
+
+\paragraph{Statistical question and provenance of significance.}
+For a fixed factor and target phenotype, gene-level enrichment asks whether factor membership predicts the target response beyond a fitted baseline and any explicitly included covariates. Its null permits a nonzero overall hit rate. It does not require the target to have no genetic associations. An intercept accounts for a fitted mean; it does not remove covariance between gene responses. Moreover, reference inclusion and factor/trait selection can change the comparison population. In particular, a Direct-score analysis restricted to a Combined-selected reference is not an uncensored Direct-only analysis.
+
+Three computational paths must be distinguished. The public fixed-basis NNLS linkage is descriptive and has no association P value. In native EAGGL binary enrichment, the implemented model is a linear probability regression, with independent-observation HC3 uncertainty by default. HC3 allows heterogeneous residual variance but contains no off-diagonal gene covariance. The current native binary fitter does not implement chromosome-clustered uncertainty. Separately, exported factor GMTs can be tested using PIGEAN multi-Y logistic regression. There, the output \texttt{P}, \texttt{Z}, and \texttt{SE} accompany the marginal \texttt{beta\_tilde} statistics. The downstream Bayesian \texttt{beta} and \texttt{beta\_uncorrected} columns are different estimates; their presence does not turn that P value into a simultaneous all-factor test. The dashboard carries these fields alongside each other. A regression test verifies that changing the Bayesian beta does not change the imported marginal P value.
+
+The audited T2D factor-GMT run selected Combined responses, background prior 0.05, logistic rather than linear regression, and no gene-correlation or gene-location input. Its independent-gene uncertainty did not invoke the annotation-derived continuous-response correction. Optional gene covariate corrections and Bayesian factor adjustment must likewise not be described as an annotation-dependence correction. The subsequent explicit residual-correlation interface corrects marginal statistics; it is not a newly derived covariance-aware joint logistic likelihood.
+
+\paragraph{What the covariance correction establishes.}
+For a marginal logistic fit, let $v_i=\widehat p_i(1-\widehat p_i)$ and
+\[
+ c_i=\sqrt{v_i}\left(x_i-\frac{\sum_jv_jx_j}{\sum_jv_j}\right).
+\]
+For a specified residual correlation matrix $R$, intercept-adjusted uncertainty is
+\begin{equation}
+ \mathrm{SE}_R=\mathrm{SE}_I
+ \sqrt{\frac{c^\top R c}{c^\top c}}.
+ \label{eq:gene_dependence_sandwich}
+\end{equation}
+The existing independent synthetic-pseudocount convention is included in both quadratic forms. Identity and independently assembled dense-sandwich tests verify this calculation. For linear regression, $c_i=x_i-\bar x$; the simultaneous linear covariance additionally includes the fitted residual-variance scale. These checks establish the algebra for a specified matrix, not that a matrix describes the biological pipeline.
+
+A shared-annotation working matrix can represent similarities in annotation contributions, including similarities between genes on different chromosomes. It does not automatically propagate uncertainty in the learned annotation coefficients or gene-reference selection. Treating Direct support as independent diagonal variance is also a modeling assumption: physical linkage can correlate Direct evidence. Genomic clustering addresses a different dependence structure and, by itself, cannot address shared annotations across chromosomes. Finally, thresholding continuous Combined support changes the covariance; positive semidefiniteness and unit diagonal alone do not establish a valid binary-response correlation model.
+
+For two Bernoulli responses with means $p_i,p_j$, a necessary pairwise bound is
+\begin{equation}
+ \frac{\max(0,p_i+p_j-1)-p_ip_j}{\sqrt{p_i(1-p_i)p_j(1-p_j)}}
+ \le R_{ij}\le
+ \frac{\min(p_i,p_j)-p_ip_j}{\sqrt{p_i(1-p_i)p_j(1-p_j)}}.
+ \label{eq:binary_correlation_bounds}
+\end{equation}
+A working matrix can fail this bound even while being positive semidefinite. Passing pairwise bounds is necessary but is not sufficient to establish a compatible multivariate binary distribution or empirical calibration.
+
+\paragraph{Deterministic HDL sensitivity audit.}
+We retained the saved 18,321-gene universe, the Factor 4 and Factor 7 GMT memberships, and the 863 HDL Combined-hit labels. Factor 4 contained 323 genes and 74 hits; Factor 7 contained 173 genes and 87 hits. The fitted response labels were held fixed throughout deletions. Closed-form two-group logistic fits agreed with the production fitter at tighter numerical convergence tolerance; minor differences from earlier rounded/default-tolerance statistics do not affect interpretation. The table below uses the corrected marginal fitter, rather than the historical dashboard export that preceded the trait-batching correction.
+
+The saved reference provided HDL gene scores but not HDL's fitted annotation-coefficient table. We therefore did not claim to reconstruct its trait-specific annotation covariance. Instead, a target-independent structural-overlap stress used the four supplied reference annotation sources, with 81,452 unique gene-membership sets after removing 6,544 duplicates. This basis covers 99.28\% of the gene universe and is broader than the selected T2D discovery annotations. Let $B$ be its binary gene-by-annotation matrix, and let $L$ normalize each nonzero gene row to unit Euclidean norm. Define
+\begin{equation}
+ K=LL^\top+\operatorname{diag}\{\mathbf1[\|B_{i\cdot}\|=0]\},
+ \qquad R_\lambda=(1-\lambda)I+\lambda K.
+ \label{eq:annotation_overlap_stress}
+\end{equation}
+This matrix is computed through sparse products without allocating a dense gene-by-gene matrix. We examined the fixed grid $\lambda\in\{0,0.1,0.25,0.5,0.75\}$. These are declared dependence assumptions, not estimates of residual correlation. The tests do not use target association strength to select annotations or tune $\lambda$.
+
+\begin{center}
+\begin{tabular}{lrrr}
+Factor & $\lambda$ & SE multiplier & Working-model P value\\
+\hline
+4 & 0 & 1.000 & $4.18\times10^{-42}$\\
+4 & 0.10 & 1.314 & $4.15\times10^{-25}$\\
+4 & 0.25 & 1.677 & $5.25\times10^{-16}$\\
+7 & 0 & 1.000 & $2.08\times10^{-88}$\\
+7 & 0.10 & 1.260 & $2.37\times10^{-56}$\\
+7 & 0.25 & 1.572 & $7.45\times10^{-37}$\\
+\hline
+\end{tabular}
+\end{center}
+The displayed settings pass the necessary pairwise binary bounds under each fitted model. Settings 0.5 and 0.75 fail those bounds for both factors; their numerical results are retained in the diagnostic tables but are not presented as valid binary-model inference. At $\lambda=0.1$, omitting one annotation source at a time gives Factor 7 SE multipliers 1.081--1.286 and working-model P values from $7.22\times10^{-76}$ to $3.23\times10^{-54}$. Exact duplicate memberships supported by another retained source remain represented.
+
+We separately removed genes in each of the ten annotation groups with largest overlap with each fixed factor, ranked without HDL evidence, and every supplied 1-Mb gene-start window overlapping that factor. The latter are coordinate-based influence groups, not validated LD blocks; genes with ambiguous mappings enter each applicable deletion. Across 171 Factor 7 windows, all remaining log-odds coefficients exceeded 3.084, compared with 3.110 initially. Across its ten annotation-group deletions, all exceeded 2.832. The largest coefficient reduction followed deletion of the oxygen-containing-compound response annotation, leaving 51.4\% of factor members. Factor 4 coefficients remained above 1.839 across 291 windows and above 1.392 across ten annotation deletions. No fit became unidentified or separated. These are fixed-label influence checks, not refits of annotation learning; they do not prove that removing an annotation from PIGEAN would leave the same gene-hit list.
+
+\paragraph{Interpretive limit.}
+The positive enrichment is not explained by a single tested genomic window or major overlapping annotation group, and it persists under the specified feasible-pairwise-bound correlation stresses. The precise magnitude of its P value is sensitive to dependence assumptions. These observations support robustness of the observed enrichment, not calibration of the extreme independent-gene P value, exhaustive coverage of dependence structures, or confirmation in an independently selected factor/trait panel. No new simulations were undertaken for this deterministic audit. Additional calibration would be needed if a claim depended on precise tail probabilities that these checks cannot establish.
