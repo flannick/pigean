@@ -11,6 +11,7 @@ class FactorOutputPlan:
     factor_metrics_out: str | None = None
     consensus_stats_out: str | None = None
     gene_set_clusters_out: str | None = None
+    gene_set_clusters_marginal_out: str | None = None
     gene_clusters_out: str | None = None
     gene_clusters_full_out: str | None = None
     gene_clusters_full_via_gene_sets_out: str | None = None
@@ -62,6 +63,7 @@ def build_factor_output_plan(options):
         factor_metrics_out=options.factor_metrics_out,
         consensus_stats_out=options.consensus_stats_out,
         gene_set_clusters_out=options.gene_set_clusters_out,
+        gene_set_clusters_marginal_out=getattr(options, "gene_set_clusters_marginal_out", None),
         gene_clusters_out=options.gene_clusters_out,
         gene_clusters_full_out=getattr(options, "gene_clusters_full_out", None),
         gene_clusters_full_via_gene_sets_out=getattr(options, "gene_clusters_full_via_gene_sets_out", None),
@@ -97,6 +99,20 @@ def write_factor_outputs_for_plan(runtime, output_plan):
             cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
             factor_output_scope=output_plan.factor_output_scope,
         )
+    if output_plan.gene_set_clusters_marginal_out is not None:
+        original = runtime.exp_gene_set_factors
+        original_probs = runtime.gene_set_prob_factor_vector
+        try:
+            runtime.exp_gene_set_factors = runtime.exp_gene_set_factors_marginal
+            runtime.gene_set_prob_factor_vector = runtime.exp_gene_set_factors_marginal
+            runtime.write_clusters(
+                output_plan.gene_set_clusters_marginal_out, None, None,
+                cluster_row_min_max_loading=output_plan.cluster_row_min_max_loading,
+                factor_output_scope=output_plan.factor_output_scope,
+            )
+        finally:
+            runtime.exp_gene_set_factors = original
+            runtime.gene_set_prob_factor_vector = original_probs
     if output_plan.gene_clusters_full_out is not None:
         runtime.write_full_gene_clusters(
             output_plan.gene_clusters_full_out,

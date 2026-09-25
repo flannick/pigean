@@ -186,6 +186,9 @@ parser.add_option("","--phewas-stats-out",default=None)
 parser.add_option("","--factors-out",default=None)
 parser.add_option("","--factor-metrics-out",default=None)
 parser.add_option("","--gene-set-clusters-out",default=None)
+parser.add_option("", "--gene-set-clusters-marginal-out", default=None)
+parser.add_option("", "--gene-set-projection-mode", type="choice", choices=["joint", "marginal", "both"], default="joint")
+parser.add_option("", "--factor-gene-clusters-layout", type="choice", choices=["genes-by-factors", "factors-by-genes"], default="genes-by-factors")
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
@@ -523,7 +526,10 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--factor-backend": "choose the final factorization backend: full or blockwise_global_w",
     "--run-factor-phewas": "run the optional factor-level phewas stage",
     "--factor-phewas-from-gene-phewas-stats-in": "compatibility alias for --run-factor-phewas plus --gene-phewas-stats-in",
-    "--factor-gene-clusters-in": "load an existing gene_clusters.out(.gz) table and run projection-only phenotype and/or factor-PheWAS outputs without refitting factors",
+    "--gene-set-clusters-marginal-out": "write one-factor-at-a-time gene-set projections in the standard gene-set cluster format",
+    "--gene-set-projection-mode": "supplied-factor gene-set projection: joint (default), marginal, or both; use separate output paths",
+    "--factor-gene-clusters-layout": "supplied gene-factor table layout: genes-by-factors (default) or factors-by-genes (Factor column followed by genes)",
+    "--factor-gene-clusters-in": "load a gene-factor table and project gene sets, genes, phenotypes, and/or factor-PheWAS without refitting factors",
     "--factor-gene-set-clusters-in": "load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis",
     "--label-gene-clusters-in": "label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns",
     "--label-gene-set-clusters-in": "label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table with Factor columns",
@@ -1592,13 +1598,36 @@ def _bootstrap_cli(argv=None):
         parsed_options.factor_gene_clusters_in is not None
         or parsed_options.factor_gene_set_clusters_in is not None
     )
+    projection_mode = parsed_options.gene_set_projection_mode
+    marginal_out = parsed_options.gene_set_clusters_marginal_out
+    if projection_mode != "joint" or marginal_out is not None:
+        if parsed_options.factor_gene_clusters_in is None:
+            bail("--gene-set-projection-mode/--gene-set-clusters-marginal-out require --factor-gene-clusters-in")
+        if projection_mode == "joint":
+            bail("--gene-set-clusters-marginal-out requires --gene-set-projection-mode marginal or both")
+        if marginal_out is None:
+            bail("Marginal projection requires --gene-set-clusters-marginal-out")
+        if projection_mode == "marginal" and parsed_options.gene_set_clusters_out is not None:
+            bail("Marginal-only projection uses --gene-set-clusters-marginal-out; use mode both to also write --gene-set-clusters-out")
+        if projection_mode == "both" and parsed_options.gene_set_clusters_out is None:
+            bail("Mode both requires --gene-set-clusters-out and --gene-set-clusters-marginal-out")
+        if parsed_options.gene_set_clusters_out is not None and os.path.realpath(marginal_out) == os.path.realpath(parsed_options.gene_set_clusters_out):
+            bail("Joint and marginal projections require separate output files")
+    if parsed_options.factor_gene_clusters_layout != "genes-by-factors" and parsed_options.factor_gene_clusters_in is None:
+        bail("--factor-gene-clusters-layout requires --factor-gene-clusters-in")
     if projection_only_factor_inputs:
         projection_requests = {
             "pheno": bool(getattr(parsed_options, "pheno_clusters_out", None) is not None or getattr(parsed_options, "trait_factor_links_out", None) is not None),
             "gene": bool(getattr(parsed_options, "gene_clusters_full_out", None) is not None),
             "gene_via_gene_sets": bool(getattr(parsed_options, "gene_clusters_full_via_gene_sets_out", None) is not None),
-            "gene_set": bool(parsed_options.gene_set_clusters_out is not None),
+            "gene_set": bool(parsed_options.gene_set_clusters_out is not None or marginal_out is not None),
         }
+        if parsed_options.factor_gene_clusters_in is not None and projection_requests["gene_set"]:
+            # Supplied bases are an explicit inventory, not discovery candidates.
+            if "factor_output_scope" not in parsed_cli_specified_dests and "factor_output_scope" not in parsed_config_specified_dests:
+                parsed_options.factor_output_scope = "all"
+            if "cluster_row_min_max_loading" not in parsed_cli_specified_dests and "cluster_row_min_max_loading" not in parsed_config_specified_dests:
+                parsed_options.cluster_row_min_max_loading = 0.0
         if parsed_options.factor_gene_clusters_in is not None and parsed_options.factor_gene_set_clusters_in is not None:
             allowed_dual_basis = (
                 projection_requests["gene_via_gene_sets"]

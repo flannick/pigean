@@ -396,7 +396,7 @@ def projection_only_requested_targets(options):
         "gene_via_gene_sets": bool(
             getattr(options, "gene_clusters_full_via_gene_sets_out", None) is not None
         ),
-        "gene_set": bool(getattr(options, "gene_set_clusters_out", None) is not None),
+        "gene_set": bool(getattr(options, "gene_set_clusters_out", None) is not None or getattr(options, "gene_set_clusters_marginal_out", None) is not None),
     }
 
 
@@ -468,16 +468,23 @@ def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_g
         domain.bail("Could not align any genes between --factor-gene-clusters-in and X matrix for gene-set projection")
     basis = np.asarray(loaded_gene_factors, dtype=float)[common_factor_indices, :]
     matrix = runtime.X_orig[common_gene_indices, :]
-    runtime.exp_gene_set_factors = runtime._project_H_with_fixed_W(
-        basis,
-        matrix,
-        None,
-        None,
-        phi=0.0,
-        tol=1e-4,
-        cap_genes=True,
-        normalize_genes=False,
-    )
+    mode = getattr(domain.options, "gene_set_projection_mode", "joint")
+    if mode in ("joint", "both"):
+        runtime.exp_gene_set_factors = runtime._project_H_with_fixed_W(
+            basis, matrix, None, None, phi=0.0, tol=1e-4,
+            cap_genes=True, normalize_genes=False,
+        )
+    if mode in ("marginal", "both"):
+        # Exact one-factor bounded least squares; retain sparse X and avoid K x K
+        # products or repeated dense gene-by-set matrices for large factor lists.
+        denominators = np.einsum("ij,ij->j", basis, basis)
+        marginal = np.asarray(matrix.T @ basis, dtype=float)
+        np.divide(marginal, denominators, out=marginal, where=denominators > 0)
+        marginal[:, denominators == 0] = 0.0
+        np.clip(marginal, 0.0, 1.0, out=marginal)
+        runtime.exp_gene_set_factors_marginal = marginal
+        if mode == "marginal":
+            runtime.exp_gene_set_factors = marginal
     runtime.gene_set_prob_factor_vector = np.asarray(runtime.exp_gene_set_factors, dtype=float)
     runtime.gene_set_in_discovery_mask = np.full(len(runtime.gene_sets), False, dtype=bool)
     runtime.gene_set_factor_gene_set_mask = runtime.gene_set_in_discovery_mask
@@ -485,6 +492,7 @@ def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_g
         {
             "factor_projection_only_gene_set_clusters": True,
             "factor_projection_only_gene_set_basis": "genes",
+            "gene_set_projection_mode": mode,
             "factor_projection_only_gene_set_aligned_genes": len(common_gene_indices),
         },
         overwrite=True,
@@ -989,11 +997,18 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
 
     with domain.open_gz(gene_clusters_in, "r") as input_fh:
         reader = csv.DictReader(input_fh, delimiter="\t")
-        if reader.fieldnames is None:
+        if getattr(domain.options, "factor_gene_clusters_layout", "genes-by-factors") == "factors-by-genes":
+            from .supplied_factors import read_transposed_factors
+            fieldnames, reader, labels_by_factor_index = read_transposed_factors(input_fh, domain)
+        else:
+            fieldnames = reader.fieldnames
+        if fieldnames is None:
             domain.bail("Empty gene-clusters file: %s" % gene_clusters_in)
+        if len(set(fieldnames)) != len(fieldnames):
+            domain.bail("Duplicate columns in gene-clusters file: %s" % gene_clusters_in)
 
         raw_factor_columns = []
-        for column_name in reader.fieldnames:
+        for column_name in fieldnames:
             factor_number = _parse_factor_number(column_name)
             if factor_number is not None:
                 raw_factor_columns.append((factor_number, column_name))
@@ -1055,6 +1070,8 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
         domain.bail("No genes found in gene-clusters file: %s" % gene_clusters_in)
 
     factor_matrix = np.asarray(loadings, dtype=float)
+    if not np.all(np.isfinite(factor_matrix)) or np.any(factor_matrix < 0):
+        domain.bail("Gene-factor loadings must be finite and nonnegative")
     num_factors = factor_matrix.shape[1]
     runtime.genes = genes
     runtime.gene_to_ind = gene_to_ind

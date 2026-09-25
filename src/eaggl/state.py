@@ -3373,11 +3373,17 @@ class EagglState(object):
                             continue
 
                         cluster_scores = values_for_cluster[i, ordered_inds] * multiplier
-                        if len(ordered_inds) == 0 or np.max(cluster_scores) <= 0:
+                        if len(ordered_inds) == 0:
                             continue
-                        cluster = ordered_inds[int(np.argmax(cluster_scores))]
+                        if np.max(cluster_scores) <= 0:
+                            if cluster_row_min_max_loading > 0 or not (self.params or {}).get("factor_projection_only_gene_set_clusters"):
+                                continue
+                            cluster_name, cluster_label = "NA", "NA"
+                        else:
+                            cluster = ordered_inds[int(np.argmax(cluster_scores))]
+                            cluster_name, cluster_label = "Factor%d" % (cluster + 1), self.factor_labels[cluster]
 
-                        output_fh.write("%s\tFactor%d\t%s\t%s\t%s\t%s\n" % (line, cluster + 1, self.factor_labels[cluster], "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % value for value in row_cosine_loadings(row_raw_loadings)]), "\t".join(["%.4g" % value for value in row_euclidean_loadings(row_raw_loadings)])))
+                        output_fh.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (line, cluster_name, cluster_label, "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % value for value in row_cosine_loadings(row_raw_loadings)]), "\t".join(["%.4g" % value for value in row_euclidean_loadings(row_raw_loadings)])))
 
         if gene_clusters_output_file is not None and self.exp_gene_factors is not None:
 
