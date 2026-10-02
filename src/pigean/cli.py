@@ -143,8 +143,6 @@ parser.add_option("","--gene-map-new-gene-col",default=2) #1-based column for or
 parser.add_option("","--gwas-in",default=None)
 parser.add_option("","--huge-statistics-in",default=None) #read precomputed HuGE statistics cache (equivalent to --gwas-in path)
 parser.add_option("","--huge-statistics-out",default=None) #write precomputed HuGE statistics cache from --gwas-in path
-parser.add_option("","--cached-high-power-calibration",type="choice",choices=["auto", "force", "skip"],default="auto")
-parser.add_option("","--cached-huge-score-correction",type="choice",choices=["auto", "force", "skip"],default="auto")
 parser.add_option("","--gwas-locus-col",default=None)
 parser.add_option("","--gwas-chrom-col",default=None)
 parser.add_option("","--gwas-pos-col",default=None)
@@ -589,8 +587,6 @@ _OPTION_SUMMARY_BY_FLAG = {
     "--gwas-inverse-variance-reference-quantile": "set the upper winsorization quantile used by the default inverse-variance reference",
     "--huge-statistics-in": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
     "--huge-statistics-out": "write HuGE statistics cache for faster reruns",
-    "--cached-high-power-calibration": "for cached HuGE input, automatically respect provenance or force/skip power recalibration",
-    "--cached-huge-score-correction": "for cached HuGE input, automatically respect provenance or force/skip opportunity correction",
     "--eaggl-bundle-out": "write bundled PIGEAN outputs for direct eaggl.py consumption",
     "--pigean-rerun-bundle-out": "write bundled fixed-Y PIGEAN inputs for later beta-only annotation-exclusion reruns",
     "--pigean-rerun-bundle-in": "load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns",
@@ -735,8 +731,6 @@ _EXPERT_ENGINEERING_FLAGS = {
     "--gibbs-num-batches-parallel",
     "--huge-statistics-in",
     "--huge-statistics-out",
-    "--cached-high-power-calibration",
-    "--cached-huge-score-correction",
     "--max-gb",
     "--max-read-entries-at-once",
     "--multi-y-max-phenos-per-batch",
@@ -1472,11 +1466,6 @@ def _validate_advanced_option_dispatch(_options, _cli_dests, _config_dests):
         bail("Do not pass both --huge-statistics-in and --huge-statistics-out in the same run")
     if _options.huge_statistics_out is not None and _options.gwas_in is None:
         bail("Option --huge-statistics-out requires --gwas-in")
-    if _options.huge_statistics_in is None:
-        if _options.cached_high_power_calibration != "auto":
-            bail("Option --cached-high-power-calibration force|skip requires --huge-statistics-in")
-        if _options.cached_huge_score_correction != "auto":
-            bail("Option --cached-huge-score-correction force|skip requires --huge-statistics-in")
     if _options.eaggl_bundle_out is not None:
         pegs_get_tar_write_mode_for_bundle_path(
             _options.eaggl_bundle_out,

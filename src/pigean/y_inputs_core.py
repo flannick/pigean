@@ -4,8 +4,6 @@ import copy
 
 import numpy as np
 import scipy.sparse as sparse
-import scipy.special
-import scipy.stats
 
 from pegs_shared.gene_io import load_gene_ids_from_file
 from pegs_shared.io_common import (
@@ -56,293 +54,15 @@ def read_gene_map(
     )
 
 
-def _resolve_cached_operation(mode, enabled, applied, label, *, warn_fn, log_fn):
-    if mode == "skip":
-        log_fn("Skipping cached %s by explicit request" % label)
-        return False
-    if mode == "force":
-        log_fn("Forcing cached %s" % label)
-        return True
-    if not enabled:
-        log_fn("Skipping cached %s because the corresponding default operation is disabled" % label)
-        return False
-    if applied is True:
-        log_fn("Skipping cached %s because cache provenance says it was already applied" % label)
-        return False
-    if applied is None:
-        warn_fn(
-            "HuGE cache does not declare whether %s was already applied; applying it under auto behavior (cached results may change). Use the corresponding --cached-* option to force or skip explicitly."
-            % label
-        )
-    return True
-
-
-def _cached_signal_posteriors(signal_ps, allelic_var_k, prior_odds):
-    signal_ps = np.asarray(signal_ps, dtype=float)
-    safe_ps = np.clip(signal_ps, np.nextafter(0.0, 1.0), 1.0)
-    signal_z = scipy.stats.norm.isf(safe_ps / 2.0)
-    log_bf = -np.log(np.sqrt(1.0 + allelic_var_k)) + 0.5 * np.square(signal_z) * allelic_var_k / (1.0 + allelic_var_k)
-    log_odds = log_bf + np.log(prior_odds)
-    posteriors = scipy.special.expit(np.minimum(log_odds, 15.0))
-    posteriors[log_odds >= 15.0] = 1.0
-    return posteriors
-
-
-def _redistill_cached_huge_scores(runtime_state, *, bail_fn):
-    matrix_genes = list(getattr(runtime_state, "huge_statistics_matrix_row_genes", None) or [])
-    if not matrix_genes:
-        bail_fn("HuGE cache cannot be reconstructed because its matrix-row gene ordering is unavailable")
-
-    def distill(matrix, posteriors, sums, means):
-        values = runtime_state._distill_huge_signal_bfs(
-            matrix,
-            posteriors,
-            sums,
-            means,
-            runtime_state.huge_signal_max_closest_gene_prob,
-            runtime_state.huge_cap_region_posterior,
-            runtime_state.huge_scale_region_posterior,
-            runtime_state.huge_phantom_region_posterior,
-            runtime_state.huge_allow_evidence_of_absence,
-            None,
-            None,
-            None,
-            None,
-            None,
-            matrix_genes,
-        )[0]
-        values = np.atleast_1d(np.asarray(values, dtype=float))
-        if len(values) != len(matrix_genes):
-            bail_fn("HuGE cache reconstruction returned scores with an inconsistent gene ordering")
-        return dict(zip(matrix_genes, values))
-
-    direct_map = distill(
-        runtime_state.huge_signal_bfs,
-        runtime_state.huge_signal_posteriors,
-        runtime_state.huge_signal_sum_gene_cond_probabilities,
-        runtime_state.huge_signal_mean_gene_pos,
-    )
-    regression_map = distill(
-        runtime_state.huge_signal_bfs_for_regression,
-        runtime_state.huge_signal_posteriors_for_regression,
-        runtime_state.huge_signal_sum_gene_cond_probabilities_for_regression,
-        runtime_state.huge_signal_mean_gene_pos_for_regression,
-    )
-    runtime_state.gene_to_gwas_huge_score = dict(direct_map)
-    runtime_state.gene_to_gwas_huge_score_uncorrected = dict(direct_map)
-    runtime_state.combine_huge_scores()
-    return direct_map, regression_map
-
-
-def postprocess_cached_huge_statistics(
-    runtime_state,
-    cached_values,
-    *,
-    cached_high_power_calibration="auto",
-    cached_huge_score_correction="auto",
-    correct_huge=True,
-    gwas_low_p=5e-8,
-    gwas_high_p=1e-2,
-    gwas_low_p_posterior=0.75,
-    gwas_high_p_posterior=0.01,
-    detect_low_power=10,
-    detect_high_power=100,
-    detect_adjust_huge=True,
-    warn_fn,
-    log_fn,
-    bail_fn,
-    **kwargs,
-):
-    (gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression) = cached_values
-    high_power_action = _resolve_cached_operation(
-        cached_high_power_calibration,
-        detect_high_power is not None or detect_low_power is not None,
-        getattr(runtime_state, "high_power_calibration_applied", None),
-        "high-power calibration",
-        warn_fn=warn_fn,
-        log_fn=log_fn,
-    )
-    correction_action = _resolve_cached_operation(
-        cached_huge_score_correction,
-        bool(correct_huge),
-        getattr(runtime_state, "huge_score_correction_applied", None),
-        "HuGE score correction",
-        warn_fn=warn_fn,
-        log_fn=log_fn,
-    )
-
-    if high_power_action:
-        signals = list(getattr(runtime_state, "huge_signals", None) or [])
-        if not signals or any(len(signal) < 3 for signal in signals):
-            if cached_high_power_calibration == "force":
-                bail_fn("Cannot force cached high-power calibration: the cache lacks signal p-values")
-            warn_fn("Skipping cached high-power calibration because the cache lacks signal p-values")
-            high_power_action = False
-        else:
-            by_chrom = {}
-            for signal in signals:
-                chrom, position, p_value = str(signal[0]), int(signal[1]), float(signal[2])
-                if not np.isfinite(p_value) or p_value < 0 or p_value > 1:
-                    bail_fn("Cannot calibrate cached HuGE signals: invalid p-value %r" % p_value)
-                by_chrom.setdefault(chrom, []).append((position, p_value))
-            base_k, base_prior_odds = runtime_state.compute_allelic_var_and_prior(
-                gwas_high_p, gwas_high_p_posterior, gwas_low_p, gwas_low_p_posterior
-            )
-            (
-                adjusted_low_p,
-                direct_k,
-                direct_prior_odds,
-                regression_k,
-                regression_prior_odds,
-                separate_detect,
-                _window_slope,
-                _window_intercept,
-            ) = runtime_state._update_huge_learning_phase_parameters(
-                index_var_chrom_pos_ps=by_chrom,
-                gwas_low_p=gwas_low_p,
-                detect_high_power=detect_high_power,
-                detect_low_power=detect_low_power,
-                gwas_high_p=gwas_high_p,
-                gwas_high_p_posterior=gwas_high_p_posterior,
-                gwas_low_p_posterior=gwas_low_p_posterior,
-                detect_adjust_huge=detect_adjust_huge,
-                allelic_var_k=base_k,
-                gwas_prior_odds=base_prior_odds,
-                allelic_var_k_detect=base_k,
-                gwas_prior_odds_detect=base_prior_odds,
-                separate_detect=False,
-                learn_window=False,
-                closest_dist_X=np.array([]),
-                closest_dist_Y=np.array([]),
-                closest_gene_prob=kwargs.get("closest_gene_prob", 0.7),
-                max_closest_gene_dist=kwargs.get("max_closest_gene_dist", 2.5e5),
-            )
-            signal_ps = [float(signal[2]) for signal in signals]
-            runtime_state.huge_signal_posteriors = _cached_signal_posteriors(signal_ps, direct_k, direct_prior_odds)
-            runtime_state.huge_signal_posteriors_for_regression = _cached_signal_posteriors(
-                signal_ps,
-                regression_k if separate_detect else direct_k,
-                regression_prior_odds if separate_detect else direct_prior_odds,
-            )
-            runtime_state.high_power_calibration_applied = True
-            runtime_state.high_power_calibration_provenance = {
-                "method": "cached_independent_signal_p_values",
-                "num_signals": len(signals),
-                "initial_gwas_low_p": float(gwas_low_p),
-                "effective_gwas_low_p": float(adjusted_low_p),
-                "direct_allelic_var_k": float(direct_k),
-                "direct_prior_odds": float(direct_prior_odds),
-                "regression_allelic_var_k": float(regression_k),
-                "regression_prior_odds": float(regression_prior_odds),
-                "detect_adjust_huge": bool(detect_adjust_huge),
-            }
-            log_fn(
-                "Calibrated %d cached HuGE signals from p-values (effective gwas_low_p=%.4g)"
-                % (len(signals), adjusted_low_p)
-            )
-
-    if (
-        high_power_action
-        and getattr(runtime_state, "huge_score_correction_applied", None) is True
-        and cached_huge_score_correction == "auto"
-        and correct_huge
-    ):
-        correction_action = True
-        log_fn("Reapplying HuGE score correction because high-power recalibration rebuilt uncorrected signal scores")
-
-    runtime_state.cached_huge_score_correction_effective = bool(correction_action)
-    runtime_state.cached_huge_score_correction_mode = cached_huge_score_correction
-    reconstruct_without_correction = bool(
-        cached_huge_score_correction == "skip"
-        and getattr(runtime_state, "huge_score_correction_applied", None) is True
-    )
-    correction_requires_reconstruction = bool(
-        correction_action
-        and getattr(runtime_state, "huge_score_correction_applied", None) is True
-    )
-
-    if high_power_action or correction_requires_reconstruction or reconstruct_without_correction:
-        direct_map, regression_map = _redistill_cached_huge_scores(runtime_state, bail_fn=bail_fn)
-        cache_genes = list(getattr(runtime_state, "huge_statistics_cache_genes", None) or [])
-        gene_bf = np.array([direct_map.get(gene, np.nan) for gene in cache_genes], dtype=float)
-        gene_bf_for_regression = np.array([regression_map.get(gene, np.nan) for gene in cache_genes], dtype=float)
-        extra_gene_bf = np.array([direct_map.get(gene, value) for gene, value in zip(extra_genes, extra_gene_bf)], dtype=float)
-        extra_gene_bf_for_regression = np.array(
-            [regression_map.get(gene, value) for gene, value in zip(extra_genes, extra_gene_bf_for_regression)],
-            dtype=float,
-        )
-    return (gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
-
-
 def apply_gene_covariates_and_correct_huge(
     runtime_state,
     gene_covs_in=None,
     *,
     log_fn,
-    warn_fn,
     trace_level,
     bail_fn,
     **kwargs,
 ):
-    if getattr(runtime_state, "huge_statistics_meta", None) is not None:
-        if not getattr(runtime_state, "cached_huge_score_correction_effective", False):
-            if getattr(runtime_state, "cached_huge_score_correction_mode", None) == "skip":
-                runtime_state.gene_covariates = None
-                runtime_state.gene_covariates_mask = None
-                runtime_state.gene_covariates_mat_inv = None
-                return
-            if (
-                getattr(runtime_state, "huge_score_correction_applied", None) is True
-                and runtime_state.gene_covariates is not None
-            ):
-                maybe_append_input_gene_covariates(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
-                align_huge_gene_level_state_to_active_genes(runtime_state, bail_fn=bail_fn)
-                prepare_gene_covariate_regression_state(
-                    runtime_state,
-                    log_fn=log_fn,
-                    trace_level=trace_level,
-                    bail_fn=bail_fn,
-                )
-                if runtime_state.gene_covariate_adjustments is None:
-                    warn_fn(
-                        "HuGE cache reports score correction was applied but does not "
-                        "contain the correction-adjustment sidecar; gene-set QC may be limited"
-                    )
-            return
-        if runtime_state.gene_covariates is None:
-            gene_loc_file = kwargs.get("gene_loc_file")
-            if gene_loc_file is None:
-                message = "Cannot generate HuGE opportunity covariates for cached input without --gene-loc-file-huge or --gene-loc-file"
-                if getattr(runtime_state, "cached_huge_score_correction_mode", None) == "force":
-                    bail_fn(message)
-                warn_fn(message + "; skipping correction")
-                return
-            try:
-                runtime_state.build_cached_huge_gene_covariates(
-                    gene_loc_file=gene_loc_file,
-                    exons_loc_file=kwargs.get("exons_loc_file"),
-                    hold_out_chrom=kwargs.get("hold_out_chrom"),
-                    closest_gene_prob=kwargs.get("closest_gene_prob", 0.7),
-                    scale_raw_closest_gene=kwargs.get("scale_raw_closest_gene", True),
-                    cap_raw_closest_gene=kwargs.get("cap_raw_closest_gene", False),
-                    max_closest_gene_dist=kwargs.get("max_closest_gene_dist", 2.5e5),
-                )
-            except ValueError as exc:
-                if getattr(runtime_state, "cached_huge_score_correction_mode", None) == "force":
-                    bail_fn(str(exc))
-                # Construction can fail after populating partial, unaligned rows.
-                # Do not expose those rows to downstream gene-set correction.
-                runtime_state.gene_covariates = None
-                runtime_state.gene_covariate_names = None
-                runtime_state.gene_covariate_directions = None
-                runtime_state.gene_covariate_intercept_index = None
-                runtime_state.gene_covariates_mask = None
-                runtime_state.gene_covariates_mat_inv = None
-                runtime_state.gene_covariate_adjustments = None
-                runtime_state.cached_huge_score_correction_effective = False
-                warn_fn(str(exc) + "; skipping cached HuGE score correction")
-                return
-
     maybe_append_input_gene_covariates(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
 
     if runtime_state.gene_covariates is None:
@@ -356,13 +76,6 @@ def apply_gene_covariates_and_correct_huge(
         bail_fn=bail_fn,
     )
     apply_huge_correction_with_covariates(runtime_state)
-    if getattr(runtime_state, "huge_statistics_meta", None) is not None:
-        runtime_state.huge_score_correction_applied = True
-        runtime_state.huge_score_correction_provenance = {
-            "method": "linear_gene_opportunity_covariates",
-            "covariates": list(runtime_state.gene_covariate_names),
-            "num_genes": int(len(runtime_state.genes)),
-        }
 
 
 def apply_huge_correction_with_covariates(runtime_state):
@@ -632,7 +345,6 @@ def read_y_pipeline(
         Y1_positive_controls=Y1_positive_controls,
         Y1_case_counts=Y1_case_counts,
         warn_fn=warn_fn,
-        log_fn=log_fn,
         bail_fn=bail_fn,
         **kwargs,
     )
@@ -693,13 +405,7 @@ def read_y_pipeline(
         gene_combined_map=gene_combined_map,
         gene_prior_map=gene_prior_map,
     )
-    apply_gene_covariates_and_correct_huge_fn(
-        runtime_state,
-        gene_covs_in=gene_covs_in,
-        gene_loc_file=gene_loc_file,
-        hold_out_chrom=hold_out_chrom,
-        **kwargs,
-    )
+    apply_gene_covariates_and_correct_huge_fn(runtime_state, gene_covs_in=gene_covs_in, **kwargs)
 
 
 def resolve_requested_gene_universe(
@@ -1004,7 +710,6 @@ def read_primary_y_source(
     Y1_case_counts=None,
     *,
     warn_fn,
-    log_fn,
     bail_fn,
     **kwargs,
 ):
@@ -1020,8 +725,6 @@ def read_primary_y_source(
         gene_loc_file=gene_loc_file,
         hold_out_chrom=hold_out_chrom,
         warn_fn=warn_fn,
-        log_fn=log_fn,
-        bail_fn=bail_fn,
         **kwargs,
     )
 
@@ -1080,22 +783,12 @@ def read_primary_huge_or_gwas_source(
     hold_out_chrom=None,
     *,
     warn_fn,
-    log_fn,
-    bail_fn,
     **kwargs,
 ):
     if huge_statistics_in is not None:
         if gwas_in is not None:
             warn_fn("Both --gwas-in and --huge-statistics-in were passed; using --huge-statistics-in")
-        cached_values = runtime_state.read_huge_statistics(huge_statistics_in)
-        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = postprocess_cached_huge_statistics(
-            runtime_state,
-            cached_values,
-            warn_fn=warn_fn,
-            log_fn=log_fn,
-            bail_fn=bail_fn,
-            **kwargs,
-        )
+        (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression) = runtime_state.read_huge_statistics(huge_statistics_in)
         return (Y1, extra_genes, extra_Y, Y1_for_regression, extra_Y_for_regression, 0)
 
     if gwas_in is None:

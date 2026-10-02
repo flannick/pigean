@@ -848,16 +848,6 @@ def read_huge_statistics_bundle(domain, runtime_state, prefix):
         ),
     )
     domain.pegs_apply_huge_statistics_meta_to_runtime(runtime_state, meta)
-    if domain.os.path.exists(paths["gene_covariate_adjustments"]):
-        runtime_state["gene_covariate_adjustments"] = domain.pegs_read_numeric_vector_file(
-            paths["gene_covariate_adjustments"],
-            open_text_fn=domain.open_gz,
-            value_type=float,
-        )
-    runtime_state["huge_statistics_meta"] = meta
-    runtime_state["huge_statistics_cache_genes"] = list(cache_genes)
-    runtime_state["huge_statistics_extra_genes"] = list(extra_genes)
-    runtime_state["huge_statistics_matrix_row_genes"] = list(matrix_row_genes)
     domain.pegs_read_huge_statistics_covariates_if_present(
         runtime_state,
         paths,

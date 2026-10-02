@@ -62,8 +62,6 @@ def build_main_y_read_contract(options):
         gwas_in=options.gwas_in,
         huge_statistics_in=options.huge_statistics_in,
         huge_statistics_out=options.huge_statistics_out,
-        cached_high_power_calibration=options.cached_high_power_calibration,
-        cached_huge_score_correction=options.cached_huge_score_correction,
         show_progress=not options.hide_progress,
         gwas_chrom_col=options.gwas_chrom_col,
         gwas_pos_col=options.gwas_pos_col,

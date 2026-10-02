@@ -237,8 +237,6 @@ Count tables are expected to contain `gene`, `revel`, `count`, and `total`, plus
 | `--gene-stats-output-scope` | choose whether `gene_stats.out` writes the active universe only or the legacy expanded missing-gene view |
 | `--huge-statistics-out` | write a HuGE cache tarball |
 | `--huge-statistics-in` | read a HuGE cache tarball |
-| `--cached-high-power-calibration` | choose `auto`, `force`, or `skip` for cached signal-strength calibration |
-| `--cached-huge-score-correction` | choose `auto`, `force`, or `skip` for cached HuGE opportunity correction |
 | `--pigean-rerun-bundle-out` | write a fixed-Y beta-stage rerun bundle for later annotation-exclusion sensitivity analyses |
 | `--pigean-rerun-bundle-in` | load a fixed-Y beta-stage rerun bundle in `betas` mode |
 | `--pigean-params-in` | replay beta-stage parameters from an existing PIGEAN `params.out` file in `betas` mode |

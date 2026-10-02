@@ -129,13 +129,6 @@ Primary outputs:
 
 Notes:
 - Use `--deterministic` (or fixed `--seed`) for cache-vs-raw parity checks.
-- Version-2 caches optionally declare whether high-power calibration and HuGE opportunity correction were already applied. Version-1 caches remain readable; an absent declaration is treated as unknown and produces a warning.
-- For cached inputs, `--cached-high-power-calibration auto|force|skip` and `--cached-huge-score-correction auto|force|skip` control the two operations independently. `auto` is the default: it follows the normal method defaults, skips an operation declared as already applied, and otherwise applies it when the cache contains enough information.
-- Cached high-power calibration uses the stored independent-signal p-values and preserves the cache's within-signal gene-allocation weights. `force` requires usable signal p-values.
-- Cached HuGE correction reuses cache covariates when present. Otherwise it generates the standard opportunity covariates from `--gene-loc-file-huge` (falling back to `--gene-loc-file`) and requires complete direct gene-ID coverage; it does not silently impute missing external genes.
-- High-power recalibration reconstructs gene scores from the cached signal matrices. HuGE correction acts directly on an uncorrected/unknown input score; if provenance instead says the input is already corrected, `force` first reconstructs its uncorrected score so corrections are not compounded.
-- Compatibility means older bundles can still be read, not that their numerical results are unchanged: `auto` can now calibrate/correct an older bundle with unknown provenance. Set both cached options explicitly to choose the intended behavior. High-power `skip` preserves supplied signal probabilities; score-correction `skip` reconstructs uncorrected scores if the bundle explicitly declares correction was applied.
-- For gene-level correction plus residual gene-set mean correction, add `--cached-huge-score-correction force --correct-betas-mean`. Gene-set variance correction (`--correct-betas-var`) remains optional and off by default. These flags do not enable the separate experimental effect-threshold model.
 
 ## 4) Deprecated expert gene-level PheWAS output (`--run-phewas`)
 

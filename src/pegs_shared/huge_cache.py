@@ -62,7 +62,6 @@ def get_huge_statistics_paths_for_prefix(prefix):
         "matrix_row_genes": "%s.huge.matrix_row_genes.tsv.gz" % prefix,
         "gene_scores": "%s.huge.gene_scores.tsv.gz" % prefix,
         "gene_covariates": "%s.huge.gene_covariates.tsv.gz" % prefix,
-        "gene_covariate_adjustments": "%s.huge.gene_covariate_adjustments.tsv.gz" % prefix,
         "bfs_data": "%s.huge_signal_bfs.data.tsv.gz" % prefix,
         "bfs_indices": "%s.huge_signal_bfs.indices.tsv.gz" % prefix,
         "bfs_indptr": "%s.huge_signal_bfs.indptr.tsv.gz" % prefix,
@@ -156,8 +155,8 @@ def build_huge_statistics_score_maps(runtime_state, cache_genes, extra_genes, ge
 def build_huge_statistics_meta(runtime_state, huge_signal_bfs, huge_signal_bfs_for_regression, *, json_safe_fn=None):
     if json_safe_fn is None:
         json_safe_fn = json_safe
-    meta = {
-        "version": 2,
+    return {
+        "version": 1,
         "huge_signal_bfs_shape": [int(huge_signal_bfs.shape[0]), int(huge_signal_bfs.shape[1])],
         "huge_signal_bfs_for_regression_shape": [int(huge_signal_bfs_for_regression.shape[0]), int(huge_signal_bfs_for_regression.shape[1])],
         "huge_signal_max_closest_gene_prob": (None if runtime_state.get("huge_signal_max_closest_gene_prob") is None else float(runtime_state.get("huge_signal_max_closest_gene_prob"))),
@@ -178,15 +177,6 @@ def build_huge_statistics_meta(runtime_state, huge_signal_bfs, huge_signal_bfs_f
         "recorded_params": json_safe_fn(runtime_state.get("params")),
         "recorded_param_keys": json_safe_fn(runtime_state.get("param_keys")),
     }
-    for key in (
-        "high_power_calibration_applied",
-        "huge_score_correction_applied",
-        "high_power_calibration_provenance",
-        "huge_score_correction_provenance",
-    ):
-        if runtime_state.get(key) is not None:
-            meta[key] = json_safe_fn(runtime_state.get(key))
-    return meta
 
 
 def write_huge_statistics_text_tables(
@@ -387,11 +377,6 @@ def load_huge_statistics_sparse_and_vectors(runtime_state, paths, meta, *, read_
 
 
 def apply_huge_statistics_meta_to_runtime(runtime_state, meta):
-    runtime_state["huge_statistics_cache_version"] = int(meta.get("version", 1))
-    runtime_state["high_power_calibration_applied"] = meta.get("high_power_calibration_applied")
-    runtime_state["huge_score_correction_applied"] = meta.get("huge_score_correction_applied")
-    runtime_state["high_power_calibration_provenance"] = meta.get("high_power_calibration_provenance")
-    runtime_state["huge_score_correction_provenance"] = meta.get("huge_score_correction_provenance")
     runtime_state["huge_signal_max_closest_gene_prob"] = meta["huge_signal_max_closest_gene_prob"]
     runtime_state["huge_cap_region_posterior"] = bool(meta["huge_cap_region_posterior"])
     runtime_state["huge_scale_region_posterior"] = bool(meta["huge_scale_region_posterior"])
@@ -450,12 +435,6 @@ def write_huge_statistics_runtime_vectors(paths, runtime_state, *, write_vector_
     )
     for path_key, state_key in runtime_vector_map:
         write_vector_fn(paths[path_key], runtime_state.get(state_key), value_type=float)
-    if runtime_state.get("gene_covariate_adjustments") is not None:
-        write_vector_fn(
-            paths["gene_covariate_adjustments"],
-            runtime_state.get("gene_covariate_adjustments"),
-            value_type=float,
-        )
 
 
 def write_huge_statistics_sparse_components(paths, huge_signal_bfs, huge_signal_bfs_for_regression, *, write_vector_fn):

@@ -355,7 +355,6 @@ _read_Y = functools.partial(
     apply_gene_covariates_and_correct_huge_fn=functools.partial(
         pigean_y_inputs_core.apply_gene_covariates_and_correct_huge,
         log_fn=log,
-        warn_fn=warn,
         trace_level=TRACE,
         bail_fn=bail,
     ),

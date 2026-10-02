@@ -381,8 +381,6 @@ class PigeanCliReferenceTest(unittest.TestCase):
             "--gene-stats-output-scope": ["test_reference_precomputed_and_filter_flags_round_trip"],
             "--huge-statistics-out": ["test_huge_statistics_out_requires_gwas_in", "test_reference_huge_cache_round_trip_runs"],
             "--huge-statistics-in": ["test_huge_statistics_in_and_out_conflict", "test_reference_huge_cache_round_trip_runs"],
-            "--cached-high-power-calibration": ["test_cached_huge_calibration_controls_round_trip_and_require_cache"],
-            "--cached-huge-score-correction": ["test_cached_huge_calibration_controls_round_trip_and_require_cache"],
             "--pigean-rerun-bundle-out": ["test_betas_rerun_bundle_roundtrip_exclude_and_effective_config"],
             "--pigean-rerun-bundle-in": ["test_betas_rerun_bundle_roundtrip_exclude_and_effective_config", "test_rerun_bundle_in_rejects_gibbs_mode"],
             "--pigean-params-in": ["test_params_in_replays_fixed_beta_hyperparameters"],
