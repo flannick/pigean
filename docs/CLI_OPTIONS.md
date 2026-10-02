@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `367`
+- Total options: `369`
 - `method_required`: `20`
 - `method_optional`: `199`
-- `engineering`: `119`
+- `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `323`
+- visibility `expert`: `325`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -255,6 +255,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--batch-separator` | `expert` | `no` | `expert_help` | `batch_separator` | `@` | - |
 | `--batch-size` | `expert` | `no` | `expert_help` | `batch_size` | `5000` | - |
 | `--betas-trace-out` | `expert` | `no` | `expert_help` | `betas_trace_out` | `None` | - |
+| `--cached-high-power-calibration` | `expert` | `no` | `expert_help` | `cached_high_power_calibration` | `auto` | for cached HuGE input, automatically respect provenance or force/skip power recalibration |
+| `--cached-huge-score-correction` | `expert` | `no` | `expert_help` | `cached_huge_score_correction` | `auto` | for cached HuGE input, automatically respect provenance or force/skip opportunity correction |
 | `--case-counts-count-col` | `expert` | `no` | `expert_help` | `case_counts_count_col` | `None` | - |
 | `--case-counts-gene-col` | `expert` | `no` | `expert_help` | `case_counts_gene_col` | `None` | - |
 | `--case-counts-max-freq-col` | `expert` | `no` | `expert_help` | `case_counts_max_freq_col` | `None` | - |
