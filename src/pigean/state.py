@@ -1378,6 +1378,81 @@ class PigeanState(object):
         gene_covariate_genes += list(gene_names)
         return gene_covariate_genes
 
+    def build_cached_huge_gene_covariates(
+        self,
+        gene_loc_file,
+        exons_loc_file=None,
+        hold_out_chrom=None,
+        closest_gene_prob=0.7,
+        scale_raw_closest_gene=True,
+        cap_raw_closest_gene=False,
+        max_closest_gene_dist=2.5e5,
+    ):
+        """Generate HuGE opportunity covariates for an externally supplied cache."""
+        if self.genes is None:
+            raise ValueError("Cannot generate cached HuGE covariates before the active gene universe is initialized")
+        location_data = _load_huge_gene_and_exon_locations(
+            gene_loc_file=gene_loc_file,
+            # Cached matrices already define their gene identifiers. Applying the
+            # run's input remapping here can rename a location without renaming the
+            # corresponding cache row, so cache-time covariates require direct IDs.
+            gene_label_map=None,
+            hold_out_chrom=hold_out_chrom,
+            exons_loc_file=exons_loc_file,
+        )
+        window_fun_slope, window_fun_intercept = self._compute_huge_window_function_parameters(
+            learn_window=False,
+            closest_dist_X=np.array([]),
+            closest_dist_Y=np.array([]),
+            closest_gene_prob=closest_gene_prob,
+            max_closest_gene_dist=max_closest_gene_dist,
+        )
+        self.gene_covariates = None
+        self.gene_covariate_names = None
+        self.gene_covariate_directions = None
+        self.gene_covariate_intercept_index = None
+        gene_covariate_genes = []
+        for chrom in sorted(location_data["gene_chrom_name_pos"]):
+            entries = sorted(location_data["gene_chrom_name_pos"][chrom], key=lambda item: item[1])
+            if not entries:
+                continue
+            gene_names_non_unique = np.array([entry[0] for entry in entries])
+            gene_pos = np.array([entry[1] for entry in entries])
+            gene_names, gene_index_to_name_index = np.unique(gene_names_non_unique, return_inverse=True)
+            gene_covariate_genes = self._accumulate_huge_gene_covariates(
+                gene_names=gene_names,
+                gene_names_non_unique=gene_names_non_unique,
+                gene_pos=gene_pos,
+                gene_index_to_name_index=gene_index_to_name_index,
+                gene_name_to_index=pegs_construct_map_to_ind(gene_names),
+                window_fun_slope=window_fun_slope,
+                window_fun_intercept=window_fun_intercept,
+                scale_raw_closest_gene=scale_raw_closest_gene,
+                cap_raw_closest_gene=cap_raw_closest_gene,
+                closest_gene_prob=closest_gene_prob,
+                gene_covariate_genes=gene_covariate_genes,
+            )
+        if self.gene_covariates is None:
+            raise ValueError("No usable genes were found in the HuGE location file")
+        gene_to_row = pegs_construct_map_to_ind(gene_covariate_genes)
+        missing = [gene for gene in self.genes if gene not in gene_to_row]
+        if missing:
+            raise ValueError(
+                "HuGE opportunity covariates cover %d of %d active genes; missing %d (for example: %s). Supply a complete --gene-loc-file-huge rather than imputing these genes."
+                % (
+                    len(self.genes) - len(missing),
+                    len(self.genes),
+                    len(missing),
+                    ", ".join(missing[:5]),
+                )
+            )
+        self.gene_covariates = self.gene_covariates[[gene_to_row[gene] for gene in self.genes], :]
+        log(
+            "Generated cached HuGE opportunity covariates for all %d active genes from %s"
+            % (len(self.genes), gene_loc_file),
+            INFO,
+        )
+
     def _collect_huge_independent_signal_pvalues(self, index_var_chrom_pos_ps):
         index_var_ps = []
         for chrom in index_var_chrom_pos_ps:
@@ -1918,6 +1993,7 @@ class PigeanState(object):
         )
 
     def calculate_huge_scores_gwas(self, gwas_in, gwas_chrom_col=None, gwas_pos_col=None, gwas_p_col=None, gene_loc_file=None, hold_out_chrom=None, exons_loc_file=None, gwas_beta_col=None, gwas_se_col=None, gwas_n_col=None, gwas_n=None, gwas_freq_col=None, gwas_filter_col=None, gwas_filter_value=None, gwas_locus_col=None, gwas_ignore_p_threshold=None, gwas_units=None, gwas_low_p=5e-8, gwas_high_p=1e-2, gwas_low_p_posterior=0.98, gwas_high_p_posterior=0.001, detect_low_power=None, detect_high_power=None, detect_adjust_huge=False, learn_window=False, closest_gene_prob=0.7, max_closest_gene_prob=0.9, scale_raw_closest_gene=True, cap_raw_closest_gene=False, cap_region_posterior=True, scale_region_posterior=False, phantom_region_posterior=False, allow_evidence_of_absence=False, correct_huge=True, max_signal_p=1e-5, signal_window_size=250000, signal_min_sep=100000, signal_max_logp_ratio=None, credible_set_span=25000, max_closest_gene_dist=2.5e5, min_n_ratio=0.5, min_inverse_variance_ratio=0.5, inverse_variance_reference="winsorized_mean", inverse_variance_reference_quantile=0.9, max_clump_ld=0.2, min_var_posterior=0.01, s2g_in=None, s2g_chrom_col=None, s2g_pos_col=None, s2g_gene_col=None, s2g_prob_col=None, s2g_normalize_values=None, credible_sets_in=None, credible_sets_id_col=None, credible_sets_chrom_col=None, credible_sets_pos_col=None, credible_sets_ppa_col=None, gwas_z_source="auto", **kwargs):
+        initial_gwas_low_p = gwas_low_p
         if gwas_z_source not in ("auto", "p", "beta-se"):
             bail("--gwas-z-source must be auto, p, or beta-se")
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
@@ -2878,6 +2954,23 @@ class PigeanState(object):
             if fraction_same > 0.4:
                 log("Had %d out of %d genes with the the same huge scores; too few genes to run regressions to learn confounder corrections" % (number_same, len(total_gene_bfs)))
                 self.huge_sparse_mode = True
+
+            self.high_power_calibration_applied = bool(
+                detect_high_power is not None or detect_low_power is not None
+            )
+            self.high_power_calibration_provenance = {
+                "method": "raw_gwas_independent_variant_p_values",
+                "initial_gwas_low_p": float(initial_gwas_low_p),
+                "effective_gwas_low_p": float(gwas_low_p),
+                "threshold_changed": bool(not np.isclose(gwas_low_p, initial_gwas_low_p)),
+                "detect_adjust_huge": bool(detect_adjust_huge),
+            }
+            # The native statistics cache is written immediately after this
+            # method returns.  It contains the raw distilled HuGE scores and the
+            # covariates needed for correction; the correction itself happens
+            # later, after the active gene universe has been materialized.
+            self.huge_score_correction_applied = False
+            self.huge_score_correction_provenance = None
 
             return (gene_bf, extra_genes, extra_gene_bf, gene_bf_for_regression, extra_gene_bf_for_regression)
 
@@ -13658,6 +13751,7 @@ _read_Y = functools.partial(
     apply_gene_covariates_and_correct_huge_fn=functools.partial(
         pigean_y_inputs_core.apply_gene_covariates_and_correct_huge,
         log_fn=log,
+        warn_fn=warn,
         trace_level=TRACE,
         bail_fn=bail,
     ),

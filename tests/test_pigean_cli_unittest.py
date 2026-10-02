@@ -1328,6 +1328,26 @@ print(json.dumps(mask.tolist()))
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("Do not pass both --huge-statistics-in and --huge-statistics-out", err)
 
+    def test_cached_huge_calibration_controls_round_trip_and_require_cache(self) -> None:
+        proc = self._run(
+            "gibbs",
+            "--huge-statistics-in",
+            "cache_prefix",
+            "--cached-high-power-calibration",
+            "force",
+            "--cached-huge-score-correction",
+            "skip",
+            "--print-effective-config",
+        )
+        self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["cached_high_power_calibration"], "force")
+        self.assertEqual(options["cached_huge_score_correction"], "skip")
+
+        missing_cache = self._run("gibbs", "--cached-high-power-calibration", "force")
+        self.assertNotEqual(missing_cache.returncode, 0)
+        self.assertIn("requires --huge-statistics-in", (missing_cache.stderr or "") + (missing_cache.stdout or ""))
+
     def test_eaggl_bundle_out_requires_tar_extension(self) -> None:
         proc = self._run("gibbs", "--eaggl-bundle-out", "handoff_bundle.txt")
         self.assertNotEqual(proc.returncode, 0)
