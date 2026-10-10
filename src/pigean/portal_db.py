@@ -21,7 +21,7 @@ from typing import Callable, Iterable, Iterator, Optional
 
 from .dashboard import _first, open_text, parse_float
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 GENE_COLUMN_ALIASES = {
     "gene": ["Gene", "gene", "id", "ID"],
@@ -131,6 +131,7 @@ class RunFiles:
     seed: str = ""          # run label within (model, trait): "main", "s1", "run2", ...
     params: Optional[Path] = None   # PIGEAN params.out / params.tsv (Parameter/Version/Value) for provenance
     warnings: list[str] = field(default_factory=list)
+    factor_graph: Optional[Path] = None  # standalone EAGGL factor graph HTML for Top Mechanisms
 
     def infer_metadata(self) -> None:
         """Fill blank model/trait/seed from the run id if it follows the LAP naming pattern."""
@@ -239,6 +240,9 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS run_params (
     run_id TEXT NOT NULL, parameter TEXT NOT NULL, version TEXT NOT NULL, value TEXT, PRIMARY KEY (run_id, parameter, version)
 );
+CREATE TABLE IF NOT EXISTS run_factor_graphs (
+    run_id TEXT PRIMARY KEY, source_path TEXT NOT NULL, html TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS genes (
     run_id TEXT NOT NULL, gene TEXT NOT NULL, prior REAL, combined REAL, log_bf REAL, huge_score REAL,
     n REAL, chrom TEXT, start REAL, end REAL, extra_json TEXT,
@@ -263,8 +267,10 @@ CREATE TABLE IF NOT EXISTS phenotype_mappings (
 );
 CREATE INDEX IF NOT EXISTS idx_genes_prior ON genes (run_id, prior);
 CREATE INDEX IF NOT EXISTS idx_genes_combined ON genes (run_id, combined);
+CREATE INDEX IF NOT EXISTS idx_genes_lookup ON genes (gene, run_id);
 CREATE INDEX IF NOT EXISTS idx_gene_sets_beta ON gene_sets (run_id, beta);
 CREATE INDEX IF NOT EXISTS idx_gene_sets_beta_unc ON gene_sets (run_id, beta_uncorrected);
+CREATE INDEX IF NOT EXISTS idx_gene_sets_lookup ON gene_sets (gene_set, label, run_id);
 CREATE INDEX IF NOT EXISTS idx_loadings_gene ON gene_gene_sets (run_id, gene);
 """
 
@@ -343,6 +349,13 @@ def _load_run(conn: sqlite3.Connection, files: RunFiles, options: BuildOptions) 
     conn.execute("DELETE FROM gene_sets WHERE run_id=?", (run_id,))
     conn.execute("DELETE FROM gene_gene_sets WHERE run_id=?", (run_id,))
     conn.execute("DELETE FROM run_params WHERE run_id=?", (run_id,))
+    conn.execute("DELETE FROM run_factor_graphs WHERE run_id=?", (run_id,))
+    if files.factor_graph is not None:
+        graph_html = files.factor_graph.read_text(encoding="utf-8")
+        if graph_html.strip():
+            conn.execute("INSERT INTO run_factor_graphs VALUES (?,?,?)", (run_id, str(files.factor_graph), graph_html))
+        else:
+            warnings.append(f"run '{run_id}': factor graph is empty: {files.factor_graph}")
     if files.params is not None:
         param_rows = []
         for raw in _iter_rows(files.params):
@@ -524,11 +537,28 @@ def list_phenotypes(conn: sqlite3.Connection) -> dict[str, dict]:
 def list_runs(conn: sqlite3.Connection) -> list[dict]:
     runs = _rows(conn.execute("SELECT * FROM runs ORDER BY model, trait, seed, run_id"))
     phenotypes = list_phenotypes(conn)
+    graphs = {}
+    if _has_factor_graphs(conn):
+        graphs = {row["run_id"]: row["source_path"] for row in conn.execute("SELECT run_id, source_path FROM run_factor_graphs")}
     for run in runs:
         run["filters"] = json.loads(run.pop("filters_json") or "{}")
         run["warnings"] = json.loads(run.pop("warnings_json") or "[]")
         run["phenotype"] = phenotypes.get(run.get("trait") or "")
+        run["factor_graph_available"] = run["run_id"] in graphs
+        run["factor_graph_path"] = graphs.get(run["run_id"], "")
     return runs
+
+
+def _has_factor_graphs(conn: sqlite3.Connection) -> bool:
+    # Read-only serving of pre-v6 databases must not require a rebuild.
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='run_factor_graphs'").fetchone() is not None
+
+
+def factor_graph(conn: sqlite3.Connection, run_id: str) -> Optional[dict]:
+    if not _has_factor_graphs(conn):
+        return None
+    row = conn.execute("SELECT source_path, html FROM run_factor_graphs WHERE run_id=?", (run_id,)).fetchone()
+    return dict(row) if row is not None else None
 
 
 def _like(value: str) -> str:

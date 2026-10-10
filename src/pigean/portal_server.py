@@ -5,6 +5,8 @@ API under `/api/` backed by the SQLite file built by `pigean.portal_db`.
 
 API:
     GET /api/runs
+    GET /api/search?kind=gene|gene_set|factor&q=TEXT[&model=&limit=]
+    GET /api/factor?run=ID&id=FACTOR               exported EAGGL trait evidence
     GET /api/genes?run=ID[&min_prior=&min_log_bf=&min_combined=&search=&sort=&limit=]
     GET /api/gene_sets?run=ID[&min_beta=&min_beta_uncorrected=&search=&sort=&limit=]
     GET /api/gene_set?run=ID&id=GENE_SET[&limit=]
@@ -12,6 +14,7 @@ API:
     GET /api/gene_across?id=GENE[&model=]          the gene in every run (runs where it passed thresholds)
     GET /api/gene_set_across?id=GENE_SET[&model=]  the gene set in every run
     GET /api/run_params?run=ID                     PIGEAN params recorded for the run
+    GET /api/factor_graph?run=ID                   optional embedded EAGGL graph HTML
   Comparer (page at /compare):
     GET /api/compare/summary?a=ID&b=ID[&top_n=]
     GET /api/compare/genes?a=ID&b=ID[&metric=&search=&sort=&status=&limit=]
@@ -30,7 +33,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from . import portal_compare, portal_db
+from . import portal_compare, portal_db, portal_search
 from .portal_assets import render_portal_html
 from .portal_compare_assets import render_compare_html
 
@@ -95,6 +98,11 @@ def _handle_api(state: PortalState, path: str, params: dict[str, list[str]]) -> 
     conn = state.connection()
     if path == "/api/runs":
         return 200, {"runs": portal_db.list_runs(conn)}
+    if path == "/api/search":
+        kind = _str(params, "kind")
+        rows = portal_search.search_entities(conn, kind, _str(params, "q"), model=_str(params, "model"),
+                                             limit=_int(params, "limit", 20))
+        return 200, {"kind": kind, "matches": rows}
 
     if path.startswith("/api/compare/"):
         a, b = _str(params, "a"), _str(params, "b")
@@ -156,6 +164,14 @@ def _handle_api(state: PortalState, path: str, params: dict[str, list[str]]) -> 
         return (200, detail) if detail is not None else (404, {"error": "unknown gene"})
     if path == "/api/run_params":
         return 200, {"run": run_id, "params": portal_db.run_params(conn, run_id)}
+    if path == "/api/factor_graph":
+        return 200, {"run": run_id, "graph": portal_db.factor_graph(conn, run_id)}
+    if path == "/api/factor":
+        ident = _str(params, "id")
+        if not ident:
+            return 400, {"error": "missing 'id' parameter"}
+        detail = portal_search.factor_detail(conn, run_id, ident)
+        return (200, detail) if detail is not None else (404, {"error": "unknown factor in this run"})
     return 404, {"error": f"unknown endpoint {path}"}
 
 

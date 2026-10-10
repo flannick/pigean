@@ -350,8 +350,91 @@ class PortalBuildTest(unittest.TestCase):
     def test_build_without_runs_fails(self) -> None:
         self.assertEqual(portal.main(["build", "--db", str(self.db)]), 2)
 
-    def test_api_and_http_round_trip(self) -> None:
+    def test_factor_graph_is_embedded_and_associated_with_its_run(self) -> None:
+        graph_path = self.root / "factor_graph.html"
+        graph_html = '<html><body><script>const label = "immune";</script><p>Immune mechanism</p></body></html>'
+        graph_path.write_text(graph_html, encoding="utf-8")
+        self.assertEqual(self._build("--run", f"other:{self.run_dir}", "--factor-graph", f"demo:{graph_path}"), 0)
+        graph_path.unlink()  # the portable database must not depend on the original HTML path
+        state = portal_server.PortalState(self.db, title="t", plotly_src="about:blank")
+        try:
+            status, body = portal_server.handle_api(state, "/api/runs", {})
+            self.assertEqual(status, 200)
+            runs = {row["run_id"]: row for row in body["runs"]}
+            self.assertTrue(runs["demo"]["factor_graph_available"])
+            self.assertEqual(runs["demo"]["factor_graph_path"], str(graph_path))
+            self.assertFalse(runs["other"]["factor_graph_available"])
+            self.assertNotIn(graph_html, json.dumps(body))  # graph payload is requested separately
+            status, body = portal_server.handle_api(state, "/api/factor_graph", {"run": ["demo"]})
+            self.assertEqual((status, body["graph"]["html"]), (200, graph_html))
+            status, body = portal_server.handle_api(state, "/api/factor_graph", {"run": ["other"]})
+            self.assertEqual((status, body["graph"]), (200, None))
+            self.assertEqual(portal_server.handle_api(state, "/api/factor_graph", {"run": ["missing"]})[0], 404)
+            self.assertEqual(portal_server.handle_api(state, "/api/factor_graph", {})[0], 400)
+        finally:
+            state.connection().close()
+
+    def test_factor_graph_append_replaces_and_removes_stale_graph(self) -> None:
+        graph_path = self.root / "factor_graph.html"
+        for label in ("first", "replacement"):
+            graph_path.write_text(f"<p>{label}</p>", encoding="utf-8")
+            self.assertEqual(self._build("--append", "--factor-graph", f"demo:{graph_path}"), 0)
+            conn = portal_db.open_database(self.db, readonly=True)
+            self.assertEqual(portal_db.factor_graph(conn, "demo")["html"], f"<p>{label}</p>")
+            conn.close()
+        self.assertEqual(self._build("--append"), 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        self.assertIsNone(portal_db.factor_graph(conn, "demo"))
+        self.assertFalse(portal_db.list_runs(conn)[0]["factor_graph_available"])
+        conn.close()
+
+    def test_factor_graph_old_database_and_append_migration(self) -> None:
         self.assertEqual(self._build(), 0)
+        conn = portal_db.open_database(self.db)
+        conn.execute("DROP TABLE run_factor_graphs")
+        conn.execute("UPDATE meta SET value='5' WHERE key='schema_version'")
+        conn.commit()
+        self.assertIsNone(portal_db.factor_graph(conn, "demo"))
+        self.assertFalse(portal_db.list_runs(conn)[0]["factor_graph_available"])
+        conn.close()
+        graph_path = self.root / "factor_graph.html"
+        graph_path.write_text("<p>migrated graph</p>", encoding="utf-8")
+        self.assertEqual(self._build("--append", "--factor-graph", f"demo:{graph_path}"), 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        self.assertEqual(portal_db.factor_graph(conn, "demo")["html"], "<p>migrated graph</p>")
+        self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "6")
+        conn.close()
+
+    def test_factor_graph_package_and_invalid_inputs(self) -> None:
+        graph_path = self.root / "factor_graph.html"
+        graph_path.write_text("<p>package graph</p>", encoding="utf-8")
+        package = (f"model=large,trait=T2D,gene_stats={self.run_dir / 'pigean.gene_stats.out.gz'},"
+                   f"gene_set_stats={self.run_dir / 'pigean.gene_set_stats.out.gz'},factor_graph={graph_path}")
+        self.assertEqual(portal.main(["build", "--db", str(self.db), "--package", package]), 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        self.assertEqual(portal_db.factor_graph(conn, "large__T2D__main")["html"], "<p>package graph</p>")
+        conn.close()
+        self.assertEqual(self._build("--factor-graph", f"unknown:{graph_path}"), 1)
+        self.assertEqual(self._build("--factor-graph", f"demo:{graph_path}", "--factor-graph", f"demo:{graph_path}"), 1)
+        self.assertEqual(self._build("--factor-graph", f"demo:{self.root / 'missing.html'}"), 1)
+        with self.assertRaises(SystemExit):
+            self._build("--factor-graph", "demo:")
+        # Invalid input is rejected before replacing the existing database.
+        conn = portal_db.open_database(self.db, readonly=True)
+        self.assertTrue(portal_db.list_runs(conn)[0]["factor_graph_available"])
+        conn.close()
+        graph_path.write_text("  \n", encoding="utf-8")
+        self.assertEqual(self._build("--factor-graph", f"demo:{graph_path}"), 0)
+        conn = portal_db.open_database(self.db, readonly=True)
+        run = portal_db.list_runs(conn)[0]
+        self.assertFalse(run["factor_graph_available"])
+        self.assertTrue(any("factor graph is empty" in warning for warning in run["warnings"]))
+        conn.close()
+
+    def test_api_and_http_round_trip(self) -> None:
+        graph_path = self.root / "factor_graph.html"
+        graph_path.write_text("<p>HTTP mechanism</p>", encoding="utf-8")
+        self.assertEqual(self._build("--factor-graph", f"demo:{graph_path}"), 0)
         state = portal_server.PortalState(self.db, title="t", plotly_src="about:blank")
         status, body = portal_server.handle_api(state, "/api/runs", {})
         self.assertEqual(status, 200)
@@ -391,6 +474,12 @@ class PortalBuildTest(unittest.TestCase):
             self.assertIn("/api/genes", html)
             self.assertIn('id="sheet"', html)
             self.assertIn("Build details", html)
+            self.assertIn('role="tablist"', html)
+            self.assertIn('aria-controls="panel-mechanisms"', html)
+            with urllib.request.urlopen(f"{base}/api/factor_graph?run=demo") as resp:
+                self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+                payload = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(payload["graph"]["html"], "<p>HTTP mechanism</p>")
             self.assertIn('window.PIGEAN_PORTAL_API_BASE = ""', html)
             with urllib.request.urlopen(f"{base}/compare") as resp:
                 self.assertIn("PIGEAN Comparer", resp.read().decode("utf-8"))

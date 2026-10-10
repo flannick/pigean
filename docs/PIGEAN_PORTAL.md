@@ -12,12 +12,42 @@
    current run, and "Across traits" — a vertical trait plot (one point per run, coloured by
    portal trait group, metric selectable) of that gene or gene set in every run of the
    database. Build thresholds, input paths and run parameters sit behind toggles.
+   The right panel has **Top Gene Sets** and **Top Mechanisms** tabs. Top Mechanisms displays
+   an optional EAGGL factor graph for the selected run, with the graph's interactive controls.
 3. `html` writes the same UI as a static page whose JavaScript calls a `serve` instance at a
    fixed URL, so the page can be hosted from a bucket or any static file server.
 
 Like `pigean.dashboard`, it is a post-processing tool that never reruns PIGEAN, and it uses
 only the standard library (`sqlite3`, `http.server`). The UI loads Plotly from a CDN by
 default; pass `serve --plotly-js` for offline use.
+
+## Home-page search
+
+The Explorer home page has **Trait | Gene | Geneset | Factor** tabs:
+
+- **Trait** opens the existing trait → model → run view.
+- **Gene** searches identifiers across the database without first selecting a trait.
+  Select a match to see its traits and runs, ranked by combined, direct, indirect, or HuGE score.
+- **Geneset** searches identifiers and library labels, then shows trait evidence ranked
+  by adjusted effect, uncorrected effect, or P value.
+- **Factor** appears when at least one run has a linked EAGGL graph. Search factor IDs
+  or mechanism labels, then inspect the factor's exported trait evidence or open its graph.
+  Each factor is scoped to its source run; equal IDs in different runs are not combined.
+
+Gene and Geneset results support model filtering, score ranking, pagination, and links
+into each run's detail sheet. Returning to Search preserves the selected entry and model.
+The selected search can be bookmarked using its URL. Trait counts count distinct traits;
+multiple seeds/models are shown as separate runs. Results reflect build-time filters,
+so inclusion is not a significance claim and absence is not evidence of no association.
+
+Factor search reads the `eaggl-factor-graph-data` JSON embedded in standard EAGGL HTML
+exports, including factor trait provenance and retained graph edges. Existing linked graphs
+need no database rebuild. The home page does not download or execute graph HTML to search it.
+Only exported evidence is available: graph thresholds and export limits may omit traits.
+Missing scores stay blank, and linking a graph to a run does not create a factor/trait link.
+Custom HTML without the standard JSON can still be opened under Top Mechanisms, but has
+no searchable factors. A linked trait can open a portal run when the database includes
+that trait in the source model.
 
 ## Build
 
@@ -43,6 +73,24 @@ Every PIGEAN result has a model and a trait, and there may be several runs per m
 - optional `run=` label. When omitted the run is called `main` if the model/trait pair occurs
   once, or `run1`, `run2`, … in input order when it occurs several times. The run id is always
   `<model>__<trait>__<run>`, and `title=` overrides the display title.
+- optional `factor_graph=PATH` attaches a standalone EAGGL factor graph HTML file to the run.
+
+To attach graphs when using `--run` or `--run-files`, pass
+`--factor-graph RUN_ID:HTML_PATH` (repeat for different runs):
+
+```bash
+PYTHONPATH=src python -m pigean.portal build \
+  --db results/portal.sqlite \
+  --run t2d:results/t2d/pigean \
+  --factor-graph t2d:results/t2d/eaggl/factor_graph.html
+```
+
+Supply one graph per run. A source-specific graph such as `factor_graph.full_via_gene_sets.html`
+can be used instead. The HTML is stored inside SQLite, so serving the database does not require
+the original graph file. It is loaded only when Top Mechanisms is opened and displayed in an
+isolated iframe; toggling tabs preserves graph interaction state. Switching runs loads that run's
+graph. Runs without a graph, including databases built before schema v6, show an empty state.
+Appending a replacement run also replaces its graph (or removes it when no graph is supplied).
 
 Older forms are still accepted:
 
@@ -117,6 +165,8 @@ or disable with `--cors-origin ""`.
 | endpoint | parameters |
 |---|---|
 | `GET /api/runs` | — (each run carries `model`, `trait`, `seed`, build counts/filters and, when built with `--phenotype-file`, a `phenotype` object with `name`, `portal_id`, `trait_group`, `mappings[]`) |
+| `GET /api/search` | `kind` (`gene`/`gene_set`/`factor`), `q`, optional `model`, `limit` (1–50) — case-insensitive literal matches with trait counts; factors include their source `run_id` |
+| `GET /api/factor` | `run`, `id` — the factor's label, relevance, and exported trait evidence with matching portal run IDs |
 | `GET /api/genes` | `run`, optional `min_prior`, `min_log_bf`, `min_combined`, `search`, `sort` (`combined`/`prior`/`log_bf`/`huge_score`/`gene`), `limit` |
 | `GET /api/gene_sets` | `run`, optional `min_beta`, `min_beta_uncorrected`, `search` (id or label), `sort` (`beta`/`beta_uncorrected`/`n`/`gene_set`), `limit` |
 | `GET /api/gene_set` | `run`, `id`, optional `limit` — the gene set plus its gene loadings (sorted by weight, then combined) |
@@ -124,6 +174,7 @@ or disable with `--cors-origin ""`.
 | `GET /api/gene_across` | `id`, optional `model` — the gene's `combined` / `log_bf` / `prior` / `huge_score` in every run where it passed the build thresholds, with each run's trait, phenotype name and trait group |
 | `GET /api/gene_set_across` | `id`, optional `model` — likewise `beta` / `beta_uncorrected` for a gene set |
 | `GET /api/run_params` | `run` — the PIGEAN parameters stored from the package's `params=` file |
+| `GET /api/factor_graph` | `run` — `{run, graph: {source_path, html}}`, with `graph: null` when unavailable; `/api/runs` carries `factor_graph_available` and `factor_graph_path` without the HTML |
 | `GET /healthz` | — |
 
 ## Comparer (`/compare`)

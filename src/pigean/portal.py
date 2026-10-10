@@ -81,7 +81,7 @@ def _parse_run_meta(value: str) -> tuple[str, dict]:
     return run_id, meta
 
 
-PACKAGE_KEYS = {"model", "model_title", "trait", "run", "title", "gene_stats", "gene_set_stats", "gene_gene_set_stats", "params"}
+PACKAGE_KEYS = {"model", "model_title", "trait", "run", "title", "gene_stats", "gene_set_stats", "gene_gene_set_stats", "params", "factor_graph"}
 
 
 def _parse_package(value: str) -> dict:
@@ -124,6 +124,7 @@ def packages_to_runs(packages: list[dict]) -> list[RunFiles]:
             run_id=run_id, gene_stats=Path(spec["gene_stats"]), gene_set_stats=Path(spec["gene_set_stats"]),
             gene_gene_set_stats=Path(spec["gene_gene_set_stats"]) if spec.get("gene_gene_set_stats") else None,
             params=Path(spec["params"]) if spec.get("params") else None,
+            factor_graph=Path(spec["factor_graph"]) if spec.get("factor_graph") else None,
             model=spec["model"], model_title=spec.get("model_title", ""), trait=spec["trait"], seed=label,
             title=spec.get("title") or (f"{spec['trait']} / {spec['model']}" + (f" / {label}" if label != "main" else "")),
         )
@@ -138,6 +139,13 @@ def _parse_title(value: str) -> tuple[str, str]:
         raise argparse.ArgumentTypeError(f"--run-title expects RUN_ID:TITLE, got '{value}'")
     run_id, title = value.split(":", 1)
     return run_id, title
+
+
+def _parse_factor_graph(value: str) -> tuple[str, str]:
+    run_id, separator, path = value.partition(":")
+    if not separator or not run_id or not path.strip():
+        raise argparse.ArgumentTypeError("--factor-graph expects RUN_ID:HTML_PATH")
+    return run_id, path
 
 
 def _filter_arg(value: str):
@@ -161,12 +169,14 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--package", action="append", default=[], type=_parse_package,
                        metavar="model=NAME,trait=NAME,gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH][,params=PATH][,run=LABEL][,model_title=TEXT][,title=TEXT]",
                        help="One PIGEAN result package: the model it was run with, the trait, the result tables and "
-                            "optionally the params file. Run id = <model>__<trait>__<run>; run defaults to 'main', or "
+                            "optionally params=PATH and factor_graph=HTML_PATH. Run id = <model>__<trait>__<run>; run defaults to 'main', or "
                             "run1, run2, ... when the same model/trait is given several times. Repeatable.")
     build.add_argument("--run-files", action="append", default=[], type=_parse_run_files_spec,
                        metavar="RUN_ID:gene_stats=PATH,gene_set_stats=PATH[,gene_gene_set_stats=PATH]",
                        help="Explicit file paths for one run. Repeatable.")
     build.add_argument("--run-title", action="append", default=[], type=_parse_title, metavar="RUN_ID:TITLE")
+    build.add_argument("--factor-graph", action="append", default=[], type=_parse_factor_graph, metavar="RUN_ID:HTML_PATH",
+                       help="Standalone EAGGL factor graph for a supplied run, shown in Top Mechanisms. Repeat for different runs.")
     build.add_argument("--run-meta", action="append", default=[], type=_parse_run_meta,
                        metavar="RUN_ID:model=NAME,trait=NAME,seed=N[,title=TEXT]",
                        help="Model / trait / seed labels for the portal's selectors. Inferred from run ids of the "
@@ -225,11 +235,18 @@ def _collect_runs(args: argparse.Namespace) -> list[RunFiles]:
         files.infer_metadata()
         files.title = titles.get(files.run_id) or meta.get("title") or files.run_id
     runs.extend(legacy)
+    by_id = {files.run_id: files for files in runs}
+    for run_id, graph_path in args.factor_graph:
+        if run_id not in by_id:
+            raise ValueError(f"--factor-graph refers to unknown run '{run_id}'")
+        if by_id[run_id].factor_graph is not None:
+            raise ValueError(f"more than one factor graph supplied for run '{run_id}'")
+        by_id[run_id].factor_graph = Path(graph_path)
     for files in runs:
         if files.run_id in seen:
             raise ValueError(f"duplicate run id '{files.run_id}'")
         seen.add(files.run_id)
-        for path in (files.gene_stats, files.gene_set_stats, files.gene_gene_set_stats, files.params):
+        for path in (files.gene_stats, files.gene_set_stats, files.gene_gene_set_stats, files.params, files.factor_graph):
             if path is not None and not path.exists():
                 raise FileNotFoundError(f"run '{files.run_id}': {path} does not exist")
     return runs
