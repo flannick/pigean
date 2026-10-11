@@ -14,10 +14,11 @@ spec=importlib.util.spec_from_file_location('bench',ROOT/'scripts/experiments/be
 bench=importlib.util.module_from_spec(spec);spec.loader.exec_module(bench)
 
 class ComparisonTests(unittest.TestCase):
-    def test_matching_structural_nan_is_exact_but_not_strict(self):
-        a=pd.Series([1.,2.,float('nan')])
+    def test_matching_structural_nan_preserves_scoring_universe(self):
+        a=pd.Series([1.,2.,3.,float('nan')])
         r=bench.metric(a,a)
-        self.assertTrue(r['exact']);self.assertFalse(r['strict_pass'])
+        self.assertTrue(r['exact']);self.assertTrue(r['strict_pass'])
+        self.assertEqual(r['n_shared_missing'],1);self.assertEqual(r['n_finite'],3)
     def test_scale_shift_not_hidden_by_correlation(self):
         a=pd.Series([1.,2.,3.]);b=2*a
         r=bench.metric(a,b)
@@ -37,8 +38,8 @@ class ComparisonTests(unittest.TestCase):
                 p=Path(d)/str(i);p.mkdir();dirs.append(p)
                 pd.DataFrame({'Gene':['A','B','C'],'prior':values}).to_csv(p/'g.tsv.gz',sep='\t',index=False)
             with patch.object(bench,'validate_receipt',return_value={}):
-                s=bench.load_metric(dirs,'g.tsv.gz','Gene','prior')
-            self.assertTrue(pd.isna(s['B']))
+                with self.assertRaisesRegex(ValueError,'Within-panel missingness changed'):
+                    bench.load_metric(dirs,'g.tsv.gz','Gene','prior')
     def test_duplicate_ids_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             pd.DataFrame({'Gene':['A','A'],'prior':[1,2]}).to_csv(Path(d)/'g.tsv.gz',sep='\t',index=False)
@@ -115,6 +116,16 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue(r['full_outputs_equal'])
             self.assertIsNotNone(r['confirmed_speedup'])
             self.assertEqual(bench.read(self.out/trait/'repeatability.json')['status'],'PASS')
+        changed=self.out/'T2D/baseline/seed1'
+        frame=pd.read_csv(changed/'gene_stats.out.gz',sep='\t');frame.loc[1,'prior']=float('nan')
+        frame.to_csv(changed/'gene_stats.out.gz',sep='\t',index=False)
+        receipt=bench.read(changed/'receipt.json')
+        receipt['outputs']['gene_stats.out.gz']=bench.digest(changed/'gene_stats.out.gz')
+        bench.write(changed/'receipt.json',receipt)
+        panel=[self.out/'T2D/baseline'/f'seed{i}' for i in range(10)]
+        result=bench.compare(panel[:5],panel[5:],'repeatability')
+        self.assertEqual(result['status'],'INCONCLUSIVE')
+        self.assertIn('missingness changed',result['reasons'][0])
 
 class EngineTests(unittest.TestCase):
     def test_unknown_engine_rejected(self):
