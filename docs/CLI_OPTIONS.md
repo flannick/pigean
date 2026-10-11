@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `369`
+- Total options: `370`
 - `method_required`: `20`
-- `method_optional`: `199`
+- `method_optional`: `200`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `325`
+- visibility `expert`: `326`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -108,6 +108,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-from-y` | `expert` | `yes` | `expert_help` | `gene_universe_from_y` | `False` | use only genes present in the input Y values as the analysis universe |
 | `--gene-universe-in` | `expert` | `yes` | `expert_help` | `gene_universe_in` | `None` | load an explicit gene universe shared across Y input modes |
 | `--gene-zs-gws-prob-true` | `expert` | `yes` | `expert_help` | `gene_zs_gws_prob_true` | `None` | - |
+| `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves the established outer Gibbs implementation |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |
