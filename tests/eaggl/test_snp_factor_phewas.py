@@ -340,6 +340,15 @@ class HugeEffectorIntegrationTest(unittest.TestCase):
                 value=float(row['signal_gene_weight']);self.assertGreaterEqual(value,0)
                 totals[row['signal_id']]=totals.get(row['signal_id'],0)+value
             self.assertTrue(all(v<=1+1e-10 for v in totals.values()))
+            # Main's beta/SE mode appends observed p after sample size; allele
+            # metadata must not replace either field when extending the tuple.
+            beta_se=root/'beta_se.gz'
+            args=direct_args[:-2]+['--gwas-z-source','beta-se','--gene-effectors-out',str(beta_se)]
+            proc=subprocess.run(common+args,cwd=repo,env=env,text=True,capture_output=True)
+            self.assertEqual(proc.returncode,0,proc.stderr)
+            with gzip.open(beta_se,'rt') as fh: se_rows=list(csv.DictReader(fh,delimiter='\t'))
+            self.assertTrue(se_rows)
+            self.assertTrue(all(r['lead_variant'] in ('1:100100:A:G','1:200100:C:T') for r in se_rows))
 
 
 class FullFactorWorkflowTest(unittest.TestCase):
