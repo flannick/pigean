@@ -155,6 +155,11 @@ parser.add_option("","--gwas-units",type=float,default=None)
 parser.add_option("","--gwas-n-col",default=None)
 parser.add_option("","--gwas-n",type='float',default=None)
 parser.add_option("","--gwas-freq-col",default=None)
+parser.add_option("--snp-factor-metadata", action="store_true", default=False, help="opt in to SNP-factor effector/cache metadata and extended effector columns")
+parser.add_option("--no-snp-factor-metadata", action="store_false", dest="snp_factor_metadata", help="use legacy effector columns without collecting SNP-factor metadata (default)")
+parser.add_option("--gwas-build", default=None, help="genome build retained in gene-effector and HuGE cache metadata")
+parser.add_option("--gwas-effect-allele-col", default=None, help="effect allele column retained for allele-resolved signal outputs")
+parser.add_option("--gwas-other-allele-col", default=None, help="other allele column retained for allele-resolved signal outputs")
 parser.add_option("","--gwas-filter-col",default=None) #if specified, only include rows of the gwas file where this column matches --gwas-filter-val
 parser.add_option("","--gwas-filter-value",default=None) #if specified, only include rows of the gwas file where this value is observed in --gwas-filter-col
 parser.add_option("","--gwas-ignore-p-threshold",type=float,default=None) #completely ignore anything with p above this threshold

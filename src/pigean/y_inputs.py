@@ -74,6 +74,10 @@ def build_main_y_read_contract(options):
         gwas_n_col=options.gwas_n_col,
         gwas_n=options.gwas_n,
         gwas_units=options.gwas_units,
+        gwas_build=getattr(options,"gwas_build",None),
+        collect_signal_gene_weights=bool(getattr(options,"snp_factor_metadata",False)),
+        gwas_effect_allele_col=getattr(options,"gwas_effect_allele_col",None),
+        gwas_other_allele_col=getattr(options,"gwas_other_allele_col",None),
         gwas_freq_col=options.gwas_freq_col,
         gwas_filter_col=options.gwas_filter_col,
         gwas_filter_value=options.gwas_filter_value,
@@ -197,6 +201,7 @@ def load_main_y_inputs(
     if not mode_requires_gene_scores(mode_state):
         return True
 
+    state._collect_signal_gene_weights = bool(getattr(options, "snp_factor_metadata", False))
     y_read_contract = build_main_y_read_contract(options)
 
     if options.gene_stats_in:

@@ -479,6 +479,42 @@ parser.add_option("","--discovery-similarity-threshold",type="float",default=0.3
 parser.add_option("","--add-gene-sets-by-enrichment-p",type='float',default=None) #when running multiple gene anchoring, add in gene sets that pass the enrichment filters. Filter according to p-value
 parser.add_option("","--add-gene-sets-by-fraction",type="float",default=None) #when running multiple gene anchoring, add in gene sets that have this fraction of input genes
 
+
+# Independent SNP factor weights and association stage.
+parser.add_option("--snp-factor-weights-in", default=None, help='reload authoritative native SNP factor weights')
+parser.add_option("--snp-factor-weights-out", default=None, help='write reusable SNP factor weights without requiring PheWAS')
+parser.add_option("--snp-factor-weights-plink-out", default=None, help='write anchored factor scores in PLINK dosage format')
+parser.add_option("--snp-factor-weights-pgs-out", default=None, help='write anchored factor scores in PGS-style files')
+parser.add_option("--snp-factor-sign-anchor", default=None, help='orient score alleles using anchor directions only')
+parser.add_option("--snp-factor-effect-weight-anchor", default=None, help='weight scores by signed anchor effect magnitudes')
+parser.add_option("--snp-factor-genome-build", default=None, help='genome build for SNP weights and exports')
+parser.add_option("--snp-factor-ld-in", default=None, help='LD table, matrix, or clump/proxy file')
+parser.add_option("--snp-factor-ld-variants-in", default=None, help='allele-resolved LD variant map or BIM file')
+parser.add_option("--snp-factor-ld-bfile", default=None, help='PLINK BED/BIM/FAM reference prefix')
+parser.add_option("--snp-factor-gene-effectors-in", action="append", default=None, help='PIGEAN gene-effector input; repeatable')
+parser.add_option("--snp-factor-training-source", action="append", default=None, help='training source identifier for overlap provenance')
+parser.add_option("--snp-factor-phewas-gwas-in", action="append", default=None, help='target GWAS file; repeatable')
+parser.add_option("--snp-factor-phewas-gwas-list", action="append", default=None, help='list or manifest of target GWAS files; repeatable')
+parser.add_option("--snp-factor-phewas-dig-id", action="append", default=None, help='DIG trait identifier; repeatable')
+parser.add_option("--snp-factor-phewas-dig-id-list", action="append", default=None, help='file of DIG identifiers; repeatable')
+parser.add_option("--snp-factor-phewas-dig-ancestry", action="append", default=None, help='DIG ancestry selector; default Mixed')
+parser.add_option("--run-snp-factor-phewas", action="store_true", default=False, help="run SNP-based marginal and joint factor associations")
+parser.add_option("--snp-factor-phewas-dig-all", action="store_true", default=False, help="include all DIG traits for selected ancestries")
+parser.add_option("--snp-factor-phewas-stats-out", default=None, help="SNP factor association output; default snp_factor_phewas.tsv.gz")
+parser.add_option("--snp-factor-phewas-regression-scope", type="choice", choices=["both","marginal","joint"], default="both", help="regression scopes; default both")
+parser.add_option("--snp-factor-gene-weight", default="signal_gene_weight", help="effector weight column; expert override")
+parser.add_option("--snp-factor-ld-ancestry", default="European", help="ancestry of LD reference; Mixed use is explicitly approximate")
+parser.add_option("--snp-factor-ld-build", default=None, help="documented LD reference genome build; must agree with score weights")
+parser.add_option("--snp-factor-ld-matrix-kind", type="choice", choices=["r","r2"], default=None, help="explicit correlation type for legacy LD matrices")
+parser.add_option("--snp-factor-proxy-r2", type="float", default=0.8, help='minimum known proxy r2')
+parser.add_option("--snp-factor-proxy-window", type="int", default=1000000, help='maximum proxy distance in bases')
+parser.add_option("--snp-factor-min-coverage", type="float", default=0.9, help='minimum represented factor weight')
+parser.add_option("--snp-factor-joint-factor-policy", type="choice", choices=["all","covered"], default="all", help="all requires complete-roster coverage; covered fits only factors passing coverage for each trait")
+parser.add_option("--snp-factor-min-maf", type="float", default=0.01, help='MAF threshold when available')
+parser.add_option("--snp-factor-min-info", type="float", default=0.8, help='INFO threshold when available')
+parser.add_option("--snp-factor-memory-mb", type="int", default=512, help='SNP stage memory budget in MiB')
+parser.add_option("--snp-factor-trait-batch-size", type="int", default=32, help='maximum vectorized target trait batch')
+
 #simulation parameters
 
 parser.add_option("","--num-chains",type=int,default=10) #number of chains for gibbs sampling. Larger number uses more memory and compute but produces lower MCSE
@@ -818,6 +854,13 @@ _METHOD_REQUIRED_FLAGS = {
 }
 
 _CORE_VISIBLE_METHOD_FLAGS = {
+    "--run-snp-factor-phewas",
+    "--snp-factor-weights-in",
+    "--snp-factor-weights-out",
+    "--snp-factor-gene-effectors-in",
+    "--snp-factor-sign-anchor",
+    "--snp-factor-effect-weight-anchor",
+    "--snp-factor-phewas-stats-out",
     "--alpha0",
     "--consensus-aggregation",
     "--consensus-min-factor-cosine",
@@ -1517,6 +1560,32 @@ def _bootstrap_cli(argv=None):
 
     _normalize_optional_phewas_stage_options(parsed_options, warn)
 
+    from .snp_factor.runner import requested as _snp_requested, validate as _snp_validate
+    if _snp_requested(parsed_options):
+        try:
+            _snp_validate(parsed_options)
+        except ValueError as exc:
+            bail(str(exc))
+        other_outputs = any(getattr(parsed_options, key, None) for key in (
+            "gene_clusters_out", "gene_clusters_full_out", "gene_set_clusters_out",
+            "trait_factor_links_out", "factors_out", "pheno_clusters_out",
+            "gene_clusters_full_via_gene_sets_out", "run_factor_phewas", "factor_gmt_out"))
+        if parsed_options.snp_factor_weights_in and other_outputs:
+            bail("Saved SNP weights cannot generate factor or gene-based PheWAS outputs; run those separately")
+        standalone = bool(parsed_options.snp_factor_weights_in or
+                          (parsed_options.factor_gene_clusters_in and not other_outputs))
+        if standalone:
+            if parsed_args != ["factor"]:
+                bail("SNP weight/PheWAS standalone runs use eaggl factor")
+            parsed_options._snp_factor_standalone = True
+            options, args, mode = parsed_options, parsed_args, "factor"
+            cli_specified_dests = parsed_cli_specified_dests
+            config_specified_dests = parsed_config_specified_dests
+            if parsed_options.print_effective_config:
+                sys.stdout.write(json.dumps(vars(parsed_options), indent=2, sort_keys=True) + "\n")
+                return False
+            return True
+
     if parsed_options.discovery_model == "gene_by_gene":
         if "phi" not in parsed_cli_specified_dests and "phi" not in parsed_config_specified_dests:
             parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
@@ -1664,6 +1733,7 @@ def _bootstrap_cli(argv=None):
             bail("--project-phenos-from-gene-sets only applies when requesting --trait-factor-links-out")
         if (
             not parsed_options.run_factor_phewas
+            and not _snp_requested(parsed_options)
             and not any(projection_requests.values())
         ):
             bail("--factor-gene-clusters-in or --factor-gene-set-clusters-in requires at least one requested projection output: --trait-factor-links-out, --gene-clusters-out/--gene-clusters-full-out/--gene-clusters-full-via-gene-sets-out, or --gene-set-clusters-out")

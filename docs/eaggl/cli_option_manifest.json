@@ -2,13 +2,13 @@
   "categories": {
     "compat_alias": 11,
     "debug_only": 6,
-    "engineering": 86,
-    "method_optional": 191,
+    "engineering": 90,
+    "method_optional": 220,
     "method_required": 11
   },
   "entrypoint": "src/eaggl/cli.py",
   "module": "eaggl.cli",
-  "num_options": 305,
+  "num_options": 338,
   "options": [
     {
       "action": null,
@@ -50,7 +50,7 @@
       "source_line": 106,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 161
+      "usage_references": 162
     },
     {
       "action": "append",
@@ -701,7 +701,7 @@
       "source_line": 316,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": "store_true",
@@ -719,7 +719,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 501,
+      "source_line": 537,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -761,7 +761,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 497,
+      "source_line": 533,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -782,7 +782,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 502,
+      "source_line": 538,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -803,7 +803,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 500,
+      "source_line": 536,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -824,7 +824,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 499,
+      "source_line": 535,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -845,7 +845,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 498,
+      "source_line": 534,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -869,7 +869,7 @@
       "source_line": 255,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 58
+      "usage_references": 59
     },
     {
       "action": null,
@@ -995,7 +995,7 @@
       "source_line": 216,
       "summary": "load a gene-factor table and project gene sets, genes, phenotypes, and/or factor-PheWAS without refitting factors",
       "type": null,
-      "usage_references": 68
+      "usage_references": 73
     },
     {
       "action": null,
@@ -1685,7 +1685,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 491,
+      "source_line": 527,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1835,7 +1835,7 @@
       "source_line": 184,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2255,7 +2255,7 @@
       "source_line": 171,
       "summary": null,
       "type": null,
-      "usage_references": 81
+      "usage_references": 88
     },
     {
       "action": null,
@@ -2969,7 +2969,7 @@
       "source_line": 148,
       "summary": "load gene-set statistics exported from PIGEAN",
       "type": "string",
-      "usage_references": 76
+      "usage_references": 77
     },
     {
       "action": null,
@@ -3137,7 +3137,7 @@
       "source_line": 161,
       "summary": "load gene-level statistics exported from PIGEAN",
       "type": "string",
-      "usage_references": 85
+      "usage_references": 86
     },
     {
       "action": null,
@@ -3179,7 +3179,7 @@
       "source_line": 180,
       "summary": null,
       "type": null,
-      "usage_references": 66
+      "usage_references": 67
     },
     {
       "action": null,
@@ -3305,7 +3305,7 @@
       "source_line": 253,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 31
+      "usage_references": 33
     },
     {
       "action": "store_true",
@@ -4311,7 +4311,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 492,
+      "source_line": 528,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4545,7 +4545,7 @@
       "source_line": 344,
       "summary": "maximum starting factor budget before shrinkage removes unsupported factors",
       "type": "int",
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": null,
@@ -4626,7 +4626,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 488,
+      "source_line": 524,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4773,7 +4773,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 487,
+      "source_line": 523,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -5091,7 +5091,7 @@
       "source_line": 464,
       "summary": "disable canonical trait linkage even when trait inputs are available",
       "type": null,
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": "store_true",
@@ -5130,7 +5130,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 484,
+      "source_line": 520,
       "summary": null,
       "type": "int",
       "usage_references": 24
@@ -5151,7 +5151,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 489,
+      "source_line": 525,
       "summary": null,
       "type": "int",
       "usage_references": 11
@@ -5364,7 +5364,7 @@
       "source_line": 345,
       "summary": "base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors",
       "type": "float",
-      "usage_references": 102
+      "usage_references": 103
     },
     {
       "action": null,
@@ -5805,7 +5805,7 @@
       "source_line": 257,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 120
+      "usage_references": 121
     },
     {
       "action": null,
@@ -5907,7 +5907,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 490,
+      "source_line": 526,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -5976,6 +5976,26 @@
       "usage_references": 25
     },
     {
+      "action": "store_true",
+      "category": "method_optional",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "run_snp_factor_phewas",
+      "documentation_target": "core_help",
+      "flags": [
+        "--run-snp-factor-phewas"
+      ],
+      "help": "run SNP-based marginal and joint factor associations",
+      "primary_flag": "--run-snp-factor-phewas",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 501,
+      "summary": "run SNP-based marginal and joint factor associations",
+      "type": null,
+      "usage_references": 10
+    },
+    {
       "action": null,
       "category": "engineering",
       "default": "None",
@@ -5994,7 +6014,7 @@
       "source_line": 254,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 37
+      "usage_references": 41
     },
     {
       "action": null,
@@ -6016,6 +6036,646 @@
       "summary": null,
       "type": "float",
       "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_effect_weight_anchor",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-effect-weight-anchor"
+      ],
+      "help": "weight scores by signed anchor effect magnitudes",
+      "primary_flag": "--snp-factor-effect-weight-anchor",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 489,
+      "summary": "weight scores by signed anchor effect magnitudes",
+      "type": null,
+      "usage_references": 4
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_gene_effectors_in",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-gene-effectors-in"
+      ],
+      "help": "PIGEAN gene-effector input; repeatable",
+      "primary_flag": "--snp-factor-gene-effectors-in",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 494,
+      "summary": "PIGEAN gene-effector input; repeatable",
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "signal_gene_weight",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_gene_weight",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-gene-weight"
+      ],
+      "help": "effector weight column; expert override",
+      "primary_flag": "--snp-factor-gene-weight",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 505,
+      "summary": "effector weight column; expert override",
+      "type": null,
+      "usage_references": 4
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_genome_build",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-genome-build"
+      ],
+      "help": "genome build for SNP weights and exports",
+      "primary_flag": "--snp-factor-genome-build",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 490,
+      "summary": "genome build for SNP weights and exports",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "all",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_joint_factor_policy",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-joint-factor-policy"
+      ],
+      "help": "all requires complete-roster coverage; covered fits only factors passing coverage for each trait",
+      "primary_flag": "--snp-factor-joint-factor-policy",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 512,
+      "summary": "all requires complete-roster coverage; covered fits only factors passing coverage for each trait",
+      "type": "choice",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "European",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_ancestry",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-ancestry"
+      ],
+      "help": "ancestry of LD reference; Mixed use is explicitly approximate",
+      "primary_flag": "--snp-factor-ld-ancestry",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 506,
+      "summary": "ancestry of LD reference; Mixed use is explicitly approximate",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_bfile",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-bfile"
+      ],
+      "help": "PLINK BED/BIM/FAM reference prefix",
+      "primary_flag": "--snp-factor-ld-bfile",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 493,
+      "summary": "PLINK BED/BIM/FAM reference prefix",
+      "type": null,
+      "usage_references": 3
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_build",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-build"
+      ],
+      "help": "documented LD reference genome build; must agree with score weights",
+      "primary_flag": "--snp-factor-ld-build",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 507,
+      "summary": "documented LD reference genome build; must agree with score weights",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_in",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-in"
+      ],
+      "help": "LD table, matrix, or clump/proxy file",
+      "primary_flag": "--snp-factor-ld-in",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 491,
+      "summary": "LD table, matrix, or clump/proxy file",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_matrix_kind",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-matrix-kind"
+      ],
+      "help": "explicit correlation type for legacy LD matrices",
+      "primary_flag": "--snp-factor-ld-matrix-kind",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 508,
+      "summary": "explicit correlation type for legacy LD matrices",
+      "type": "choice",
+      "usage_references": 3
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_ld_variants_in",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-ld-variants-in"
+      ],
+      "help": "allele-resolved LD variant map or BIM file",
+      "primary_flag": "--snp-factor-ld-variants-in",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 492,
+      "summary": "allele-resolved LD variant map or BIM file",
+      "type": null,
+      "usage_references": 3
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "512",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_memory_mb",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-memory-mb"
+      ],
+      "help": "SNP stage memory budget in MiB",
+      "primary_flag": "--snp-factor-memory-mb",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 515,
+      "summary": "SNP stage memory budget in MiB",
+      "type": "int",
+      "usage_references": 4
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.9",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_min_coverage",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-min-coverage"
+      ],
+      "help": "minimum represented factor weight",
+      "primary_flag": "--snp-factor-min-coverage",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 511,
+      "summary": "minimum represented factor weight",
+      "type": "float",
+      "usage_references": 6
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.8",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_min_info",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-min-info"
+      ],
+      "help": "INFO threshold when available",
+      "primary_flag": "--snp-factor-min-info",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 514,
+      "summary": "INFO threshold when available",
+      "type": "float",
+      "usage_references": 1
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.01",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_min_maf",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-min-maf"
+      ],
+      "help": "MAF threshold when available",
+      "primary_flag": "--snp-factor-min-maf",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 513,
+      "summary": "MAF threshold when available",
+      "type": "float",
+      "usage_references": 1
+    },
+    {
+      "action": "store_true",
+      "category": "method_optional",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_dig_all",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-dig-all"
+      ],
+      "help": "include all DIG traits for selected ancestries",
+      "primary_flag": "--snp-factor-phewas-dig-all",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 502,
+      "summary": "include all DIG traits for selected ancestries",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_dig_ancestry",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-dig-ancestry"
+      ],
+      "help": "DIG ancestry selector; default Mixed",
+      "primary_flag": "--snp-factor-phewas-dig-ancestry",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 500,
+      "summary": "DIG ancestry selector; default Mixed",
+      "type": null,
+      "usage_references": 4
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_dig_id",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-dig-id"
+      ],
+      "help": "DIG trait identifier; repeatable",
+      "primary_flag": "--snp-factor-phewas-dig-id",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 498,
+      "summary": "DIG trait identifier; repeatable",
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_dig_id_list",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-dig-id-list"
+      ],
+      "help": "file of DIG identifiers; repeatable",
+      "primary_flag": "--snp-factor-phewas-dig-id-list",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 499,
+      "summary": "file of DIG identifiers; repeatable",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_gwas_in",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-gwas-in"
+      ],
+      "help": "target GWAS file; repeatable",
+      "primary_flag": "--snp-factor-phewas-gwas-in",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 496,
+      "summary": "target GWAS file; repeatable",
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_gwas_list",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-gwas-list"
+      ],
+      "help": "list or manifest of target GWAS files; repeatable",
+      "primary_flag": "--snp-factor-phewas-gwas-list",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 497,
+      "summary": "list or manifest of target GWAS files; repeatable",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "both",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_regression_scope",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-phewas-regression-scope"
+      ],
+      "help": "regression scopes; default both",
+      "primary_flag": "--snp-factor-phewas-regression-scope",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 504,
+      "summary": "regression scopes; default both",
+      "type": "choice",
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_phewas_stats_out",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-phewas-stats-out"
+      ],
+      "help": "SNP factor association output; default snp_factor_phewas.tsv.gz",
+      "primary_flag": "--snp-factor-phewas-stats-out",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 503,
+      "summary": "SNP factor association output; default snp_factor_phewas.tsv.gz",
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "0.8",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_proxy_r2",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-proxy-r2"
+      ],
+      "help": "minimum known proxy r2",
+      "primary_flag": "--snp-factor-proxy-r2",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 509,
+      "summary": "minimum known proxy r2",
+      "type": "float",
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "1000000",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_proxy_window",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-proxy-window"
+      ],
+      "help": "maximum proxy distance in bases",
+      "primary_flag": "--snp-factor-proxy-window",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 510,
+      "summary": "maximum proxy distance in bases",
+      "type": "int",
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_sign_anchor",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-sign-anchor"
+      ],
+      "help": "orient score alleles using anchor directions only",
+      "primary_flag": "--snp-factor-sign-anchor",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 488,
+      "summary": "orient score alleles using anchor directions only",
+      "type": null,
+      "usage_references": 5
+    },
+    {
+      "action": "append",
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_training_source",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-training-source"
+      ],
+      "help": "training source identifier for overlap provenance",
+      "primary_flag": "--snp-factor-training-source",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 495,
+      "summary": "training source identifier for overlap provenance",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "32",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_trait_batch_size",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-trait-batch-size"
+      ],
+      "help": "maximum vectorized target trait batch",
+      "primary_flag": "--snp-factor-trait-batch-size",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 516,
+      "summary": "maximum vectorized target trait batch",
+      "type": "int",
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_weights_in",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-weights-in"
+      ],
+      "help": "reload authoritative native SNP factor weights",
+      "primary_flag": "--snp-factor-weights-in",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 484,
+      "summary": "reload authoritative native SNP factor weights",
+      "type": null,
+      "usage_references": 7
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_weights_out",
+      "documentation_target": "core_help",
+      "flags": [
+        "--snp-factor-weights-out"
+      ],
+      "help": "write reusable SNP factor weights without requiring PheWAS",
+      "primary_flag": "--snp-factor-weights-out",
+      "public_visibility": "normal",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 485,
+      "summary": "write reusable SNP factor weights without requiring PheWAS",
+      "type": null,
+      "usage_references": 8
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_weights_pgs_out",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-weights-pgs-out"
+      ],
+      "help": "write anchored factor scores in PGS-style files",
+      "primary_flag": "--snp-factor-weights-pgs-out",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 487,
+      "summary": "write anchored factor scores in PGS-style files",
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_weights_plink_out",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-weights-plink-out"
+      ],
+      "help": "write anchored factor scores in PLINK dosage format",
+      "primary_flag": "--snp-factor-weights-plink-out",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 486,
+      "summary": "write anchored factor scores in PLINK dosage format",
+      "type": null,
+      "usage_references": 3
     },
     {
       "action": null,
@@ -6327,7 +6987,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 493,
+      "source_line": 529,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -6418,8 +7078,8 @@
     }
   ],
   "visibilities": {
-    "expert": 249,
+    "expert": 275,
     "hidden": 8,
-    "normal": 48
+    "normal": 55
   }
 }

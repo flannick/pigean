@@ -32,6 +32,10 @@ Use these documents in order:
 - `docs/eaggl/RELEASE_CHECKLIST.md`: release checklist
 - `docs/eaggl/RELEASE_STATUS.md`: release status notes
 
+## SNP factor weights and associations
+
+See [SNP factor PheWAS](SNP_FACTOR_PHEWAS.md) for independent weight construction/export, optional sign-only or effect-weight anchors, and marginal/joint summary-statistic association.
+
 ## Gene-dependence robustness
 
 The [methods supplement](methods.tex) now distinguishes native HC3 binary enrichment, exported factor-GMT logistic statistics, and annotation-derived working covariance. Its [gene-dependence section](gene_dependence_robustness.tex) contains the deterministic HDL Factor 4/7 robustness audit; [compact results and reproduction details](validation/gene_dependence/README.md) accompany it. Shared-annotation sensitivity is not a claim of calibrated binary-hit significance.

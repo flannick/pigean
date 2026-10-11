@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `370`
+- Total options: `375`
 - `method_required`: `20`
-- `method_optional`: `200`
-- `engineering`: `121`
+- `method_optional`: `203`
+- `engineering`: `123`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `326`
+- visibility `expert`: `331`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -109,6 +109,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-in` | `expert` | `yes` | `expert_help` | `gene_universe_in` | `None` | load an explicit gene universe shared across Y input modes |
 | `--gene-zs-gws-prob-true` | `expert` | `yes` | `expert_help` | `gene_zs_gws_prob_true` | `None` | - |
 | `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves the established outer Gibbs implementation |
+| `--gwas-build` | `expert` | `yes` | `expert_help` | `gwas_build` | `None` | genome build retained in gene-effector and HuGE cache metadata |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |
@@ -177,6 +178,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--no-initial-linear-filter` | `expert` | `yes` | `expert_help` | `initial_linear_filter` | `True` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-scale-raw-closest-gene` | `expert` | `yes` | `expert_help` | `scale_raw_closest_gene` | `True` | - |
+| `--no-snp-factor-metadata` | `expert` | `yes` | `expert_help` | `snp_factor_metadata` | `-` | use legacy effector columns without collecting SNP-factor metadata (default) |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--no-update-huge-scores` | `expert` | `yes` | `expert_help` | `update_huge_scores` | `True` | - |
 | `--no-warm-start` | `normal` | `yes` | `core_help` | `warm_start` | `-` | disable warm-starting and restart outer Gibbs updates from default initialization each iteration |
@@ -212,6 +214,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--signal-window-size` | `expert` | `yes` | `expert_help` | `signal_window_size` | `250000` | - |
 | `--sim-log-bf-noise-sigma-mult` | `expert` | `yes` | `advanced_workflows` | `sim_log_bf_noise_sigma_mult` | `0` | simulation-only noise scale for generated log Bayes factors |
 | `--sim-only-positive` | `expert` | `yes` | `advanced_workflows` | `sim_only_positive` | `-` | simulation-only: constrain synthetic effects to positive values |
+| `--snp-factor-metadata` | `expert` | `yes` | `expert_help` | `snp_factor_metadata` | `False` | opt in to SNP-factor effector/cache metadata and extended effector columns |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-frac-gibbs` | `expert` | `yes` | `expert_help` | `sparse_frac_gibbs` | `0.01` | - |
 | `--sparse-max-gibbs` | `expert` | `yes` | `expert_help` | `sparse_max_gibbs` | `0.001` | - |
@@ -328,10 +331,12 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gibbs-summary-mode` | `normal` | `no` | `core_help` | `gibbs_summary_mode` | `raw_common_mask` | choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask |
 | `--gwas-beta-col` | `expert` | `no` | `expert_help` | `gwas_beta_col` | `None` | - |
 | `--gwas-chrom-col` | `expert` | `no` | `expert_help` | `gwas_chrom_col` | `None` | - |
+| `--gwas-effect-allele-col` | `expert` | `no` | `expert_help` | `gwas_effect_allele_col` | `None` | effect allele column retained for allele-resolved signal outputs |
 | `--gwas-filter-col` | `expert` | `no` | `expert_help` | `gwas_filter_col` | `None` | - |
 | `--gwas-freq-col` | `expert` | `no` | `expert_help` | `gwas_freq_col` | `None` | - |
 | `--gwas-locus-col` | `expert` | `no` | `expert_help` | `gwas_locus_col` | `None` | - |
 | `--gwas-n-col` | `expert` | `no` | `expert_help` | `gwas_n_col` | `None` | - |
+| `--gwas-other-allele-col` | `expert` | `no` | `expert_help` | `gwas_other_allele_col` | `None` | other allele column retained for allele-resolved signal outputs |
 | `--gwas-p-col` | `expert` | `no` | `expert_help` | `gwas_p_col` | `None` | - |
 | `--gwas-pos-col` | `expert` | `no` | `expert_help` | `gwas_pos_col` | `None` | - |
 | `--gwas-se-col` | `expert` | `no` | `expert_help` | `gwas_se_col` | `None` | - |

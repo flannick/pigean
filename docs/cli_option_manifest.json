@@ -2,14 +2,14 @@
   "categories": {
     "compat_alias": 19,
     "debug_only": 8,
-    "engineering": 121,
+    "engineering": 123,
     "experimental": 2,
-    "method_optional": 200,
+    "method_optional": 203,
     "method_required": 20
   },
   "entrypoint": "src/pigean/cli.py",
   "module": "pigean.cli",
-  "num_options": 370,
+  "num_options": 375,
   "options": [
     {
       "action": null,
@@ -72,7 +72,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 162
+      "usage_references": 163
     },
     {
       "action": "append",
@@ -195,7 +195,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 522,
+      "source_line": 527,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -216,7 +216,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 521,
+      "source_line": 526,
       "summary": null,
       "type": "int",
       "usage_references": 4
@@ -237,7 +237,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 382,
+      "source_line": 387,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -258,7 +258,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 375,
+      "source_line": 380,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -279,7 +279,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 442,
+      "source_line": 447,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -300,7 +300,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 417,
+      "source_line": 422,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -384,7 +384,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 353,
+      "source_line": 358,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -405,7 +405,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 525,
+      "source_line": 530,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -426,7 +426,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 282,
+      "source_line": 287,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -447,7 +447,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 518,
+      "source_line": 523,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -468,7 +468,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 517,
+      "source_line": 522,
       "summary": null,
       "type": "float",
       "usage_references": 5
@@ -489,7 +489,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 520,
+      "source_line": 525,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -510,7 +510,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 519,
+      "source_line": 524,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -573,7 +573,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 410,
+      "source_line": 415,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -594,7 +594,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 221,
+      "source_line": 226,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -615,7 +615,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 219,
+      "source_line": 224,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -636,7 +636,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 218,
+      "source_line": 223,
       "summary": "load case variant-count evidence for gene-level support",
       "type": null,
       "usage_references": 14
@@ -657,7 +657,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 223,
+      "source_line": 228,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -678,7 +678,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 220,
+      "source_line": 225,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -699,7 +699,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 222,
+      "source_line": 227,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -720,7 +720,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 407,
+      "source_line": 412,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -741,7 +741,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 325,
+      "source_line": 330,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
       "usage_references": 47
@@ -762,7 +762,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 254,
+      "source_line": 259,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -783,7 +783,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 253,
+      "source_line": 258,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -825,7 +825,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 418,
+      "source_line": 423,
       "summary": null,
       "type": null,
       "usage_references": 4
@@ -846,7 +846,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 420,
+      "source_line": 425,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -867,7 +867,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 237,
+      "source_line": 242,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -888,7 +888,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 232,
+      "source_line": 237,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -909,7 +909,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 233,
+      "source_line": 238,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -930,7 +930,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 231,
+      "source_line": 236,
       "summary": null,
       "type": "string",
       "usage_references": 4
@@ -951,7 +951,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 230,
+      "source_line": 235,
       "summary": null,
       "type": "string",
       "usage_references": 6
@@ -972,7 +972,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 236,
+      "source_line": 241,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -993,7 +993,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 235,
+      "source_line": 240,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1014,7 +1014,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 234,
+      "source_line": 239,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1035,7 +1035,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 168,
+      "source_line": 173,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1056,7 +1056,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 165,
+      "source_line": 170,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -1077,7 +1077,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 164,
+      "source_line": 169,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1098,7 +1098,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 163,
+      "source_line": 168,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1119,7 +1119,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 166,
+      "source_line": 171,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -1140,7 +1140,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 167,
+      "source_line": 172,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1245,7 +1245,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 227,
+      "source_line": 232,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1266,7 +1266,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 225,
+      "source_line": 230,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1287,7 +1287,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 224,
+      "source_line": 229,
       "summary": "load control variant-count evidence paired with --case-counts-in",
       "type": null,
       "usage_references": 13
@@ -1308,7 +1308,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 229,
+      "source_line": 234,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -1329,7 +1329,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 226,
+      "source_line": 231,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1350,7 +1350,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 228,
+      "source_line": 233,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -1371,7 +1371,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 553,
+      "source_line": 558,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1392,7 +1392,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 320,
+      "source_line": 325,
       "summary": "set logging verbosity for progress and diagnostic output",
       "type": "int",
       "usage_references": 15
@@ -1413,7 +1413,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 548,
+      "source_line": 553,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1434,7 +1434,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 547,
+      "source_line": 552,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1455,7 +1455,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 554,
+      "source_line": 559,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1476,7 +1476,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 551,
+      "source_line": 556,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1497,7 +1497,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 550,
+      "source_line": 555,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1518,7 +1518,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 549,
+      "source_line": 554,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1539,7 +1539,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 552,
+      "source_line": 557,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1560,10 +1560,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 324,
+      "source_line": 329,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 59
+      "usage_references": 60
     },
     {
       "action": null,
@@ -1581,7 +1581,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 534,
+      "source_line": 539,
       "summary": "number of outer iterations between convergence and precision diagnostics",
       "type": "int",
       "usage_references": 5
@@ -1602,7 +1602,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 532,
+      "source_line": 537,
       "summary": "disable stall-triggered Gibbs epoch exits and restarts (the default)",
       "type": null,
       "usage_references": 5
@@ -1623,7 +1623,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 291,
+      "source_line": 296,
       "summary": "write bundled PIGEAN outputs for direct eaggl.py consumption",
       "type": null,
       "usage_references": 22
@@ -1644,7 +1644,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 533,
+      "source_line": 538,
       "summary": "opt in to stall-triggered Gibbs epoch exits and restarts",
       "type": null,
       "usage_references": 15
@@ -1665,7 +1665,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 183,
+      "source_line": 188,
       "summary": null,
       "type": null,
       "usage_references": 13
@@ -1686,7 +1686,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 181,
+      "source_line": 186,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -1707,7 +1707,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 392,
+      "source_line": 397,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -1728,7 +1728,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 393,
+      "source_line": 398,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1749,7 +1749,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 180,
+      "source_line": 185,
       "summary": "load exome burden statistics as an additional HuGE evidence source",
       "type": null,
       "usage_references": 32
@@ -1770,7 +1770,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 394,
+      "source_line": 399,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -1791,7 +1791,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 395,
+      "source_line": 400,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1812,7 +1812,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 187,
+      "source_line": 192,
       "summary": null,
       "type": "float",
       "usage_references": 11
@@ -1833,7 +1833,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 186,
+      "source_line": 191,
       "summary": null,
       "type": null,
       "usage_references": 9
@@ -1854,7 +1854,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 182,
+      "source_line": 187,
       "summary": null,
       "type": null,
       "usage_references": 13
@@ -1875,7 +1875,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 184,
+      "source_line": 189,
       "summary": null,
       "type": null,
       "usage_references": 13
@@ -1896,7 +1896,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 185,
+      "source_line": 190,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -1917,7 +1917,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 268,
+      "source_line": 273,
       "summary": null,
       "type": null,
       "usage_references": 10
@@ -1938,7 +1938,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 448,
+      "source_line": 453,
       "summary": null,
       "type": null,
       "usage_references": 8
@@ -1959,7 +1959,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 449,
+      "source_line": 454,
       "summary": null,
       "type": "float",
       "usage_references": 9
@@ -2001,7 +2001,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 370,
+      "source_line": 375,
       "summary": null,
       "type": "float",
       "usage_references": 8
@@ -2022,7 +2022,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 361,
+      "source_line": 366,
       "summary": null,
       "type": "float",
       "usage_references": 23
@@ -2043,7 +2043,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 362,
+      "source_line": 367,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2148,7 +2148,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 495,
+      "source_line": 500,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -2169,7 +2169,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 541,
+      "source_line": 546,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2190,7 +2190,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 269,
+      "source_line": 274,
       "summary": null,
       "type": null,
       "usage_references": 19
@@ -2211,7 +2211,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 272,
+      "source_line": 277,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -2232,7 +2232,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 271,
+      "source_line": 276,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -2253,7 +2253,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 276,
+      "source_line": 281,
       "summary": null,
       "type": null,
       "usage_references": 11
@@ -2274,7 +2274,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 288,
+      "source_line": 293,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2295,10 +2295,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 289,
+      "source_line": 294,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": null,
@@ -2316,7 +2316,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 286,
+      "source_line": 291,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2337,7 +2337,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 193,
+      "source_line": 198,
       "summary": "specify gene-list genes directly on the command line",
       "type": "string",
       "usage_references": 181
@@ -2358,7 +2358,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 198,
+      "source_line": 203,
       "summary": "ID column in the full background gene-universe file for gene-list inputs",
       "type": null,
       "usage_references": 11
@@ -2379,7 +2379,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 197,
+      "source_line": 202,
       "summary": "load the full background gene universe for the gene-list input",
       "type": null,
       "usage_references": 16
@@ -2400,7 +2400,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 199,
+      "source_line": 204,
       "summary": "declare that the background gene-universe file for gene-list inputs has no header row",
       "type": null,
       "usage_references": 11
@@ -2421,7 +2421,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 194,
+      "source_line": 199,
       "summary": "default inclusion probability used for gene-list inputs without an explicit probability column",
       "type": "float",
       "usage_references": 6
@@ -2442,7 +2442,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 191,
+      "source_line": 196,
       "summary": "gene ID column for the gene-list input file",
       "type": null,
       "usage_references": 16
@@ -2463,7 +2463,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 190,
+      "source_line": 195,
       "summary": "load gene-list inputs with optional probabilities from a file",
       "type": null,
       "usage_references": 44
@@ -2484,7 +2484,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 196,
+      "source_line": 201,
       "summary": "declare that the gene-list input file has no header row",
       "type": null,
       "usage_references": 20
@@ -2505,7 +2505,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 192,
+      "source_line": 197,
       "summary": "probability column for the gene-list input file",
       "type": null,
       "usage_references": 7
@@ -2526,10 +2526,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 266,
+      "source_line": 271,
       "summary": "gene location table used for correlation and locus-aware operations",
       "type": null,
-      "usage_references": 87
+      "usage_references": 89
     },
     {
       "action": null,
@@ -2547,10 +2547,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 267,
+      "source_line": 272,
       "summary": "gene location table used during HuGE score construction",
       "type": null,
-      "usage_references": 26
+      "usage_references": 28
     },
     {
       "action": null,
@@ -2631,7 +2631,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 459,
+      "source_line": 464,
       "summary": "combined column for advanced gene-phewas input",
       "type": null,
       "usage_references": 10
@@ -2652,7 +2652,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 455,
+      "source_line": 460,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
       "usage_references": 10
@@ -2673,7 +2673,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 453,
+      "source_line": 458,
       "summary": "input gene-phewas BFS table for advanced phewas workflows",
       "type": null,
       "usage_references": 24
@@ -2694,7 +2694,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 457,
+      "source_line": 462,
       "summary": "log BF column for advanced gene-phewas input",
       "type": null,
       "usage_references": 10
@@ -2715,7 +2715,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 463,
+      "source_line": 468,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
       "usage_references": 10
@@ -2736,7 +2736,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 461,
+      "source_line": 466,
       "summary": "prior column for advanced gene-phewas input",
       "type": null,
       "usage_references": 11
@@ -2757,7 +2757,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 466,
+      "source_line": 471,
       "summary": "gene ID remapping table for advanced gene-phewas ingestion",
       "type": null,
       "usage_references": 10
@@ -2778,7 +2778,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 460,
+      "source_line": 465,
       "summary": "combined column for advanced gene-phewas input",
       "type": null,
       "usage_references": 16
@@ -2799,7 +2799,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 456,
+      "source_line": 461,
       "summary": "gene ID column for advanced gene-phewas input",
       "type": null,
       "usage_references": 19
@@ -2820,7 +2820,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 454,
+      "source_line": 459,
       "summary": "input gene-phewas statistics table for advanced phewas workflows",
       "type": null,
       "usage_references": 95
@@ -2841,7 +2841,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 458,
+      "source_line": 463,
       "summary": "log BF column for advanced gene-phewas input",
       "type": null,
       "usage_references": 16
@@ -2862,7 +2862,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 464,
+      "source_line": 469,
       "summary": "phenotype column for advanced gene-phewas input",
       "type": null,
       "usage_references": 19
@@ -2883,7 +2883,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 462,
+      "source_line": 467,
       "summary": "prior column for advanced gene-phewas input",
       "type": null,
       "usage_references": 15
@@ -2904,7 +2904,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 252,
+      "source_line": 257,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -2925,7 +2925,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 312,
+      "source_line": 317,
       "summary": "declare that --gene-set-exclude-in has a header row",
       "type": null,
       "usage_references": 3
@@ -2946,7 +2946,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 310,
+      "source_line": 315,
       "summary": "ID column for --gene-set-exclude-in; default reads the first column",
       "type": null,
       "usage_references": 7
@@ -2967,7 +2967,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 309,
+      "source_line": 314,
       "summary": "remove listed annotation/gene-set IDs before recomputing beta-tildes and joint betas",
       "type": null,
       "usage_references": 22
@@ -2988,7 +2988,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 311,
+      "source_line": 316,
       "summary": "declare that --gene-set-exclude-in has no header row",
       "type": null,
       "usage_references": 6
@@ -3009,7 +3009,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 287,
+      "source_line": 292,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -3030,7 +3030,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 487,
+      "source_line": 492,
       "summary": "threshold in external beta units used for Pr(beta > eps) gene-set summary output",
       "type": "float",
       "usage_references": 5
@@ -3051,7 +3051,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 245,
+      "source_line": 250,
       "summary": "beta column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 14
@@ -3072,7 +3072,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 244,
+      "source_line": 249,
       "summary": "beta-tilde column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 10
@@ -3093,7 +3093,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 246,
+      "source_line": 251,
       "summary": "uncorrected beta column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 15
@@ -3114,7 +3114,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 243,
+      "source_line": 248,
       "summary": "exp(beta-tilde) column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 6
@@ -3135,7 +3135,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 242,
+      "source_line": 247,
       "summary": "column mapping for advanced --gene-set-stats-in ingestion",
       "type": null,
       "usage_references": 18
@@ -3156,10 +3156,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 241,
+      "source_line": 246,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": "string",
-      "usage_references": 76
+      "usage_references": 77
     },
     {
       "action": null,
@@ -3177,7 +3177,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 279,
+      "source_line": 284,
       "summary": "write the final gene-set statistics table",
       "type": null,
       "usage_references": 72
@@ -3198,7 +3198,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 248,
+      "source_line": 253,
       "summary": "p-value column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 7
@@ -3219,7 +3219,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 247,
+      "source_line": 252,
       "summary": "SE column mapping for advanced gene-set stats ingestion",
       "type": null,
       "usage_references": 7
@@ -3240,7 +3240,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 281,
+      "source_line": 286,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -3261,7 +3261,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 260,
+      "source_line": 265,
       "summary": "combined column mapping for advanced --gene-stats-in ingestion",
       "type": null,
       "usage_references": 26
@@ -3282,7 +3282,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 258,
+      "source_line": 263,
       "summary": "column mapping for advanced --gene-stats-in ingestion",
       "type": null,
       "usage_references": 30
@@ -3303,10 +3303,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 257,
+      "source_line": 262,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 85
+      "usage_references": 86
     },
     {
       "action": null,
@@ -3324,7 +3324,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 259,
+      "source_line": 264,
       "summary": "log BF column mapping for advanced --gene-stats-in ingestion",
       "type": null,
       "usage_references": 28
@@ -3345,10 +3345,10 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 283,
+      "source_line": 288,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 67
+      "usage_references": 68
     },
     {
       "action": null,
@@ -3366,7 +3366,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 284,
+      "source_line": 289,
       "summary": "control whether gene-stats-out writes only the selected universe or all tracked genes outside it; choices: universe, all (current is a compatibility alias for all)",
       "type": null,
       "usage_references": 15
@@ -3387,7 +3387,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 261,
+      "source_line": 266,
       "summary": "prior column mapping for advanced --gene-stats-in ingestion",
       "type": null,
       "usage_references": 23
@@ -3408,7 +3408,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 262,
+      "source_line": 267,
       "summary": "probability column mapping for advanced --gene-stats-in ingestion",
       "type": null,
       "usage_references": 11
@@ -3429,7 +3429,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 285,
+      "source_line": 290,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -3450,7 +3450,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 204,
+      "source_line": 209,
       "summary": "use the union of genes across input gene sets as the analysis universe",
       "type": null,
       "usage_references": 27
@@ -3471,7 +3471,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 203,
+      "source_line": 208,
       "summary": "use only genes present in the input Y values as the analysis universe",
       "type": null,
       "usage_references": 24
@@ -3492,7 +3492,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 201,
+      "source_line": 206,
       "summary": "ID column in the explicit gene-universe file shared across Y input modes",
       "type": null,
       "usage_references": 16
@@ -3513,7 +3513,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 200,
+      "source_line": 205,
       "summary": "load an explicit gene universe shared across Y input modes",
       "type": null,
       "usage_references": 32
@@ -3534,7 +3534,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 202,
+      "source_line": 207,
       "summary": "declare that the explicit gene-universe file has no header row",
       "type": null,
       "usage_references": 13
@@ -3555,7 +3555,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 389,
+      "source_line": 394,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -3575,7 +3575,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 494,
+      "source_line": 499,
       "summary": "inference engine; legacy preserves the established outer Gibbs implementation",
       "type": "choice",
       "usage_references": 6
@@ -3596,7 +3596,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 350,
+      "source_line": 355,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -3617,7 +3617,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 349,
+      "source_line": 354,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -3638,7 +3638,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 506,
+      "source_line": 511,
       "summary": "run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains",
       "type": "int",
       "usage_references": 20
@@ -3659,7 +3659,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 485,
+      "source_line": 490,
       "summary": "choose whether primary Gibbs outputs use raw common-mask summaries or a single global filtered chain mask",
       "type": "string",
       "usage_references": 6
@@ -3683,7 +3683,27 @@
       "source_line": 152,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 16
+    },
+    {
+      "action": null,
+      "category": "method_optional",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_build",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--gwas-build"
+      ],
+      "help": "genome build retained in gene-effector and HuGE cache metadata",
+      "primary_flag": "--gwas-build",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 160,
+      "summary": "genome build retained in gene-effector and HuGE cache metadata",
+      "type": null,
+      "usage_references": 3
     },
     {
       "action": null,
@@ -3704,7 +3724,7 @@
       "source_line": 149,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": null,
@@ -3722,7 +3742,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 403,
+      "source_line": 408,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -3743,7 +3763,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 402,
+      "source_line": 407,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -3764,8 +3784,28 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 404,
+      "source_line": 409,
       "summary": null,
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_effect_allele_col",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--gwas-effect-allele-col"
+      ],
+      "help": "effect allele column retained for allele-resolved signal outputs",
+      "primary_flag": "--gwas-effect-allele-col",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 161,
+      "summary": "effect allele column retained for allele-resolved signal outputs",
       "type": null,
       "usage_references": 2
     },
@@ -3785,7 +3825,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 158,
+      "source_line": 163,
       "summary": null,
       "type": null,
       "usage_references": 4
@@ -3806,7 +3846,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 159,
+      "source_line": 164,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -3830,7 +3870,7 @@
       "source_line": 157,
       "summary": null,
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
@@ -3848,7 +3888,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 398,
+      "source_line": 403,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -3869,7 +3909,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 399,
+      "source_line": 404,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -3890,7 +3930,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 160,
+      "source_line": 165,
       "summary": null,
       "type": "float",
       "usage_references": 5
@@ -3914,7 +3954,7 @@
       "source_line": 143,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 72
+      "usage_references": 74
     },
     {
       "action": null,
@@ -3932,7 +3972,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 424,
+      "source_line": 429,
       "summary": "choose the chromosome inverse-variance reference; the default upper-winsorized mean resists a high-information tail, while mean restores legacy behavior",
       "type": "choice",
       "usage_references": 12
@@ -3953,7 +3993,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 425,
+      "source_line": 430,
       "summary": "set the upper winsorization quantile used by the default inverse-variance reference",
       "type": "float",
       "usage_references": 6
@@ -3995,7 +4035,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 400,
+      "source_line": 405,
       "summary": null,
       "type": "float",
       "usage_references": 10
@@ -4016,7 +4056,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 401,
+      "source_line": 406,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4040,7 +4080,7 @@
       "source_line": 156,
       "summary": null,
       "type": "float",
-      "usage_references": 22
+      "usage_references": 23
     },
     {
       "action": null,
@@ -4061,7 +4101,27 @@
       "source_line": 155,
       "summary": null,
       "type": null,
-      "usage_references": 19
+      "usage_references": 20
+    },
+    {
+      "action": null,
+      "category": "engineering",
+      "default": "None",
+      "deprecation_timeline": null,
+      "dest": "gwas_other_allele_col",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--gwas-other-allele-col"
+      ],
+      "help": "other allele column retained for allele-resolved signal outputs",
+      "primary_flag": "--gwas-other-allele-col",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "no",
+      "source_line": 162,
+      "summary": "other allele column retained for allele-resolved signal outputs",
+      "type": null,
+      "usage_references": 2
     },
     {
       "action": null,
@@ -4082,7 +4142,7 @@
       "source_line": 151,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": null,
@@ -4103,7 +4163,7 @@
       "source_line": 150,
       "summary": null,
       "type": null,
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": null,
@@ -4124,7 +4184,7 @@
       "source_line": 153,
       "summary": null,
       "type": null,
-      "usage_references": 15
+      "usage_references": 16
     },
     {
       "action": null,
@@ -4163,7 +4223,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 161,
+      "source_line": 166,
       "summary": "HuGE association source: auto prefers reported p; p requires reported p; beta-se requires observed beta and SE and ignores reported p for association strength",
       "type": "choice",
       "usage_references": 19
@@ -4184,7 +4244,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 327,
+      "source_line": 332,
       "summary": "show expert, advanced, and debug flags in addition to the normal public interface",
       "type": null,
       "usage_references": 17
@@ -4205,10 +4265,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 322,
+      "source_line": 327,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 32
+      "usage_references": 34
     },
     {
       "action": "store_true",
@@ -4226,7 +4286,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 321,
+      "source_line": 326,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
       "usage_references": 25
@@ -4247,7 +4307,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 343,
+      "source_line": 348,
       "summary": null,
       "type": "string",
       "usage_references": 4
@@ -4271,7 +4331,7 @@
       "source_line": 144,
       "summary": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
       "type": null,
-      "usage_references": 33
+      "usage_references": 35
     },
     {
       "action": null,
@@ -4292,7 +4352,7 @@
       "source_line": 145,
       "summary": "write HuGE statistics cache for faster reruns",
       "type": null,
-      "usage_references": 24
+      "usage_references": 26
     },
     {
       "action": "append",
@@ -4331,7 +4391,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 249,
+      "source_line": 254,
       "summary": null,
       "type": null,
       "usage_references": 8
@@ -4352,7 +4412,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 365,
+      "source_line": 370,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -4373,7 +4433,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 450,
+      "source_line": 455,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -4394,7 +4454,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 336,
+      "source_line": 341,
       "summary": "for pure betas runs, compute only independent beta_uncorrected and skip the covariance-backed beta solve",
       "type": null,
       "usage_references": 20
@@ -4415,7 +4475,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 405,
+      "source_line": 410,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -4436,7 +4496,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 331,
+      "source_line": 336,
       "summary": null,
       "type": null,
       "usage_references": 16
@@ -4457,7 +4517,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 318,
+      "source_line": 323,
       "summary": "write structured run logs to this file",
       "type": null,
       "usage_references": 23
@@ -4478,7 +4538,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 501,
+      "source_line": 506,
       "summary": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
       "type": "float",
       "usage_references": 7
@@ -4499,7 +4559,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 356,
+      "source_line": 361,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4520,7 +4580,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 412,
+      "source_line": 417,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4541,7 +4601,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 411,
+      "source_line": 416,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4562,7 +4622,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 426,
+      "source_line": 431,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4583,7 +4643,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 333,
+      "source_line": 338,
       "summary": null,
       "type": "float",
       "usage_references": 7
@@ -4604,7 +4664,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 542,
+      "source_line": 547,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4625,7 +4685,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 351,
+      "source_line": 356,
       "summary": null,
       "type": "float",
       "usage_references": 32
@@ -4646,7 +4706,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 371,
+      "source_line": 376,
       "summary": null,
       "type": "float",
       "usage_references": 17
@@ -4667,7 +4727,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 381,
+      "source_line": 386,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -4688,7 +4748,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 308,
+      "source_line": 313,
       "summary": "do not write genes to gene-stats-out when abs(combined) is at or below this threshold",
       "type": "float",
       "usage_references": 7
@@ -4709,7 +4769,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 305,
+      "source_line": 310,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4730,7 +4790,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 304,
+      "source_line": 309,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -4751,7 +4811,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 307,
+      "source_line": 312,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4772,7 +4832,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 432,
+      "source_line": 437,
       "summary": "optional maximum burn-in iterations in one epoch",
       "type": "int",
       "usage_references": 11
@@ -4793,7 +4853,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 368,
+      "source_line": 373,
       "summary": null,
       "type": "int",
       "usage_references": 46
@@ -4814,7 +4874,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 367,
+      "source_line": 372,
       "summary": null,
       "type": "int",
       "usage_references": 14
@@ -4835,7 +4895,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 366,
+      "source_line": 371,
       "summary": null,
       "type": "int",
       "usage_references": 15
@@ -4856,7 +4916,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 491,
+      "source_line": 496,
       "summary": "maximum outer Gibbs iterations in one epoch (500 by default)",
       "type": "int",
       "usage_references": 38
@@ -4877,7 +4937,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 538,
+      "source_line": 543,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4898,7 +4958,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 490,
+      "source_line": 495,
       "summary": "optional maximum retained post-burn iterations in one epoch",
       "type": "int",
       "usage_references": 4
@@ -4919,7 +4979,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 507,
+      "source_line": 512,
       "summary": "maximum additional Gibbs epochs allowed after stall-triggered exits",
       "type": "int",
       "usage_references": 14
@@ -4940,7 +5000,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 503,
+      "source_line": 508,
       "summary": "require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop",
       "type": "float",
       "usage_references": 6
@@ -4961,7 +5021,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 195,
+      "source_line": 200,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -4982,7 +5042,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 352,
+      "source_line": 357,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -5003,7 +5063,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 502,
+      "source_line": 507,
       "summary": "stop Gibbs once active beta MCSE is below this relative threshold",
       "type": "float",
       "usage_references": 7
@@ -5024,7 +5084,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 504,
+      "source_line": 509,
       "summary": "require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop",
       "type": "float",
       "usage_references": 6
@@ -5045,7 +5105,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 465,
+      "source_line": 470,
       "summary": "minimum value filter for advanced gene-phewas ingestion",
       "type": "float",
       "usage_references": 9
@@ -5066,7 +5126,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 372,
+      "source_line": 377,
       "summary": null,
       "type": "float",
       "usage_references": 10
@@ -5087,7 +5147,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 373,
+      "source_line": 378,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -5108,7 +5168,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 360,
+      "source_line": 365,
       "summary": null,
       "type": "int",
       "usage_references": 22
@@ -5129,7 +5189,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 423,
+      "source_line": 428,
       "summary": "exclude variants whose inverse variance is below this fraction of the chromosome reference; set to 0 to disable",
       "type": "float",
       "usage_references": 9
@@ -5150,7 +5210,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 422,
+      "source_line": 427,
       "summary": "exclude variants whose reported N is below this fraction of the chromosome mean; use inverse SE squared only when N is unavailable",
       "type": "float",
       "usage_references": 8
@@ -5171,7 +5231,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 488,
+      "source_line": 493,
       "summary": "minimum burn-in iterations before burn-in may end",
       "type": "int",
       "usage_references": 7
@@ -5192,7 +5252,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 369,
+      "source_line": 374,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -5213,7 +5273,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 537,
+      "source_line": 542,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -5234,7 +5294,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 489,
+      "source_line": 494,
       "summary": "minimum retained post-burn iterations before precision stopping may occur",
       "type": "int",
       "usage_references": 21
@@ -5255,7 +5315,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 406,
+      "source_line": 411,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -5276,7 +5336,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 471,
+      "source_line": 476,
       "summary": "combined-support column for --multi-y-in",
       "type": null,
       "usage_references": 13
@@ -5297,7 +5357,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 270,
+      "source_line": 275,
       "summary": "trait-labelled residual correlations for vectorized multi-Y marginal inference",
       "type": null,
       "usage_references": 8
@@ -5318,7 +5378,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 468,
+      "source_line": 473,
       "summary": "gene ID column for --multi-y-in",
       "type": null,
       "usage_references": 12
@@ -5339,7 +5399,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 467,
+      "source_line": 472,
       "summary": "run the current pigean pipeline once per trait from a long-form multi-Y table and append trait-labeled outputs",
       "type": null,
       "usage_references": 61
@@ -5360,7 +5420,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 470,
+      "source_line": 475,
       "summary": "log BF column for --multi-y-in",
       "type": null,
       "usage_references": 10
@@ -5381,7 +5441,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 475,
+      "source_line": 480,
       "summary": "expert override for the number of traits loaded per native multi-Y batch",
       "type": "int",
       "usage_references": 18
@@ -5402,7 +5462,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 469,
+      "source_line": 474,
       "summary": "trait column for --multi-y-in",
       "type": null,
       "usage_references": 12
@@ -5423,7 +5483,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 472,
+      "source_line": 477,
       "summary": "prior-support column for --multi-y-in",
       "type": null,
       "usage_references": 9
@@ -5444,7 +5504,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 473,
+      "source_line": 478,
       "summary": "probability column for --multi-y-in",
       "type": null,
       "usage_references": 15
@@ -5465,7 +5525,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 474,
+      "source_line": 479,
       "summary": "which resolved multi-Y column is used as the beta-stage response: combined (default), log_bf, or prob",
       "type": null,
       "usage_references": 26
@@ -5486,7 +5546,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 477,
+      "source_line": 482,
       "summary": "file of trait labels to exclude from --multi-y-in before batching",
       "type": null,
       "usage_references": 10
@@ -5507,7 +5567,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 476,
+      "source_line": 481,
       "summary": "expert beta-mode optimization: process traits in each --multi-y-in batch as parallel beta problems",
       "type": null,
       "usage_references": 23
@@ -5528,7 +5588,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 377,
+      "source_line": 382,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5549,7 +5609,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 376,
+      "source_line": 381,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5570,7 +5630,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 443,
+      "source_line": 448,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5591,7 +5651,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 414,
+      "source_line": 419,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -5612,7 +5672,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 380,
+      "source_line": 385,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5633,7 +5693,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 419,
+      "source_line": 424,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -5654,10 +5714,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 275,
+      "source_line": 280,
       "summary": null,
       "type": null,
-      "usage_references": 5
+      "usage_references": 6
     },
     {
       "action": "store_false",
@@ -5696,7 +5756,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 363,
+      "source_line": 368,
       "summary": null,
       "type": null,
       "usage_references": 20
@@ -5717,7 +5777,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 357,
+      "source_line": 362,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -5738,7 +5798,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 332,
+      "source_line": 337,
       "summary": null,
       "type": null,
       "usage_references": 4
@@ -5759,8 +5819,28 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 409,
+      "source_line": 414,
       "summary": null,
+      "type": null,
+      "usage_references": 2
+    },
+    {
+      "action": "store_false",
+      "category": "method_optional",
+      "default": null,
+      "deprecation_timeline": null,
+      "dest": "snp_factor_metadata",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--no-snp-factor-metadata"
+      ],
+      "help": "use legacy effector columns without collecting SNP-factor metadata (default)",
+      "primary_flag": "--no-snp-factor-metadata",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 159,
+      "summary": "use legacy effector columns without collecting SNP-factor metadata (default)",
       "type": null,
       "usage_references": 2
     },
@@ -5780,7 +5860,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 436,
+      "source_line": 441,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -5801,7 +5881,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 339,
+      "source_line": 344,
       "summary": "compatibility alias for --track-filtered-beta-uncorrected-mode none",
       "type": null,
       "usage_references": 12
@@ -5822,7 +5902,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 446,
+      "source_line": 451,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -5843,7 +5923,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 498,
+      "source_line": 503,
       "summary": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
       "type": null,
       "usage_references": 4
@@ -5864,7 +5944,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 505,
+      "source_line": 510,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
       "usage_references": 26
@@ -5885,7 +5965,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 539,
+      "source_line": 544,
       "summary": null,
       "type": "int",
       "usage_references": 12
@@ -5927,7 +6007,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 484,
+      "source_line": 489,
       "summary": null,
       "type": "int",
       "usage_references": 2
@@ -5948,7 +6028,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 330,
+      "source_line": 335,
       "summary": null,
       "type": null,
       "usage_references": 12
@@ -5969,7 +6049,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 295,
+      "source_line": 300,
       "summary": "choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions",
       "type": null,
       "usage_references": 17
@@ -6032,7 +6112,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 315,
+      "source_line": 320,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
       "usage_references": 84
@@ -6053,7 +6133,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 344,
+      "source_line": 349,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -6074,7 +6154,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 416,
+      "source_line": 421,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -6095,7 +6175,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 301,
+      "source_line": 306,
       "summary": "deprecated expert gene-level PheWAS output surface: matched or diagnostic",
       "type": null,
       "usage_references": 16
@@ -6116,7 +6196,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 280,
+      "source_line": 285,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -6137,7 +6217,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 290,
+      "source_line": 295,
       "summary": "write deprecated expert gene-level PheWAS output table",
       "type": null,
       "usage_references": 21
@@ -6158,7 +6238,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 294,
+      "source_line": 299,
       "summary": "replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file",
       "type": null,
       "usage_references": 15
@@ -6179,7 +6259,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 293,
+      "source_line": 298,
       "summary": "load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns",
       "type": null,
       "usage_references": 18
@@ -6200,7 +6280,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 292,
+      "source_line": 297,
       "summary": "write bundled fixed-Y PIGEAN inputs for later beta-only annotation-exclusion reruns",
       "type": null,
       "usage_references": 17
@@ -6221,7 +6301,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 212,
+      "source_line": 217,
       "summary": "compatibility alias for --gene-list-all-id-col",
       "type": null,
       "usage_references": 12
@@ -6242,7 +6322,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 211,
+      "source_line": 216,
       "summary": "compatibility alias for --gene-list-all-in",
       "type": null,
       "usage_references": 23
@@ -6263,7 +6343,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 213,
+      "source_line": 218,
       "summary": "compatibility alias for --gene-list-all-no-header",
       "type": null,
       "usage_references": 9
@@ -6284,7 +6364,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 209,
+      "source_line": 214,
       "summary": "compatibility alias for --gene-list-default-prob",
       "type": "float",
       "usage_references": 4
@@ -6305,7 +6385,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 206,
+      "source_line": 211,
       "summary": "compatibility alias for --gene-list-id-col",
       "type": null,
       "usage_references": 8
@@ -6326,7 +6406,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 205,
+      "source_line": 210,
       "summary": "compatibility alias for --gene-list-in",
       "type": null,
       "usage_references": 29
@@ -6347,7 +6427,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 208,
+      "source_line": 213,
       "summary": "compatibility alias for --gene-list",
       "type": "string",
       "usage_references": 38
@@ -6368,7 +6448,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 210,
+      "source_line": 215,
       "summary": "compatibility alias for --gene-list-no-header",
       "type": null,
       "usage_references": 6
@@ -6389,7 +6469,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 207,
+      "source_line": 212,
       "summary": "compatibility alias for --gene-list-prob-col",
       "type": null,
       "usage_references": 6
@@ -6410,7 +6490,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 354,
+      "source_line": 359,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -6431,7 +6511,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 355,
+      "source_line": 360,
       "summary": null,
       "type": "int",
       "usage_references": 6
@@ -6452,7 +6532,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 326,
+      "source_line": 331,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
       "usage_references": 121
@@ -6473,7 +6553,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 348,
+      "source_line": 353,
       "summary": null,
       "type": "int",
       "usage_references": 7
@@ -6494,7 +6574,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 385,
+      "source_line": 390,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -6515,7 +6595,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 383,
+      "source_line": 388,
       "summary": null,
       "type": "float",
       "usage_references": 27
@@ -6536,7 +6616,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 493,
+      "source_line": 498,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -6557,7 +6637,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 540,
+      "source_line": 545,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -6578,7 +6658,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 335,
+      "source_line": 340,
       "summary": "for pure betas runs, preserve independent beta_uncorrected for gene sets dropped only by the expensive max-num-gene-sets cap",
       "type": null,
       "usage_references": 18
@@ -6599,7 +6679,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 299,
+      "source_line": 304,
       "summary": "deprecated expert: run the legacy gene-level PheWAS output stage",
       "type": null,
       "usage_references": 73
@@ -6620,7 +6700,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 300,
+      "source_line": 305,
       "summary": "deprecated hidden compatibility alias for --run-phewas plus --gene-phewas-stats-in",
       "type": null,
       "usage_references": 25
@@ -6641,7 +6721,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 173,
+      "source_line": 178,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6662,7 +6742,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 175,
+      "source_line": 180,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6683,7 +6763,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 172,
+      "source_line": 177,
       "summary": "load SNP-to-gene mappings used during HuGE score construction",
       "type": null,
       "usage_references": 7
@@ -6704,7 +6784,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 177,
+      "source_line": 182,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -6725,7 +6805,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 174,
+      "source_line": 179,
       "summary": null,
       "type": null,
       "usage_references": 6
@@ -6746,7 +6826,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 176,
+      "source_line": 181,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -6767,7 +6847,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 415,
+      "source_line": 420,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -6788,10 +6868,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 323,
+      "source_line": 328,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": null,
@@ -6956,7 +7036,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 429,
+      "source_line": 434,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -6977,7 +7057,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 428,
+      "source_line": 433,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -6998,7 +7078,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 427,
+      "source_line": 432,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -7019,7 +7099,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 480,
+      "source_line": 485,
       "summary": "simulation-only noise scale for generated log Bayes factors",
       "type": "float",
       "usage_references": 5
@@ -7040,10 +7120,30 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 481,
+      "source_line": 486,
       "summary": "simulation-only: constrain synthetic effects to positive values",
       "type": null,
       "usage_references": 5
+    },
+    {
+      "action": "store_true",
+      "category": "method_optional",
+      "default": "False",
+      "deprecation_timeline": null,
+      "dest": "snp_factor_metadata",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--snp-factor-metadata"
+      ],
+      "help": "opt in to SNP-factor effector/cache metadata and extended effector columns",
+      "primary_flag": "--snp-factor-metadata",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 158,
+      "summary": "opt in to SNP-factor effector/cache metadata and extended effector columns",
+      "type": null,
+      "usage_references": 6
     },
     {
       "action": null,
@@ -7061,7 +7161,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 439,
+      "source_line": 444,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7082,7 +7182,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 437,
+      "source_line": 442,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -7103,7 +7203,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 438,
+      "source_line": 443,
       "summary": null,
       "type": "float",
       "usage_references": 2
@@ -7124,7 +7224,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 435,
+      "source_line": 440,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -7145,7 +7245,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 529,
+      "source_line": 534,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7166,7 +7266,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 528,
+      "source_line": 533,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7187,7 +7287,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 527,
+      "source_line": 532,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7208,7 +7308,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 510,
+      "source_line": 515,
       "summary": null,
       "type": "int",
       "usage_references": 7
@@ -7229,7 +7329,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 531,
+      "source_line": 536,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7250,7 +7350,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 530,
+      "source_line": 535,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7271,7 +7371,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 526,
+      "source_line": 531,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7292,7 +7392,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 511,
+      "source_line": 516,
       "summary": "quantile across monitored effects and genes used for precision stopping",
       "type": "float",
       "usage_references": 4
@@ -7313,7 +7413,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 524,
+      "source_line": 529,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7334,7 +7434,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 512,
+      "source_line": 517,
       "summary": "number of consecutive passing precision checks required to stop",
       "type": "int",
       "usage_references": 7
@@ -7355,7 +7455,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 523,
+      "source_line": 528,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7376,7 +7476,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 515,
+      "source_line": 520,
       "summary": "tighten Gibbs stopping thresholds relative to the default lenient preset",
       "type": null,
       "usage_references": 9
@@ -7397,7 +7497,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 379,
+      "source_line": 384,
       "summary": null,
       "type": "float",
       "usage_references": 6
@@ -7418,7 +7518,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 447,
+      "source_line": 452,
       "summary": null,
       "type": "float",
       "usage_references": 4
@@ -7460,7 +7560,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 492,
+      "source_line": 497,
       "summary": "maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default",
       "type": "int",
       "usage_references": 15
@@ -7481,7 +7581,7 @@
       "public_visibility": "hidden",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 338,
+      "source_line": 343,
       "summary": "compatibility alias for --track-filtered-beta-uncorrected-mode all",
       "type": null,
       "usage_references": 34
@@ -7502,7 +7602,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 337,
+      "source_line": 342,
       "summary": "for betas/gibbs runs, choose which ignored gene sets keep tracked beta_uncorrected sidecars: none, all, or cap_only (default)",
       "type": "string",
       "usage_references": 22
@@ -7565,7 +7665,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 306,
+      "source_line": 311,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -7586,7 +7686,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 516,
+      "source_line": 521,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -7607,7 +7707,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 543,
+      "source_line": 548,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -7628,7 +7728,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 496,
+      "source_line": 501,
       "summary": null,
       "type": null,
       "usage_references": 2
@@ -7649,7 +7749,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 334,
+      "source_line": 339,
       "summary": null,
       "type": "int",
       "usage_references": 5
@@ -7670,7 +7770,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 497,
+      "source_line": 502,
       "summary": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
       "type": null,
       "usage_references": 4
@@ -7691,7 +7791,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 319,
+      "source_line": 324,
       "summary": "write warning messages to this file",
       "type": null,
       "usage_references": 23
@@ -7712,7 +7812,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 384,
+      "source_line": 389,
       "summary": null,
       "type": "float",
       "usage_references": 15
@@ -7733,7 +7833,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 486,
+      "source_line": 491,
       "summary": "append globally filtered Gibbs sensitivity columns to gene-set outputs without changing the primary raw summary",
       "type": null,
       "usage_references": 4
@@ -7775,14 +7875,14 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 374,
+      "source_line": 379,
       "summary": null,
       "type": "string",
       "usage_references": 6
     }
   ],
   "visibilities": {
-    "expert": 326,
+    "expert": 331,
     "hidden": 9,
     "normal": 35
   }

@@ -17,6 +17,10 @@ def main(argv=None):
         should_continue = eaggl_cli._bootstrap_cli(argv)
         if not should_continue:
             return 0
+        if getattr(eaggl_cli.options, "_snp_factor_standalone", False):
+            from .snp_factor.runner import run_cli as run
+            run(eaggl_cli.options)
+            return 0
         if eaggl_cli.mode == "label":
             eaggl_label.run_label_command(
                 eaggl_cli.options,

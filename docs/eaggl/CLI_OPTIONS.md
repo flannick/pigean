@@ -5,15 +5,15 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `305`
+- Total options: `338`
 - `method_required`: `11`
-- `method_optional`: `191`
-- `engineering`: `86`
+- `method_optional`: `220`
+- `engineering`: `90`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `249`
+- visibility `expert`: `275`
 - visibility `hidden`: `8`
-- visibility `normal`: `48`
+- visibility `normal`: `55`
 
 ## Method Required
 
@@ -208,7 +208,36 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
 | `--run-factor-phewas` | `expert` | `yes` | `advanced_workflows` | `run_factor_phewas` | `False` | run the optional factor-level phewas stage |
 | `--run-phewas` | `expert` | `yes` | `advanced_workflows` | `run_phewas` | `False` | deprecated expert: run the legacy gene-level PheWAS output stage |
+| `--run-snp-factor-phewas` | `normal` | `yes` | `core_help` | `run_snp_factor_phewas` | `False` | run SNP-based marginal and joint factor associations |
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
+| `--snp-factor-effect-weight-anchor` | `normal` | `yes` | `core_help` | `snp_factor_effect_weight_anchor` | `None` | weight scores by signed anchor effect magnitudes |
+| `--snp-factor-gene-effectors-in` | `normal` | `yes` | `core_help` | `snp_factor_gene_effectors_in` | `None` | PIGEAN gene-effector input; repeatable |
+| `--snp-factor-gene-weight` | `expert` | `yes` | `expert_help` | `snp_factor_gene_weight` | `signal_gene_weight` | effector weight column; expert override |
+| `--snp-factor-genome-build` | `expert` | `yes` | `expert_help` | `snp_factor_genome_build` | `None` | genome build for SNP weights and exports |
+| `--snp-factor-joint-factor-policy` | `expert` | `yes` | `expert_help` | `snp_factor_joint_factor_policy` | `all` | all requires complete-roster coverage; covered fits only factors passing coverage for each trait |
+| `--snp-factor-ld-ancestry` | `expert` | `yes` | `expert_help` | `snp_factor_ld_ancestry` | `European` | ancestry of LD reference; Mixed use is explicitly approximate |
+| `--snp-factor-ld-bfile` | `expert` | `yes` | `expert_help` | `snp_factor_ld_bfile` | `None` | PLINK BED/BIM/FAM reference prefix |
+| `--snp-factor-ld-build` | `expert` | `yes` | `expert_help` | `snp_factor_ld_build` | `None` | documented LD reference genome build; must agree with score weights |
+| `--snp-factor-ld-in` | `expert` | `yes` | `expert_help` | `snp_factor_ld_in` | `None` | LD table, matrix, or clump/proxy file |
+| `--snp-factor-ld-matrix-kind` | `expert` | `yes` | `expert_help` | `snp_factor_ld_matrix_kind` | `None` | explicit correlation type for legacy LD matrices |
+| `--snp-factor-ld-variants-in` | `expert` | `yes` | `expert_help` | `snp_factor_ld_variants_in` | `None` | allele-resolved LD variant map or BIM file |
+| `--snp-factor-memory-mb` | `expert` | `yes` | `expert_help` | `snp_factor_memory_mb` | `512` | SNP stage memory budget in MiB |
+| `--snp-factor-min-coverage` | `expert` | `yes` | `expert_help` | `snp_factor_min_coverage` | `0.9` | minimum represented factor weight |
+| `--snp-factor-min-info` | `expert` | `yes` | `expert_help` | `snp_factor_min_info` | `0.8` | INFO threshold when available |
+| `--snp-factor-min-maf` | `expert` | `yes` | `expert_help` | `snp_factor_min_maf` | `0.01` | MAF threshold when available |
+| `--snp-factor-phewas-dig-all` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_dig_all` | `False` | include all DIG traits for selected ancestries |
+| `--snp-factor-phewas-dig-ancestry` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_dig_ancestry` | `None` | DIG ancestry selector; default Mixed |
+| `--snp-factor-phewas-dig-id` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_dig_id` | `None` | DIG trait identifier; repeatable |
+| `--snp-factor-phewas-dig-id-list` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_dig_id_list` | `None` | file of DIG identifiers; repeatable |
+| `--snp-factor-phewas-gwas-in` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_gwas_in` | `None` | target GWAS file; repeatable |
+| `--snp-factor-phewas-gwas-list` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_gwas_list` | `None` | list or manifest of target GWAS files; repeatable |
+| `--snp-factor-phewas-regression-scope` | `expert` | `yes` | `expert_help` | `snp_factor_phewas_regression_scope` | `both` | regression scopes; default both |
+| `--snp-factor-proxy-r2` | `expert` | `yes` | `expert_help` | `snp_factor_proxy_r2` | `0.8` | minimum known proxy r2 |
+| `--snp-factor-proxy-window` | `expert` | `yes` | `expert_help` | `snp_factor_proxy_window` | `1000000` | maximum proxy distance in bases |
+| `--snp-factor-sign-anchor` | `normal` | `yes` | `core_help` | `snp_factor_sign_anchor` | `None` | orient score alleles using anchor directions only |
+| `--snp-factor-training-source` | `expert` | `yes` | `expert_help` | `snp_factor_training_source` | `None` | training source identifier for overlap provenance |
+| `--snp-factor-trait-batch-size` | `expert` | `yes` | `expert_help` | `snp_factor_trait_batch_size` | `32` | maximum vectorized target trait batch |
+| `--snp-factor-weights-in` | `normal` | `yes` | `core_help` | `snp_factor_weights_in` | `None` | reload authoritative native SNP factor weights |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
@@ -315,6 +344,10 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
 | `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
 | `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
+| `--snp-factor-phewas-stats-out` | `normal` | `no` | `core_help` | `snp_factor_phewas_stats_out` | `None` | SNP factor association output; default snp_factor_phewas.tsv.gz |
+| `--snp-factor-weights-out` | `normal` | `no` | `core_help` | `snp_factor_weights_out` | `None` | write reusable SNP factor weights without requiring PheWAS |
+| `--snp-factor-weights-pgs-out` | `expert` | `no` | `expert_help` | `snp_factor_weights_pgs_out` | `None` | write anchored factor scores in PGS-style files |
+| `--snp-factor-weights-plink-out` | `expert` | `no` | `expert_help` | `snp_factor_weights_plink_out` | `None` | write anchored factor scores in PLINK dosage format |
 | `--trait-factor-links-out` | `normal` | `no` | `core_help` | `trait_factor_links_out` | `None` | write the canonical long-form trait-factor linkage table |
 | `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
 

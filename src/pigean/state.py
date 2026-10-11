@@ -881,6 +881,7 @@ class PigeanState(object):
         gene_bf_data_detect,
         gene_prob_genes,
         gene_prob_col_num,
+        lead_identity=None,
     ):
         gene_prob_rows += list(len(gene_prob_genes) + cur_gene_indices)
         gene_prob_rows_detect += list(len(gene_prob_genes) + cur_gene_indices_detect)
@@ -892,6 +893,14 @@ class PigeanState(object):
         gene_bf_data_detect += list(cur_gene_po_detect / self.background_bf)
 
         self.huge_signals.append((chrom, var_pos[lead_index], var_p[lead_index], is_input_cs))
+        if getattr(self, "_collect_signal_gene_weights", False):
+            if not hasattr(self, "huge_signal_gene_records"):
+                self.huge_signal_gene_records = []
+            self.huge_signal_gene_records.append(dict(
+                identity=lead_identity or {},
+                weights=dict(getattr(self, "_current_signal_gene_weight", {})),
+                signal_id="%s:%d:%d" % (chrom, var_pos[lead_index], len(self.huge_signals)),
+                method="conditional_variant_linkage_v1"))
         self.huge_signal_posteriors.append(sig_posterior)
         self.huge_signal_posteriors_for_regression.append(sig_posterior_detect)
 
@@ -1153,6 +1162,11 @@ class PigeanState(object):
             var_offset_norm = 1
 
         var_offset_prob *= var_offset_norm
+
+        if getattr(self, "_collect_signal_gene_weights", False):
+            from pegs_shared.snp_effectors import signal_gene_allocations
+            self._last_signal_gene_weight = signal_gene_allocations(
+                var_gene_index, var_offset_prob, full_prob, gene_name_to_index)
 
         (cur_gene_prob_causal_no_norm, cur_gene_indices_no_norm, cur_gene_po_no_norm) = self._aggregate_huge_var_gene_index(
             var_gene_index=var_gene_index,
@@ -1868,6 +1882,9 @@ class PigeanState(object):
             max_offset=max_num_indices,
         )
 
+        if getattr(self, "_collect_signal_gene_weights", False):
+            self._current_signal_gene_weight = dict(getattr(self, "_last_signal_gene_weight", {}))
+
         if separate_detect:
             (
                 cur_gene_prob_causal_detect,
@@ -1996,6 +2013,8 @@ class PigeanState(object):
         initial_gwas_low_p = gwas_low_p
         if gwas_z_source not in ("auto", "p", "beta-se"):
             bail("--gwas-z-source must be auto, p, or beta-se")
+        self._collect_signal_gene_weights = kwargs.get("collect_signal_gene_weights", False)
+
         (signal_window_size, signal_max_logp_ratio) = _validate_and_normalize_huge_gwas_inputs(
             gwas_in=gwas_in,
             gene_loc_file=gene_loc_file,
@@ -2157,6 +2176,10 @@ class PigeanState(object):
             if gwas_filter_col is not None:
                 filter_col = _get_col(gwas_filter_col, header_cols)
 
+            variant_header = {h.lower(): i for i,h in enumerate(header_cols)}
+            effect_allele_col = _get_col(kwargs["gwas_effect_allele_col"], header_cols) if kwargs.get("gwas_effect_allele_col") is not None else None
+            other_allele_col = _get_col(kwargs["gwas_other_allele_col"], header_cols) if kwargs.get("gwas_other_allele_col") is not None else None
+            from pegs_shared.snp_effectors import variant_metadata
             chrom_pos_p_beta_se_freq = {}
             seen_chrom_pos = {}
 
@@ -2332,7 +2355,15 @@ class PigeanState(object):
                 if gwas_z_source == "beta-se":
                     # Preserve row identity even for duplicate positions. Used only for diagnostics.
                     variant += (observed_p,)
+                identity = None
+                if self._collect_signal_gene_weights:
+                    identity = variant_metadata(cols, variant_header, chrom, pos,
+                        build=kwargs.get("gwas_build", ""), beta=beta, freq=(None if freq_col is not None and header_cols[freq_col].lower() in ("maf", "minor_allele_frequency") else freq), effect_col=effect_allele_col, other_col=other_allele_col)
+                if self._collect_signal_gene_weights:
+                    if gwas_z_source != "beta-se": variant += (None,)
+                    variant += (identity,)
                 chrom_pos_p_beta_se_freq[chrom].append(variant)
+
                 if chrom not in seen_chrom_pos:
                     seen_chrom_pos[chrom] = set()
                 seen_chrom_pos[chrom].add(pos)
@@ -2445,6 +2476,7 @@ class PigeanState(object):
 
                     chrom_pos_p_beta_se_freq[chrom].sort(key=lambda k: k[0])
                     vars_zipped = list(zip(*chrom_pos_p_beta_se_freq[chrom]))
+                    identity_by_pos = dict(zip(vars_zipped[0], vars_zipped[8])) if self._collect_signal_gene_weights and len(vars_zipped) > 8 else {}
 
                     if len(vars_zipped) == 0:
                         continue
@@ -2769,6 +2801,7 @@ class PigeanState(object):
                                 gene_bf_data_detect=gene_bf_data_detect,
                                 gene_prob_genes=gene_prob_genes,
                                 gene_prob_col_num=gene_prob_col_num,
+                                lead_identity=identity_by_pos.get(int(var_pos[i]), {}),
                             )
 
                 if not learn_params:
@@ -4539,6 +4572,8 @@ class PigeanState(object):
             if self.combined_Ds is not None:
                 header = "%s\t%s" % (header, "combined_D")
 
+            if getattr(self, "_collect_signal_gene_weights", False):
+                header += "\tsignal_gene_weight\tsignal_id\tlead_variant\tgenome_build\tweight_method\treference_frequency"
             output_fh.write("%s\n" % header)
 
             for signal_ind in range(len(self.huge_signals)):
@@ -4585,6 +4620,16 @@ class PigeanState(object):
                     if self.combined_Ds is not None:
                         line = "%s\t%.3g" % (line, self.combined_Ds[gene_ind])
 
+                    if getattr(self, "_collect_signal_gene_weights", False):
+                        records = getattr(self, "huge_signal_gene_records", [])
+                        record = records[signal_ind] if signal_ind < len(records) else {}
+                        identity = record.get("identity", {})
+                        variant = "%s:%s:%s:%s" % (identity.get("chrom", ""), identity.get("pos", ""), identity.get("ref", ""), identity.get("alt", "")) if identity.get("ref") and identity.get("alt") else "NA"
+                        weight = record.get("weights", {}).get(self.genes[gene_ind])
+                        line += "\t%s\t%s\t%s\t%s\t%s\t%s" % (
+                            "%.17g" % weight if weight is not None else "NA",
+                            record.get("signal_id", "NA"), variant, identity.get("build", "") or "NA",
+                            record.get("method", "legacy"), identity.get("frequency") if identity.get("frequency") is not None else "NA")
                     output_fh.write("%s\n" % line)
 
 

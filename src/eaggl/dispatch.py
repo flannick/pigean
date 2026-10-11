@@ -53,6 +53,10 @@ def run_main_pipeline(domain, options):
     if domain._should_run_main_factor_phewas_stage(mode_state):
         factor_phewas_stage_result = domain._run_main_factor_phewas_stage(state, options)
 
+    from .snp_factor.runner import requested as snp_requested, run_cli as run_snp_stage
+    if snp_requested(options):
+        run_snp_stage(options, state)
+
     outputs_written = {
         "primary_params_out": options.params_out,
         "clustering_params_out": options.clustering_params_out,

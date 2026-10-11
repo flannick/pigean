@@ -761,6 +761,8 @@ def write_huge_statistics_bundle(domain, runtime_state, prefix, gene_bf, extra_g
         huge_signal_bfs_for_regression,
         json_safe_fn=domain._json_safe,
     )
+    if runtime_state.get("huge_signal_gene_records"):
+        meta["signal_gene_records"] = runtime_state["huge_signal_gene_records"]
     with domain.open_gz(paths["meta"], 'w') as out_fh:
         domain.json.dump(meta, out_fh, sort_keys=True)
         out_fh.write("\n")
@@ -811,6 +813,7 @@ def read_huge_statistics_bundle(domain, runtime_state, prefix):
     with domain.open_gz(paths["meta"]) as in_fh:
         meta = domain.json.load(in_fh)
 
+    runtime_state["huge_signal_gene_records"] = meta.get("signal_gene_records", [])
     if meta.get("recorded_params") is not None:
         runtime_state["params"] = meta["recorded_params"]
     if meta.get("recorded_param_keys") is not None:
@@ -881,6 +884,7 @@ def read_huge_statistics_bundle(domain, runtime_state, prefix):
 
 def initialize_huge_gwas_state(domain):
     domain.huge_signals = []
+    domain.huge_signal_gene_records = []
     domain.huge_signal_posteriors = []
     domain.huge_signal_posteriors_for_regression = []
     domain.huge_signal_sum_gene_cond_probabilities = []
