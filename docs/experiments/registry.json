@@ -1,0 +1,364 @@
+{
+  "baseline_commit": "ca12beeba4a80fb829695ec992718e05465c4e73",
+  "baseline_remote": "https://github.com/flannick/pigean",
+  "date": "2026-10-11",
+  "policy": "All blockwise and historical local debug experiments are abandoned; retain files without porting. No remote URL credentials are recorded.",
+  "entries": [
+    {
+      "repository": "pigean",
+      "branch": "codex/cached-huge-calibration",
+      "commit": "911c5102464c6ab0316beca5fc3ab1c73aab7424",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/cached-huge-calibration-pr-20261002",
+      "commit": "937eb41a35277ff7d383e66e56fbbcbcfd92b847",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/effect-priority-t2d-20260917",
+      "commit": "911c5102464c6ab0316beca5fc3ab1c73aab7424",
+      "status": "ACTIVE",
+      "feature": "variance_threshold",
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/gwas-z-mismatch-reporting",
+      "commit": "911c5102464c6ab0316beca5fc3ab1c73aab7424",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/gwas-z-source-20260923",
+      "commit": "b205dc1fc00aee9db8aafb6ab3ea45de9078efc1",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/prefer-p-derived-huge-z",
+      "commit": "911c5102464c6ab0316beca5fc3ab1c73aab7424",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "codex/revert-accidental-cached-huge-main-20261002",
+      "commit": "3cf91476d4a322fd8636a43ddc17253b6f942ee9",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diag/cad-factor-diagnostics",
+      "commit": "af4585f63a89538511e22cf287e6d045b0d5b2d9",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diag/legacy-vs-current-factoring",
+      "commit": "fd69c62a403a047f5532cbdbba89a22ead1b4301",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/gene-gene-pair-size-alpha",
+      "commit": "97b3ea9828e8d7ffe9a31e9881b9dc59971a5c66",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/gibbs-burn-stall-advisory-20260826",
+      "commit": "6675defef85010b8b5207e9eec6acef7f4fba4b1",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/historical-202411-parity",
+      "commit": "388dfc77d26fdf36344570a19c44595eaf05681c",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/literal-old-gibbs-20260817",
+      "commit": "4c0a1414b18c404880d0f7f8fd40aa326d99afac",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/nafld-inner-beta-burn-decoupled-20260822",
+      "commit": "b5a69c7182d0586577adcb26f053d032dc7097b0",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/nafld-old-survival-20260819",
+      "commit": "b5a69c7182d0586577adcb26f053d032dc7097b0",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "diagnostic/new-investigation-2026-05-17",
+      "commit": "64b7127d7842b9618c9594be173cad83c754c05a",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "fix-huge-explicit-universe-alignment",
+      "commit": "5ad972c27eddbb9ceda4c3bd03fbc9426938d448",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "fix/eaggl-gene-set-routed-default",
+      "commit": "fcd6b43f72036d36df2e5d737f57966ec4460d19",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "fix/gibbs-adaptive-stall-minimal-20260826",
+      "commit": "5d6c2b284e76b33fcb888884aeeff15c66834473",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "fix/gibbs-fixed500-default-20260826",
+      "commit": "f21a14a7177920849eb9fed9233c1e974deb25dc",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "fix/robust-gwas-information-qc-20260908",
+      "commit": "004bab22bcab7d99b9849f64a2eab713ce995b57",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "gene_x_gene_factoring",
+      "commit": "1df797003bcd22398b68068d47908bc08296d385",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean",
+      "branch": "main",
+      "commit": "dcfc2fd0a33ec22afdc3568f6125d84dca96a845",
+      "status": "STALE_BASELINE",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "blockwise-factor-redesign",
+      "commit": "dc4c22028c7b032fa5c7cf09659cc14a26b15a02",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "debug-bmp4-prior-trace",
+      "commit": "107acbe63efd579234fed16bafb74519d506fda2",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "eaggl-debug-sandbox",
+      "commit": "b3b432ca08ff99096a54470562f84ee41e3ad75b",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "eaggl-redundancy",
+      "commit": "d73ce4f1757c50214b1af430973da63bd24efaea",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "eaggl_select_phi",
+      "commit": "28c4aaa905e1240305f9ff34b6c0fc85132a10e1",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "main",
+      "commit": "d73ce4f1757c50214b1af430973da63bd24efaea",
+      "status": "STALE_BASELINE",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "pigean_blockwise",
+      "branch": "safety/eaggl-redundancy-pre-main-merge-20260421",
+      "commit": "28c4be80f3d5a6a0186db76a029b2460f42c4f3b",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "worktrees/snp-factor-phewas",
+      "branch": "codex/gene-phewas-robustness",
+      "commit": "16374d783dd1f544eda0ab1d3809a038ce5c73a8",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "worktrees/snp-factor-phewas",
+      "branch": "codex/snp-factor-phewas",
+      "commit": "03b8a698f03743847abb323254bc39f76f511582",
+      "status": "ACTIVE",
+      "feature": "fps",
+      "dependencies": []
+    },
+    {
+      "repository": "worktrees/snp-factor-phewas",
+      "branch": "main",
+      "commit": "5b8c1bbe0a269496e62fbb1661d166d6aa10a119",
+      "status": "STALE_BASELINE",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "diagnostic/nafld-sampler-pathology-20260829",
+      "commit": "66a21a307b265c325148c09d87bed3db2ec1326e",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "feature/gibbs-reruns-20260828",
+      "commit": "6af4c5b8db95edb73d5af6959d1944b8d012a9be",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "fix/adaptive-gibbs-recovery-20260901",
+      "commit": "b99b8601d9ae48ed7f2440eb3dcddd73d1713888",
+      "status": "ABANDONED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "fix/gibbs-fixed500-default-20260827",
+      "commit": "112d23211a11b06739a23002716d5adfcbff25e2",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "fix/gwas-column-qc-20260902",
+      "commit": "8adff49361ca580a47b308582f6496940c7728f6",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "results/gibbs_fixed500_default_2026-08-27/pigean_worktree",
+      "branch": "main",
+      "commit": "1325f43dbc5e8b20319ec2e826391babf8f369b8",
+      "status": "STALE_BASELINE",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "worktrees/eaggl-supplied-factor-projection-20260925",
+      "branch": "codex/supplied-factor-projection",
+      "commit": "fe3511a1a4af6447497a2a2393801fce2e7fa06a",
+      "status": "MERGED",
+      "feature": null,
+      "dependencies": []
+    },
+    {
+      "repository": "worktrees/eaggl-supplied-factor-projection-20260925",
+      "branch": "main",
+      "commit": "5b8c1bbe0a269496e62fbb1661d166d6aa10a119",
+      "status": "STALE_BASELINE",
+      "feature": null,
+      "dependencies": []
+    }
+  ],
+  "active_ports": {
+    "fps": {
+      "source": "worktrees/snp-factor-phewas",
+      "snapshot": "provenance/feature_foundation_20261011/fps/manifest.json",
+      "destination": "worktrees/fps-port",
+      "branch": "codex/fps-port",
+      "dependencies": [
+        "experiment-foundation"
+      ],
+      "flags": [
+        "--run-snp-factor-phewas",
+        "--snp-factor-weights-out"
+      ]
+    },
+    "variance_threshold": {
+      "source": "results/effect_priority_T2D_20260917/worktree",
+      "snapshot": "provenance/feature_foundation_20261011/variance_threshold/manifest.json",
+      "destination": "worktrees/variance-threshold-port",
+      "branch": "codex/variance-threshold-port",
+      "dependencies": [
+        "experiment-foundation",
+        "cached-HuGE support already merged in main"
+      ],
+      "flags": [
+        "--signal-weighting association|effect-priority"
+      ]
+    }
+  }
+}
