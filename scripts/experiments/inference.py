@@ -8,6 +8,7 @@ import pickle
 import random
 import sys
 import time
+import subprocess
 import numpy as np
 
 
@@ -19,20 +20,26 @@ def main():
     parser.add_argument('--fixture',required=True)
     parser.add_argument('--out')
     parser.add_argument('--seed',type=int)
-    args,command=parser.parse_known_args()
+    argv=sys.argv[1:]
+    split=argv.index('--') if '--' in argv else len(argv)
+    args=parser.parse_args(argv[:split]);command=argv[split+1:]
     fixture=Path(args.fixture)
     if args.mode=='capture':
+        if args.seed is not None:raise ValueError('Pass capture seed to Gibbs after --')
         if fixture.exists():raise ValueError('Refusing to overwrite fixture')
         fixture.parent.mkdir(parents=True,exist_ok=True)
         from pigean.state import PigeanState
         def capture(state,**kwargs):
             with gzip.open(fixture,'wb') as handle:
                 pickle.dump({'state':state,'kwargs':kwargs,'numpy_rng':np.random.get_state(),'python_rng':random.getstate()},handle,protocol=5)
-            fixture.with_suffix(fixture.suffix+'.json').write_text(json.dumps({'sha256':sha(fixture),'format':1,'trust':'local trusted fixture only','kwargs':kwargs},indent=2)+'\n')
+            import pigean
+            repo=Path(pigean.__file__).resolve().parents[2]
+            commit=subprocess.check_output(['git','-C',str(repo),'rev-parse','HEAD'],text=True).strip()
+            dirty=bool(subprocess.check_output(['git','-C',str(repo),'status','--porcelain'],text=True).strip())
+            fixture.with_suffix(fixture.suffix+'.json').write_text(json.dumps({'sha256':sha(fixture),'format':1,'trust':'local trusted fixture only','kwargs':kwargs,'capture_command':command,'source_commit':commit,'source_dirty':dirty,'python':sys.version},indent=2)+'\n')
             raise SystemExit(0)
         PigeanState.run_gibbs=capture
         import pigean
-        if command and command[0]=='--':command=command[1:]
         rc=pigean.main(command)
         if not fixture.exists():raise ValueError('No Gibbs boundary reached')
         return rc
@@ -42,7 +49,10 @@ def main():
     with gzip.open(fixture,'rb') as handle: data=pickle.load(handle)
     np.random.set_state(data['numpy_rng']);random.setstate(data['python_rng'])
     if args.seed is not None:np.random.seed(args.seed);random.seed(args.seed)
+    if not args.out:raise ValueError('Replay requires --out')
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
+    if any((out/name).exists() for name in ('gene_stats.out.gz','gene_set_stats.out.gz','inference_metrics.json')):
+        raise ValueError('Refusing to overwrite replay outputs')
     started=time.perf_counter();data['state'].run_gibbs(**data['kwargs']);elapsed=time.perf_counter()-started
     data['state'].write_gene_statistics(str(out/'gene_stats.out.gz'),output_detail='full')
     data['state'].write_gene_set_statistics(str(out/'gene_set_stats.out.gz'),output_detail='full')

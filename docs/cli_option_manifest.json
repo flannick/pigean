@@ -72,7 +72,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 161
+      "usage_references": 162
     },
     {
       "action": "append",
@@ -1563,7 +1563,7 @@
       "source_line": 324,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 58
+      "usage_references": 59
     },
     {
       "action": null,
@@ -2529,7 +2529,7 @@
       "source_line": 266,
       "summary": "gene location table used for correlation and locus-aware operations",
       "type": null,
-      "usage_references": 86
+      "usage_references": 87
     },
     {
       "action": null,
@@ -2571,7 +2571,7 @@
       "source_line": 138,
       "summary": null,
       "type": null,
-      "usage_references": 41
+      "usage_references": 42
     },
     {
       "action": null,
@@ -3180,7 +3180,7 @@
       "source_line": 279,
       "summary": "write the final gene-set statistics table",
       "type": null,
-      "usage_references": 71
+      "usage_references": 72
     },
     {
       "action": null,
@@ -3348,7 +3348,7 @@
       "source_line": 283,
       "summary": "write the final gene-level statistics table",
       "type": null,
-      "usage_references": 66
+      "usage_references": 67
     },
     {
       "action": null,
@@ -3453,7 +3453,7 @@
       "source_line": 204,
       "summary": "use the union of genes across input gene sets as the analysis universe",
       "type": null,
-      "usage_references": 26
+      "usage_references": 27
     },
     {
       "action": "store_true",
@@ -3578,7 +3578,7 @@
       "source_line": 494,
       "summary": "inference engine; legacy preserves the established outer Gibbs implementation",
       "type": "choice",
-      "usage_references": 4
+      "usage_references": 6
     },
     {
       "action": null,
@@ -4208,7 +4208,7 @@
       "source_line": 322,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 31
+      "usage_references": 32
     },
     {
       "action": "store_true",
@@ -4229,7 +4229,7 @@
       "source_line": 321,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": null,
@@ -4859,7 +4859,7 @@
       "source_line": 491,
       "summary": "maximum outer Gibbs iterations in one epoch (500 by default)",
       "type": "int",
-      "usage_references": 37
+      "usage_references": 38
     },
     {
       "action": null,
@@ -4922,7 +4922,7 @@
       "source_line": 507,
       "summary": "maximum additional Gibbs epochs allowed after stall-triggered exits",
       "type": "int",
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,
@@ -5174,7 +5174,7 @@
       "source_line": 488,
       "summary": "minimum burn-in iterations before burn-in may end",
       "type": "int",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -5237,7 +5237,7 @@
       "source_line": 489,
       "summary": "minimum retained post-burn iterations before precision stopping may occur",
       "type": "int",
-      "usage_references": 20
+      "usage_references": 21
     },
     {
       "action": null,
@@ -5867,7 +5867,7 @@
       "source_line": 505,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
-      "usage_references": 24
+      "usage_references": 26
     },
     {
       "action": null,
@@ -5888,7 +5888,7 @@
       "source_line": 539,
       "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -5972,7 +5972,7 @@
       "source_line": 295,
       "summary": "choose output table detail level: main for curated scientific columns, full for the legacy wide tables, debug for future investigation-only additions",
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "append",
@@ -6350,7 +6350,7 @@
       "source_line": 208,
       "summary": "compatibility alias for --gene-list",
       "type": "string",
-      "usage_references": 37
+      "usage_references": 38
     },
     {
       "action": "store_false",
@@ -6791,7 +6791,7 @@
       "source_line": 323,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 39
+      "usage_references": 42
     },
     {
       "action": null,
@@ -7463,7 +7463,7 @@
       "source_line": 492,
       "summary": "maximum outer Gibbs iterations across all epochs; follows --max-num-iter by default",
       "type": "int",
-      "usage_references": 14
+      "usage_references": 15
     },
     {
       "action": "store_true",
