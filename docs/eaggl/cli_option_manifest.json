@@ -50,7 +50,7 @@
       "source_line": 106,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 161
+      "usage_references": 162
     },
     {
       "action": "append",
@@ -701,7 +701,7 @@
       "source_line": 316,
       "summary": null,
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": "store_true",
@@ -869,7 +869,7 @@
       "source_line": 255,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 58
+      "usage_references": 59
     },
     {
       "action": null,
@@ -2255,7 +2255,7 @@
       "source_line": 171,
       "summary": null,
       "type": null,
-      "usage_references": 81
+      "usage_references": 87
     },
     {
       "action": null,
@@ -2276,7 +2276,7 @@
       "source_line": 132,
       "summary": null,
       "type": null,
-      "usage_references": 41
+      "usage_references": 42
     },
     {
       "action": null,
@@ -2990,7 +2990,7 @@
       "source_line": 178,
       "summary": null,
       "type": null,
-      "usage_references": 71
+      "usage_references": 72
     },
     {
       "action": null,
@@ -3179,7 +3179,7 @@
       "source_line": 180,
       "summary": null,
       "type": null,
-      "usage_references": 66
+      "usage_references": 67
     },
     {
       "action": null,
@@ -3305,7 +3305,7 @@
       "source_line": 253,
       "summary": "suppress printing resolved options at startup",
       "type": null,
-      "usage_references": 31
+      "usage_references": 32
     },
     {
       "action": "store_true",
@@ -3326,7 +3326,7 @@
       "source_line": 252,
       "summary": "reduce progress logging noise during long runs",
       "type": null,
-      "usage_references": 24
+      "usage_references": 25
     },
     {
       "action": null,
@@ -5133,7 +5133,7 @@
       "source_line": 484,
       "summary": null,
       "type": "int",
-      "usage_references": 24
+      "usage_references": 26
     },
     {
       "action": null,
@@ -5154,7 +5154,7 @@
       "source_line": 489,
       "summary": null,
       "type": "int",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -5742,7 +5742,7 @@
       "source_line": 138,
       "summary": "compatibility alias for --gene-list",
       "type": "string",
-      "usage_references": 37
+      "usage_references": 38
     },
     {
       "action": null,
@@ -5805,7 +5805,7 @@
       "source_line": 257,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 120
+      "usage_references": 121
     },
     {
       "action": null,
@@ -5994,7 +5994,7 @@
       "source_line": 254,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 37
+      "usage_references": 42
     },
     {
       "action": null,
