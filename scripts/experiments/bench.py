@@ -18,6 +18,10 @@ import time
 
 VERSION = 1
 
+class PanelInconclusive(ValueError):
+    """A replicate panel cannot support the prespecified comparison."""
+
+
 def digest(path):
     h = hashlib.sha256()
     with Path(path).open('rb') as f:
@@ -150,7 +154,9 @@ def load_metric(paths, filename, key, value):
         if frame[key].isna().any() or frame[key].duplicated().any(): raise ValueError('Missing or duplicate identifiers')
         series.append(pd.to_numeric(frame.set_index(key)[value], errors='coerce'))
     if not series: raise ValueError('Empty run panel')
-    if any(set(s.index) != set(series[0].index) for s in series): raise ValueError('Within-panel universe changed')
+    if any(set(s.index) != set(series[0].index) for s in series): raise PanelInconclusive('Within-panel universe changed')
+    if any(not s.reindex(series[0].index).isna().equals(series[0].isna()) for s in series):
+        raise PanelInconclusive('Within-panel missingness changed; declare a stable scoring universe before comparison')
     # Require finite entries in every replicate; averaging must not hide missingness.
     return pd.concat(series, axis=1).mean(axis=1, skipna=False)
 
@@ -159,10 +165,15 @@ def metric(a, b):
     from scipy.stats import pearsonr, spearmanr
     union = a.index.union(b.index); x = a.reindex(union).to_numpy(); y = b.reindex(union).to_numpy()
     finite = np.isfinite(x) & np.isfinite(y)
+    shared_missing = np.isnan(x) & np.isnan(y)
+    unmatched_missing = np.isnan(x) ^ np.isnan(y)
+    invalid_nonfinite = np.isinf(x) | np.isinf(y)
     exact = set(a.index)==set(b.index) and bool(np.array_equal(x,y,equal_nan=True))
     x, y = x[finite], y[finite]
     valid = len(x) >= 3 and np.std(x) > 0 and np.std(y) > 0
     result = {'n_union': len(union), 'n_finite': len(x), 'n_missing': int((~finite).sum()),
+              'n_shared_missing':int(shared_missing.sum()),'n_unmatched_missing':int(unmatched_missing.sum()),
+              'n_invalid_nonfinite':int(invalid_nonfinite.sum()),
               'same_universe': set(a.index)==set(b.index), 'exact': exact,
               'valid': bool(valid)}
     if valid:
@@ -170,7 +181,7 @@ def metric(a, b):
         result.update(pearson=float(pearsonr(x,y).statistic), spearman=float(spearmanr(x,y).statistic),
                       slope_zero=float(x@y/(x@x)), slope=float(slope), intercept=float(intercept),
                       max_abs_error=float(np.max(abs(x-y))), mean_abs_error=float(np.mean(abs(x-y))))
-    result['strict_pass'] = bool(valid and result['same_universe'] and not result['n_missing'] and
+    result['strict_pass'] = bool(valid and result['same_universe'] and not result['n_unmatched_missing'] and not result['n_invalid_nonfinite'] and
                                 result['pearson']>=.99 and result['spearman']>=.99 and .95<=result['slope_zero']<=1.05)
     return result
 
@@ -184,21 +195,26 @@ def compare(base, candidate, track, repeatability=None, timing_base=None, timing
         raise ValueError('Cannot compare different input fixtures')
     if len({(r['platform'],r['python']) for r in records}) != 1:
         raise ValueError('Benchmark environment mismatch')
-    rows = []; seed_rows = []; schemas_equal = True; full_outputs_equal = True
-    for file, key, value in [('gene_stats.out.gz','Gene','prior'),('gene_set_stats.out.gz','Gene_Set','beta_uncorrected')]:
-        a = load_metric(base,file,key,value); b = load_metric(candidate,file,key,value)
-        top = a.abs().nlargest(200).index.union(b.abs().nlargest(200).index)
-        for label, aa, bb in [('all',a,b),('signal',a.reindex(top),b.reindex(top))]:
-            rows.append({'metric': value, 'panel': label, **metric(aa,bb)})
-        if [r['seed'] for r in records[:len(base)]] == [r['seed'] for r in records[len(base):]]:
-            import pandas as pd
-            for bp,cp,r in zip(base,candidate,records):
-                aa=load_metric([bp],file,key,value);bb=load_metric([cp],file,key,value)
-                seed_rows.append({'metric':value,'seed':r['seed'],**metric(aa,bb)})
-                af=pd.read_csv(Path(bp)/file,sep='\t').set_index(key).sort_index()
-                bf=pd.read_csv(Path(cp)/file,sep='\t').set_index(key).sort_index()
-                schemas_equal &= list(af.columns)==list(bf.columns)
-                full_outputs_equal &= af.equals(bf)
+    panel_issues=[]
+    try:
+        rows = []; seed_rows = []; schemas_equal = True; full_outputs_equal = True
+        for file, key, value in [('gene_stats.out.gz','Gene','prior'),('gene_set_stats.out.gz','Gene_Set','beta_uncorrected')]:
+            a = load_metric(base,file,key,value); b = load_metric(candidate,file,key,value)
+            top = a.abs().nlargest(200).index.union(b.abs().nlargest(200).index)
+            for label, aa, bb in [('all',a,b),('signal',a.reindex(top),b.reindex(top))]:
+                rows.append({'metric': value, 'panel': label, **metric(aa,bb)})
+            if [r['seed'] for r in records[:len(base)]] == [r['seed'] for r in records[len(base):]]:
+                import pandas as pd
+                for bp,cp,r in zip(base,candidate,records):
+                    aa=load_metric([bp],file,key,value);bb=load_metric([cp],file,key,value)
+                    seed_rows.append({'metric':value,'seed':r['seed'],**metric(aa,bb)})
+                    af=pd.read_csv(Path(bp)/file,sep='\t').set_index(key).sort_index()
+                    bf=pd.read_csv(Path(cp)/file,sep='\t').set_index(key).sort_index()
+                    schemas_equal &= list(af.columns)==list(bf.columns)
+                    full_outputs_equal &= af.equals(bf)
+    except PanelInconclusive as error:
+        rows=[];seed_rows=[];schemas_equal=False;full_outputs_equal=False
+        panel_issues.append(str(error))
     bt = [validate_receipt(Path(p)/'receipt.json')['wall_seconds'] for p in base]
     ct = [validate_receipt(Path(p)/'receipt.json')['wall_seconds'] for p in candidate]
     ratio = float(np.median(bt)/np.median(ct))
@@ -208,7 +224,7 @@ def compare(base, candidate, track, repeatability=None, timing_base=None, timing
     elif track == 'inference': passed = False  # Requires an additional predeclared scientific validation receipt.
     else: raise ValueError('Unknown track')
     status = 'PASS' if passed else 'FAIL'
-    reasons=[]
+    reasons=panel_issues
     baseline_seeds=[r['seed'] for r in records[:len(base)]]
     candidate_seeds=[r['seed'] for r in records[len(base):]]
     expected_candidate=list(range(5,10)) if track=='repeatability' else list(range(5))
