@@ -13,12 +13,17 @@ _STRUCTURE_CACHE = ContextVar('annotation_structure_cache', default=None)
 
 @contextmanager
 def marginal_backend(name):
-    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached'):
+    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance'):
         raise ValueError('Unknown marginal regression backend: %s' % name)
     cache = None
-    if name == 'grouped-cached':
+    if name in ('grouped-cached', 'compact-covariance'):
         from .structure_cache import ColumnGroupingCache
         cache = ColumnGroupingCache()
+        if name == 'compact-covariance':
+            cache.covariance_stats = dict(preparations=0, input_edges=0,
+                                         stored_pairs=0, aggregated_columns=0,
+                                         peak_edge_payload_bytes=0,
+                                         peak_lookup_scratch_bytes=0)
     token = _BACKEND.set(name)
     cache_token = _STRUCTURE_CACHE.set(cache)
     try:
@@ -29,11 +34,15 @@ def marginal_backend(name):
 
 
 def use_sparse_backend():
-    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached')
+    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance')
 
 
 def use_grouped_backend():
-    return _BACKEND.get() in ('grouped', 'grouped-cached')
+    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance')
+
+
+def use_compact_covariance():
+    return _BACKEND.get() == 'compact-covariance'
 
 
 def annotation_structure_cache():

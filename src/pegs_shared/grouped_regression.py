@@ -2,7 +2,7 @@
 import numpy as np
 from scipy import sparse
 from scipy.special import expit
-from .sparse_regression import annotation_structure_cache
+from .sparse_regression import annotation_structure_cache, use_compact_covariance
 
 
 class GroupedDesign:
@@ -78,34 +78,46 @@ class GroupedDesign:
         all_rows, all_groups = self.X.indices[real], self.groups[real]
         diag_weights = np.bincount(all_groups, weights=diag[all_rows], minlength=len(self.values))
         cross_weights = np.bincount(all_groups, weights=row_sums[all_rows]+col_sums[all_rows], minlength=len(self.values))
-        left, right, weights = [], [], []
-        for j in range(self.k):
-            start, end = self.X.indptr[j:j+2]
-            rows = self.X.indices[start:end]
-            group = self.groups[start:end]
-            if pseudo:
-                real = rows < self.n-1
-                rows, group = rows[real], group[real]
-            if not len(rows):
-                continue
-            # Read CSR entries directly instead of allocating two submatrices
-            # per annotation. X's canonical CSC rows are sorted and unique.
-            lengths = r.indptr[rows+1]-r.indptr[rows]
-            local_rows = np.repeat(np.arange(len(rows)), lengths)
-            starts = r.indptr[rows] - np.r_[0, np.cumsum(lengths[:-1])]
-            entries = np.repeat(starts, lengths)+np.arange(len(local_rows))
-            targets = r.indices[entries]
-            positions = np.searchsorted(rows, targets)
-            kept = np.flatnonzero(positions < len(rows))
-            kept = kept[(rows[positions[kept]] == targets[kept]) & (positions[kept] != local_rows[kept])]
-            if len(kept):
-                left.append(group[local_rows[kept]])
-                right.append(group[positions[kept]])
-                weights.append(r.data[entries[kept]])
-        left = np.concatenate(left) if left else np.array([], dtype=np.int64)
-        right = np.concatenate(right) if right else np.array([], dtype=np.int64)
-        weights = np.concatenate(weights) if weights else np.array([], dtype=float)
-        prepared = (r, diag_weights, cross_weights, left, right, weights, row_sums.sum())
+        absolute_weights = None
+        if use_compact_covariance():
+            from .covariance_edges import compact_edges
+            (left, right, weights, absolute_weights), stats = compact_edges(
+                self.X, self.groups, r, pseudo)
+            summary = annotation_structure_cache().covariance_stats
+            summary['preparations'] += 1
+            for field in ('input_edges', 'stored_pairs', 'aggregated_columns'):
+                summary[field] += stats[field]
+            for field in ('edge_payload_bytes', 'lookup_scratch_bytes'):
+                summary['peak_'+field] = max(summary['peak_'+field], stats[field])
+        else:
+            left, right, weights = [], [], []
+            for j in range(self.k):
+                start, end = self.X.indptr[j:j+2]
+                rows = self.X.indices[start:end]
+                group = self.groups[start:end]
+                if pseudo:
+                    real = rows < self.n-1
+                    rows, group = rows[real], group[real]
+                if not len(rows):
+                    continue
+                # Read CSR entries directly instead of allocating two submatrices
+                # per annotation. X's canonical CSC rows are sorted and unique.
+                lengths = r.indptr[rows+1]-r.indptr[rows]
+                local_rows = np.repeat(np.arange(len(rows)), lengths)
+                starts = r.indptr[rows] - np.r_[0, np.cumsum(lengths[:-1])]
+                entries = np.repeat(starts, lengths)+np.arange(len(local_rows))
+                targets = r.indices[entries]
+                positions = np.searchsorted(rows, targets)
+                kept = np.flatnonzero(positions < len(rows))
+                kept = kept[(rows[positions[kept]] == targets[kept]) & (positions[kept] != local_rows[kept])]
+                if len(kept):
+                    left.append(group[local_rows[kept]])
+                    right.append(group[positions[kept]])
+                    weights.append(r.data[entries[kept]])
+            left = np.concatenate(left) if left else np.array([], dtype=np.int64)
+            right = np.concatenate(right) if right else np.array([], dtype=np.int64)
+            weights = np.concatenate(weights) if weights else np.array([], dtype=float)
+        prepared = (r, diag_weights, cross_weights, left, right, weights, row_sums.sum(), absolute_weights)
         # This cache lives only for one regression call; keep the original alive
         # so an unrelated matrix cannot reuse its identity. Never cache across Gibbs updates.
         self._correlations[key] = (correlation, prepared)
@@ -117,7 +129,7 @@ class GroupedDesign:
         if prepared is None:
             return marginal_inflation(self.X, correlation, beta=beta, alpha=alpha,
                                       pseudo=pseudo, backend='sparse')
-        r, diag, cross, left, right, weights, total_r = prepared
+        r, diag, cross, left, right, weights, total_r, absolute_weights = prepared
         def total(values):
             return np.bincount(self.columns, weights=values, minlength=self.k)
         if beta is None:
@@ -151,8 +163,10 @@ class GroupedDesign:
         else:
             pseudo_sq = 0
         correlated = quadratic+cross_term+background+pseudo_sq
+        edge_magnitudes = (np.abs(edge_values) if absolute_weights is None else
+                           absolute_weights*np.abs(delta[left])*np.abs(delta[right]))
         scale = (total(np.abs(diag)*delta**2)
-                 +np.bincount(self.columns[left], weights=np.abs(edge_values), minlength=self.k)
+                 +np.bincount(self.columns[left], weights=edge_magnitudes, minlength=self.k)
                  +np.abs(cross_term)+np.abs(background)+pseudo_sq)
         unsafe = ((correlated <= 1e-10*scale) | (independent <= 0)
                   | ~np.isfinite(correlated) | ~np.isfinite(independent))
