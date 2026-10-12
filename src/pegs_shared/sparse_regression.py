@@ -13,13 +13,13 @@ _STRUCTURE_CACHE = ContextVar('annotation_structure_cache', default=None)
 
 @contextmanager
 def marginal_backend(name):
-    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance'):
+    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression'):
         raise ValueError('Unknown marginal regression backend: %s' % name)
     cache = None
-    if name in ('grouped-cached', 'compact-covariance'):
+    if name in ('grouped-cached', 'compact-covariance', 'lean-regression'):
         from .structure_cache import ColumnGroupingCache
         cache = ColumnGroupingCache()
-        if name == 'compact-covariance':
+        if name in ('compact-covariance', 'lean-regression'):
             cache.covariance_stats = dict(preparations=0, input_edges=0,
                                          stored_pairs=0, aggregated_columns=0,
                                          peak_edge_payload_bytes=0,
@@ -34,15 +34,19 @@ def marginal_backend(name):
 
 
 def use_sparse_backend():
-    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance')
+    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression')
 
 
 def use_grouped_backend():
-    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance')
+    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance', 'lean-regression')
 
 
 def use_compact_covariance():
-    return _BACKEND.get() == 'compact-covariance'
+    return _BACKEND.get() in ('compact-covariance', 'lean-regression')
+
+
+def use_lean_regression():
+    return _BACKEND.get() == 'lean-regression'
 
 
 def annotation_structure_cache():

@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-engine"
       ],
-      "help": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges",
+      "help": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains",
       "primary_flag": "--gibbs-engine",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 494,
-      "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges",
+      "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains",
       "type": "choice",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
