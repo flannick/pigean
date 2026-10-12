@@ -108,7 +108,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-from-y` | `expert` | `yes` | `expert_help` | `gene_universe_from_y` | `False` | use only genes present in the input Y values as the analysis universe |
 | `--gene-universe-in` | `expert` | `yes` | `expert_help` | `gene_universe_in` | `None` | load an explicit gene universe shared across Y input modes |
 | `--gene-zs-gws-prob-true` | `expert` | `yes` | `expert_help` | `gene_zs_gws_prob_true` | `None` | - |
-| `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves established arithmetic; sparse-regression uses experimental equivalent sparse marginal-regression arithmetic |
+| `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |

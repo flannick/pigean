@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-engine"
       ],
-      "help": "inference engine; legacy preserves established arithmetic; sparse-regression uses experimental equivalent sparse marginal-regression arithmetic",
+      "help": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values",
       "primary_flag": "--gibbs-engine",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 494,
-      "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses experimental equivalent sparse marginal-regression arithmetic",
+      "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values",
       "type": "choice",
-      "usage_references": 6
+      "usage_references": 9
     },
     {
       "action": null,

@@ -8,7 +8,8 @@ import scipy.sparse as sparse
 from pegs_shared.cli import _default_bail
 from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
 from pegs_shared.covariance import marginal_inflation, validate_correlation
-from pegs_shared.sparse_regression import logistic_moments, use_sparse_backend
+from pegs_shared.sparse_regression import logistic_moments, use_sparse_backend, use_grouped_backend
+from pegs_shared.grouped_regression import GroupedDesign
 
 
 NEUTRAL_BETA_TILDE_SE = 100.0
@@ -137,9 +138,11 @@ def compute_beta_tildes(
             resid_correlation_matrix_list = [resid_correlation_matrix]
 
         se_inflation_factors = np.zeros(beta_tildes.shape)
+        grouped_design = GroupedDesign(X) if use_grouped_backend() else None
 
         for i, matrix in enumerate(resid_correlation_matrix_list):
-            inflation = marginal_inflation(X, matrix, backend='sparse' if use_sparse_backend() else 'legacy')
+            inflation = (grouped_design.inflation(matrix) if grouped_design is not None else
+                         marginal_inflation(X, matrix, backend='sparse' if use_sparse_backend() else 'legacy'))
             if len(resid_correlation_matrix_list) == 1:
                 se_inflation_factors = np.broadcast_to(inflation, beta_tildes.shape).copy()
             else:
@@ -310,6 +313,7 @@ def compute_logistic_beta_tildes(
     compute_mask = np.full(len(beta_tildes), True)
     diverged_mask = np.full(len(beta_tildes), False)
     sparse_backend = use_sparse_backend()
+    grouped_design = GroupedDesign(X, num_chains) if use_grouped_backend() else None
     observed_x_y = X.T.dot(Y.T).T.ravel() if sparse_backend else None
 
     def __compute_Y_R(_X, _beta_tildes, _alpha_tildes, max_cap=DEFAULT_MAX_PROBABILITY):
@@ -340,7 +344,11 @@ def compute_logistic_beta_tildes(
         prev_beta_tildes = copy.copy(beta_tildes)
         prev_alpha_tildes = copy.copy(alpha_tildes)
 
-        if sparse_backend:
+        if grouped_design is not None:
+            p_sum, r_sum, xp_sum, xr_sum, xxr_sum = grouped_design.moments(
+                beta_tildes[compute_mask], alpha_tildes[compute_mask],
+                DEFAULT_MAX_PROBABILITY, compute_mask)
+        elif sparse_backend:
             p_sum, r_sum, xp_sum, xr_sum, xxr_sum = logistic_moments(
                 X_stacked[:, compute_mask], beta_tildes[compute_mask],
                 alpha_tildes[compute_mask], DEFAULT_MAX_PROBABILITY)
@@ -428,7 +436,10 @@ def compute_logistic_beta_tildes(
             alpha_tildes[diverged_mask] = Y_sum[diverged_mask] / len_Y
 
         max_coeff = 100
-        if sparse_backend:
+        if grouped_design is not None:
+            _, r_sum, _, xr_sum, xxr_sum = grouped_design.moments(
+                beta_tildes, alpha_tildes, DEFAULT_MAX_PROBABILITY)
+        elif sparse_backend:
             _, r_sum, _, xr_sum, xxr_sum = logistic_moments(
                 X_stacked, beta_tildes, alpha_tildes, DEFAULT_MAX_PROBABILITY)
         else:
@@ -462,12 +473,19 @@ def compute_logistic_beta_tildes(
         matrices = resid_correlation_matrix if isinstance(resid_correlation_matrix, list) else [resid_correlation_matrix] * num_chains
         if len(matrices) != num_chains:
             raise ValueError('Need one residual correlation matrix per trait')
-        se_inflation_factors = np.concatenate([
-            marginal_inflation(X, matrix,
-                beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
-                alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo,
-                backend='sparse' if sparse_backend else 'legacy')
-            for i, matrix in enumerate(matrices)])
+        if grouped_design is not None:
+            se_inflation_factors = np.concatenate([
+                grouped_design.inflation(matrix,
+                    beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
+                    alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo)
+                for i, matrix in enumerate(matrices)])
+        else:
+            se_inflation_factors = np.concatenate([
+                marginal_inflation(X, matrix,
+                    beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
+                    alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo,
+                    backend='sparse' if sparse_backend else 'legacy')
+                for i, matrix in enumerate(matrices)])
 
     if num_chains > 1:
         beta_tildes = beta_tildes.reshape(num_chains, X.shape[1])

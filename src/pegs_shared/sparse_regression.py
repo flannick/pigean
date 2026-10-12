@@ -12,7 +12,7 @@ _BACKEND = ContextVar('marginal_regression_backend', default='legacy')
 
 @contextmanager
 def marginal_backend(name):
-    if name not in ('legacy', 'sparse'):
+    if name not in ('legacy', 'sparse', 'grouped'):
         raise ValueError('Unknown marginal regression backend: %s' % name)
     token = _BACKEND.set(name)
     try:
@@ -22,7 +22,11 @@ def marginal_backend(name):
 
 
 def use_sparse_backend():
-    return _BACKEND.get() == 'sparse'
+    return _BACKEND.get() in ('sparse', 'grouped')
+
+
+def use_grouped_backend():
+    return _BACKEND.get() == 'grouped'
 
 
 def logistic_moments(X, beta, alpha, max_probability):
