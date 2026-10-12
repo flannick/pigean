@@ -38,7 +38,7 @@ import pegs_shared.phewas as pegs_phewas
 import pegs_shared.probability as pegs_probability
 import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
-from pegs_shared.sparse_regression import use_lean_regression
+from pegs_shared.sparse_regression import use_lean_regression, use_cached_inner
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
 import pegs_shared.xdata as pegs_xdata
@@ -5683,6 +5683,13 @@ class PigeanState(object):
         printed_warning_swing = False
         printed_warning_increase = False
 
+        # Correlation is fixed within this call, even when p/sigma are updated.
+        # Do not carry slices across outer updates or materialize V for use_X.
+        correlation_cache = None
+        if use_cached_inner() and not assume_independent and not use_X:
+            from pigean.inner_cache import InnerCorrelationCache
+            correlation_cache = InnerCorrelationCache(V, multiple_V, sparse_V)
+
         # ==========================================================================
         # Inner Beta Gibbs Phase 3: Iterative Gibbs updates + convergence checks.
         # ==========================================================================
@@ -5755,6 +5762,7 @@ class PigeanState(object):
                     posterior_beta_mean_t=posterior_beta_mean_t,
                     gauss_seidel=gauss_seidel,
                     residual_beta_tilde_t=residual_beta_tilde_t,
+                    correlation_cache=correlation_cache,
                 )
 
             _apply_inner_beta_sparsity_update(
@@ -9222,10 +9230,16 @@ def _update_inner_beta_gene_set_batch(
     posterior_beta_mean_t,
     gauss_seidel,
     residual_beta_tilde_t,
+    correlation_cache=None,
 ):
     # 1) Build residualized beta_tilde for the active batch.
-    compute_mask_union = np.any(compute_mask_m, axis=0)
-    compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
+    if correlation_cache is None:
+        compute_mask_union = np.any(compute_mask_m, axis=0)
+        compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
+        selected_V = None
+    else:
+        compute_mask_union, compute_mask_union_filter_m, selected_V = correlation_cache.get(
+            compute_mask_m, compute_mask_v)
 
     if assume_independent:
         residual_beta_tilde_t_flat = beta_tildes_m[compute_mask_m]
@@ -9237,10 +9251,10 @@ def _update_inner_beta_gene_set_batch(
             res_beta_hat_union_t = np.einsum(
                 "hij,ijk->hik",
                 sampled_beta_t[:, compute_mask_v, :],
-                V[compute_mask_v, :, :][:, :, compute_mask_union],
+                V[compute_mask_v, :, :][:, :, compute_mask_union] if selected_V is None else selected_V,
             ).reshape((sampled_beta_t.shape[0], current_num_parallel, np.sum(compute_mask_union)))
         elif sparse_V:
-            res_beta_hat_union_t = V[compute_mask_union, :].dot(
+            res_beta_hat_union_t = (V[compute_mask_union, :] if selected_V is None else selected_V).dot(
                 sampled_beta_t[:, compute_mask_v, :].T.reshape(
                     (sampled_beta_t.shape[2], np.sum(compute_mask_v) * sampled_beta_t.shape[0])
                 )
@@ -9268,7 +9282,8 @@ def _update_inner_beta_gene_set_batch(
             ).T
             res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v, :][:, compute_mask_union])
         else:
-            res_beta_hat_union_t = sampled_beta_t[:, compute_mask_v, :].dot(V[:, compute_mask_union])
+            res_beta_hat_union_t = sampled_beta_t[:, compute_mask_v, :].dot(
+                V[:, compute_mask_union] if selected_V is None else selected_V)
 
         if betas_trace_out is not None and betas_trace_gene_sets is not None:
             cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
