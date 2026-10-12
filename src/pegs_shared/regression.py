@@ -138,11 +138,10 @@ def compute_beta_tildes(
             resid_correlation_matrix_list = [resid_correlation_matrix]
 
         se_inflation_factors = np.zeros(beta_tildes.shape)
-        grouped_design = GroupedDesign(X) if use_grouped_backend() else None
 
         for i, matrix in enumerate(resid_correlation_matrix_list):
-            inflation = (grouped_design.inflation(matrix) if grouped_design is not None else
-                         marginal_inflation(X, matrix, backend='sparse' if use_sparse_backend() else 'legacy'))
+            inflation = marginal_inflation(X, matrix, backend='sparse' if use_sparse_backend() else 'legacy',
+                                          block_size=512 if use_grouped_backend() else 64)
             if len(resid_correlation_matrix_list) == 1:
                 se_inflation_factors = np.broadcast_to(inflation, beta_tildes.shape).copy()
             else:
