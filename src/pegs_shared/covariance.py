@@ -34,7 +34,7 @@ def correlation_ratio(r, influence):
     return np.sqrt(result)
 
 
-def marginal_inflation(X, correlation, *, beta=None, alpha=None, pseudo=False, block_size=64):
+def marginal_inflation(X, correlation, *, beta=None, alpha=None, pseudo=False, block_size=64, backend='legacy'):
     """SE multiplier; beta/alpha select a logistic rather than linear model.
 
     Logistic slope influence is sqrt(v_i)*(x_i-weighted_mean(x)),
@@ -43,6 +43,11 @@ def marginal_inflation(X, correlation, *, beta=None, alpha=None, pseudo=False, b
     """
     n, k = X.shape
     r = validate_correlation(correlation, n - int(pseudo))
+    if backend not in ('legacy', 'sparse'):
+        raise ValueError('Unknown covariance arithmetic backend: %s' % backend)
+    if backend == 'sparse' and sparse.issparse(X) and sparse.issparse(r):
+        from .sparse_regression import sparse_inflation
+        return sparse_inflation(X, r, beta, alpha, pseudo, marginal_inflation, block_size)
     output = np.ones(k)
     for begin in range(0, k, block_size):
         end = min(k, begin + block_size)
