@@ -2,6 +2,7 @@
 import numpy as np
 from scipy import sparse
 from scipy.special import expit
+from .sparse_regression import annotation_structure_cache
 
 
 class GroupedDesign:
@@ -12,18 +13,31 @@ class GroupedDesign:
         self.n, self.k = self.X.shape
         cols, values, counts, groups = [], [], [], []
         offset = 0
+        cache = annotation_structure_cache()
         for j in range(self.k):
             start, end = self.X.indptr[j:j+2]
-            val, inverse, count = np.unique(self.X.data[start:end], return_inverse=True, return_counts=True)
-            cols.extend([j]*len(val))
-            values.extend(val)
-            counts.extend(count)
-            groups.extend(inverse+offset)
+            if cache is None:
+                val, inverse, count = np.unique(self.X.data[start:end], return_inverse=True, return_counts=True)
+                cols.extend([j]*len(val))
+                values.extend(val)
+                counts.extend(count)
+                groups.extend(inverse+offset)
+            else:
+                val, inverse, count = cache.column_groups(
+                    self.n, self.X.indices[start:end], self.X.data[start:end])
+                cols.append(np.full(len(val), j, dtype=np.int64))
+                values.append(val)
+                counts.append(count)
+                groups.append(inverse+offset)
             offset += len(val)
-        self.columns = np.asarray(cols, dtype=np.int64)
-        self.values = np.asarray(values, dtype=float)
-        self.counts = np.asarray(counts, dtype=float)
-        self.groups = np.asarray(groups, dtype=np.int64)
+        def join(parts, dtype):
+            if cache is not None and parts:
+                return np.concatenate(parts).astype(dtype, copy=False)
+            return np.asarray(parts, dtype=dtype)
+        self.columns = join(cols, np.int64)
+        self.values = join(values, float)
+        self.counts = join(counts, float)
+        self.groups = join(groups, np.int64)
         self.zeros = self.n - np.bincount(self.columns, weights=self.counts, minlength=self.k)
         self.chain_columns = np.concatenate([self.columns+i*self.k for i in range(num_chains)])
         self.chain_values = np.tile(self.values, num_chains)

@@ -8,25 +8,36 @@ from scipy.special import expit
 
 
 _BACKEND = ContextVar('marginal_regression_backend', default='legacy')
+_STRUCTURE_CACHE = ContextVar('annotation_structure_cache', default=None)
 
 
 @contextmanager
 def marginal_backend(name):
-    if name not in ('legacy', 'sparse', 'grouped'):
+    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached'):
         raise ValueError('Unknown marginal regression backend: %s' % name)
+    cache = None
+    if name == 'grouped-cached':
+        from .structure_cache import ColumnGroupingCache
+        cache = ColumnGroupingCache()
     token = _BACKEND.set(name)
+    cache_token = _STRUCTURE_CACHE.set(cache)
     try:
-        yield
+        yield cache
     finally:
+        _STRUCTURE_CACHE.reset(cache_token)
         _BACKEND.reset(token)
 
 
 def use_sparse_backend():
-    return _BACKEND.get() in ('sparse', 'grouped')
+    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached')
 
 
 def use_grouped_backend():
-    return _BACKEND.get() == 'grouped'
+    return _BACKEND.get() in ('grouped', 'grouped-cached')
+
+
+def annotation_structure_cache():
+    return _STRUCTURE_CACHE.get()
 
 
 def logistic_moments(X, beta, alpha, max_probability):
