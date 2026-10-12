@@ -207,6 +207,7 @@ function pagedTable(id, headerHtml, rows, rowHtml, onRow, pageSize = 25) {
 }
 const byMetric = (rows, metric) => rows.slice().sort((a, b) => ((b[metric] ?? -Infinity) - (a[metric] ?? -Infinity)) || ((b.weight ?? 0) - (a.weight ?? 0)));
 function hBar(el, rows, labelKey, metric, colorKey, height) {
+  if (typeof Plotly === 'undefined') { $(el).textContent = 'Chart unavailable. Scores are shown in the table below.'; return; }
   const top = rows.slice(0, 40).reverse();
   if (!top.length) { Plotly.purge(el); return; }
   Plotly.react(el, [{ type: 'bar', orientation: 'h', y: top.map(r => r[labelKey]), x: top.map(r => r[metric] ?? 0),

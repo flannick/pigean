@@ -1,9 +1,9 @@
 """Single-page UI for the PIGEAN results portal (served by `pigean.portal_server`).
 
-Layout: model -> trait -> run selectors (traits searchable by legacy id, portal name or
-portal id when the build included the portal phenotype file) plus a gene search in the header; a gene scatter
+Layout: tabbed Trait / Gene / Geneset / optional Factor searches; traits searchable by
+legacy id, portal name or portal id. The run view has a gene search in the header; a gene scatter
 (log_bf vs prior, coloured by combined) with a sortable gene table; a ranked gene-set
-table; and a collapsible right-hand detail sheet that opens with a gene set's gene
+table with a Top Mechanisms tab for the run's EAGGL factor graph; and a collapsible right-hand detail sheet that opens with a gene set's gene
 loadings or a gene's gene-set memberships. Genes belonging to the selected gene set are
 drawn on top of the scatter with a white ring while the rest of the genes fade. All data comes from the JSON
 API; no build step.
@@ -14,24 +14,35 @@ from __future__ import annotations
 import html
 
 from .portal_assets_common import render_document
+from . import portal_home_assets
 
-CSS = ""  # the shared stylesheet lives in portal_assets_common
+CSS = r"""
+.evidence-tabs { margin:0 0 14px; flex-wrap:wrap; }
+.evidence-tabs button { font-size:17px; padding:0 2px 10px; margin-right:18px; }
+.evidence-tabs button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.mechanism-frame { display:block; width:100%; height:720px; border:0; }
+#mechanism-status { padding:12px 0; line-height:1.5; }
+#mechanism-status button { margin-left:10px; }
+@media (max-width:600px) { .mechanism-frame { height:640px; } }
+"""
 
 SCRIPT = r"""
 const state = { runs:[], run:null, genes:[], geneSets:[], selectedGeneSet:null, selectedGene:null,
-  geneSort:{col:'combined',desc:true}, gsSort:{col:'beta',desc:true}, highlighted:new Set() };
+  geneSort:{col:'combined',desc:true}, gsSort:{col:'beta',desc:true}, highlighted:new Set(),
+  evidenceTab:'gene-sets', mechanismRequest:0, mechanismLoading:false, mechanismLoaded:false };
 // ---------- run selection: landing (trait -> model -> run -> optional gene) and results bar
-function hashState() { const h = new URLSearchParams(location.hash.replace(/^#/, '')); return { run: h.get('run') || '', gene: h.get('gene') || '', gs: h.get('gs') || '' }; }
+function hashState() { const h = new URLSearchParams(location.hash.replace(/^#/, '')); return Object.fromEntries(['run','gene','gs','view','id','source','model'].map(k => [k, h.get(k) || ''])); }
 async function loadRuns() {
   const body = await api('/api/runs');
   state.runs = body.runs;
-  if (!state.runs.length) { $('landing-note').innerHTML = '<span class="warn">No runs in this database.</span>'; return; }
+  $('home-tab-factor').hidden = !state.runs.some(r => r.factor_graph_available);
+  if (!state.runs.length) { $('landing-note').innerHTML = '<span class="warn">No runs in this database.</span>'; showLanding(); return; }
   const models = uniq(state.runs.map(r => r.model));
   $('model').innerHTML = '<option value="">any model</option>' + models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
   populateTraits(); populateRuns();
   const h = hashState();
   if (h.run && state.runs.some(r => r.run_id === h.run)) { state.run = h.run; $('run').value = h.run; await openResults(); if (h.gene) showGene(h.gene); else if (h.gs) showGeneSet(h.gs); }
-  else showLanding();
+  else { $('view-landing').hidden = false; await restoreHome(h); }
 }
 function availableTraits() {
   const model = $('model').value;
@@ -61,15 +72,14 @@ function populateRuns() {
   const label = r => r.trait ? `${r.trait} · ${r.model}${r.seed && r.seed !== 'main' ? ' · ' + r.seed : ''}` : (r.title || r.run_id);
   $('run').innerHTML = runs.map(r => `<option value="${esc(r.run_id)}">${esc(label(r))}</option>`).join('');
   $('run-count').textContent = runs.length === state.runs.length ? `${runs.length} runs` : `${runs.length} of ${state.runs.length} runs`;
-  const prev = state.run;
   if (!runs.some(r => r.run_id === state.run)) state.run = runs.length ? runs[0].run_id : null;
   if (state.run) $('run').value = state.run;
   $('open').disabled = !state.run;
-  if (state.run !== prev) prefetchGenes();
 }
-function showLanding() { $('view-results').hidden = true; $('view-landing').hidden = false; closeSheet(); setHash({}); setTimeout(() => $('trait').focus(), 50); }
+function showLanding() { $('view-results').hidden = true; $('view-landing').hidden = false; closeSheet(); selectHomeTab(home.mode); setTimeout(() => $(home.mode === 'trait' ? 'trait' : 'home-query').focus(), 50); }
 async function openResults() {
   if (!state.run) return;
+  ++home.request; clearTimeout(home.timer);
   $('view-landing').hidden = true; $('view-results').hidden = false;
   setHash({ run: state.run });
   await refreshRun();
@@ -94,7 +104,7 @@ function runSummary() {
     `<span class="muted">${esc(r.trait || '')}${ph && ph.portal_id ? ' · ' + esc(ph.portal_id) : ''}${ph && ph.trait_group ? ' · ' + esc(ph.trait_group) : ''}</span>` +
     `<span class="muted">model <b>${esc(r.model_title || r.model || '')}</b>${r.seed && r.seed !== 'main' ? ' · run <b>' + esc(r.seed) + '</b>' : ''}</span>`;
   const filt = ['genes','gene_sets','loadings'].map(k => (f[k] && f[k].length) ? `<b>${k}</b>: ${esc(f[k].join(` ${f.mode === 'all' ? 'AND' : 'OR'} `))}` : null).filter(Boolean).join(' &nbsp;·&nbsp; ') || 'no build-time filters';
-  const paths = ['gene_stats_path','gene_set_stats_path','gene_gene_set_stats_path','params_path'].filter(k => r[k]).map(k => `<code>${esc(r[k])}</code>`).join('<br>');
+  const paths = ['gene_stats_path','gene_set_stats_path','gene_gene_set_stats_path','params_path','factor_graph_path'].filter(k => r[k]).map(k => `<code>${esc(r[k])}</code>`).join('<br>');
   const maps = ph && ph.mappings ? ph.mappings : [];
   const conf = m => m.confidence === null || m.confidence === undefined ? '' : (+m.confidence).toFixed(2);
   const mapChips = maps.length ? `<div class="maps">${maps.map(m => `<a href="${esc(ontologyUrl(m.target_id))}" target="_blank" rel="noopener" title="${esc(m.target_label || '')} · ${esc((m.predicate || '').replace('skos:', ''))}${conf(m) ? ' · confidence ' + conf(m) : ''}"><span class="onto">${esc(m.target_ontology || m.target_id.split(':')[0])}</span>${esc(m.target_label || m.target_id)}</a>`).join('')}
@@ -126,6 +136,7 @@ async function refreshRun() {
   state.selectedGeneSet = null; state.selectedGene = null; state.highlighted = new Set();
   closeSheet();
   runSummary();
+  resetMechanisms();
   if (!state.run) { state.genes = []; state.geneSets = []; drawScatter(); renderGeneTable(); renderGeneSetTable(); return; }
   await Promise.all([loadGenes(), loadGeneSets()]);
 }
@@ -143,6 +154,7 @@ function geneItems(q) {
   return ranked.map(g => ({ value: g.gene, label: g.gene, sub: `combined ${fmt(g.combined)} · log_bf ${fmt(g.log_bf)} · prior ${fmt(g.prior)}` }));
 }
 function drawScatter() {
+  if (typeof Plotly === 'undefined') { $('scatter').textContent = 'The gene plot could not load. Gene results are available in the table below.'; return; }
   const g = state.genes, hl = state.highlighted;
   // Highlighted genes keep the same combined colour scale but are drawn on top with a white ring;
   // everything else fades so the set's genes stand out in context.
@@ -188,6 +200,7 @@ function renderGeneSetTable() {
 
 // ---------- detail sheet
 function openSheet(kind, title, bodyHtml, across) {
+  $('sheet').inert = false;
   $('sheet-kind').textContent = kind; $('sheet-title').textContent = title;
   const runLabel = (state.runs.find(r => r.run_id === state.run) || {}).trait || 'this run';
   $('sheet-body').innerHTML = across
@@ -201,6 +214,80 @@ function openSheet(kind, title, bodyHtml, across) {
   });
   document.body.classList.add('sheet-open');
   window.dispatchEvent(new Event('resize'));
+}
+
+// ---------- gene sets / mechanisms: preserve the iframe while switching tabs
+function selectEvidenceTab(tab) {
+  state.evidenceTab = tab;
+  for (const name of ['gene-sets', 'mechanisms']) {
+    const active = tab === name, button = $(`tab-${name}`);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+    $(`panel-${name}`).hidden = !active;
+  }
+  if (tab === 'mechanisms') loadMechanisms();
+}
+function resetMechanisms() {
+  ++state.mechanismRequest;
+  state.mechanismLoading = false; state.mechanismLoaded = false;
+  $('mechanism-graph').replaceChildren();
+  $('mechanism-status').hidden = false;
+  $('mechanism-status').textContent = '';
+  if (state.evidenceTab === 'mechanisms') loadMechanisms();
+}
+function graphDocument(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  // Older EAGGL exports reserve 360px for details. Stack those details in this panel.
+  if (doc.getElementById('eaggl-factor-graph-data')) {
+    const style = doc.createElement('style');
+    style.textContent = `body { background:#fff; } .wrap { padding:4px; }
+      .controls { flex-wrap:wrap; } .filters input[type="search"] { min-width:0; max-width:100%; }
+      @media(max-width:760px) { .graph-and-details { grid-template-columns:minmax(0,1fr); }
+        #detailsPanel { max-height:none; overflow-wrap:anywhere; overflow-x:auto; } }`;
+    doc.head.appendChild(style);
+    // Exported labels use SVG units; keep them legible when the graph is scaled to a half-width panel.
+    const sizing = doc.createElement('script');
+    sizing.textContent = `(() => {
+      const svg = document.getElementById('graph-svg'); if (!svg) return;
+      const labels = document.createElement('style'); document.head.appendChild(labels);
+      const resize = () => { const scale = svg.getScreenCTM()?.a;
+        if (scale > 0) labels.textContent = '#labels-layer text { font-size:' + (12 / scale) + 'px; }'; };
+      new ResizeObserver(resize).observe(svg);
+      new MutationObserver(resize).observe(svg, {attributes:true, attributeFilter:['viewBox']});
+      resize();
+    })();`;
+    doc.body.appendChild(sizing);
+  }
+  return '<!doctype html>' + doc.documentElement.outerHTML;
+}
+async function loadMechanisms() {
+  if (!state.run || state.mechanismLoading || state.mechanismLoaded) return;
+  const run = state.run, request = ++state.mechanismRequest;
+  const status = $('mechanism-status');
+  state.mechanismLoading = true;
+  status.hidden = false; status.textContent = 'Loading mechanisms…';
+  try {
+    const body = await api('/api/factor_graph', {run});
+    if (run !== state.run || request !== state.mechanismRequest) return;
+    state.mechanismLoaded = true;
+    if (!body.graph) { status.textContent = 'No mechanism graph is available for this run.'; return; }
+    const frame = document.createElement('iframe');
+    frame.className = 'mechanism-frame';
+    frame.title = `EAGGL mechanisms for ${state.runs.find(r => r.run_id === run)?.title || run}`;
+    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.srcdoc = graphDocument(body.graph.html);
+    $('mechanism-graph').replaceChildren(frame);
+    status.hidden = true;
+  } catch (err) {
+    if (run !== state.run || request !== state.mechanismRequest) return;
+    status.textContent = `Could not load mechanisms: ${err.message}`;
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.textContent = 'Retry'; retry.onclick = loadMechanisms;
+    status.appendChild(retry);
+  } finally {
+    if (request === state.mechanismRequest) state.mechanismLoading = false;
+  }
 }
 
 // ---------- across-traits view (vertical trait plot, one point per run, grouped by trait group)
@@ -239,7 +326,7 @@ async function renderAcross(kind, id, metrics) {
   $('across-metric').onchange = draw; $('across-model').onchange = draw;
   await draw();
 }
-function closeSheet() { document.body.classList.remove('sheet-open'); if (state.run && !$('view-results').hidden) setHash({ run: state.run }); window.dispatchEvent(new Event('resize')); }
+function closeSheet() { document.body.classList.remove('sheet-open'); $('sheet').inert = true; if (state.run && !$('view-results').hidden) setHash({ run: state.run }); window.dispatchEvent(new Event('resize')); }
 function setHighlight(genes) { state.highlighted = new Set(genes); drawScatter(); renderGeneTable(); }
 
 async function showGeneSet(id) {
@@ -297,12 +384,9 @@ let t1, t2;
 $('model').onchange = () => { populateTraits(); populateRuns(); };
 attachTypeahead($('trait'), traitItems, () => populateRuns());
 $('trait').addEventListener('input', populateRuns);
-$('trait').addEventListener('keydown', e => { if (e.key === 'Enter') { populateRuns(); if (state.run) openWithGene(); } });
-attachTypeahead($('gene_landing'), q => { const runGenes = state.genes.length ? geneItems(q) : []; return runGenes; }, () => {});
-$('run').onchange = e => { state.run = e.target.value; prefetchGenes(); };
-async function prefetchGenes() { if (!state.run) return; try { const b = await api('/api/genes', { run: state.run, sort: 'combined', limit: 20000 }); state.genes = b.genes; } catch (e) { state.genes = []; } }
-$('open').onclick = openWithGene;
-async function openWithGene() { await openResults(); const g = $('gene_landing').value.trim(); if (g) { const best = bestGene(g); $('gene_search').value = best; showGene(best); } }
+$('trait').addEventListener('keydown', e => { if (e.key === 'Enter') { populateRuns(); if (state.run) openResults(); } });
+$('run').onchange = e => { state.run = e.target.value; };
+$('open').onclick = openResults;
 $('back').onclick = showLanding;
 $('bar_model').onchange = () => { const r = state.runs.find(x => x.run_id === state.run); const m = $('bar_model').value;
   const same = state.runs.filter(x => (x.trait || x.run_id) === (r.trait || r.run_id) && x.model === m);
@@ -311,6 +395,17 @@ $('bar_run').onchange = () => switchRun($('bar_run').value);
 ['min_prior','min_log_bf','min_combined'].forEach(id => $(id).oninput = () => { clearTimeout(t1); t1 = setTimeout(loadGenes, 350); });
 ['min_beta','min_beta_uncorrected','gs_search'].forEach(id => $(id).oninput = () => { clearTimeout(t2); t2 = setTimeout(loadGeneSets, 350); });
 $('gs_sort').onchange = () => { const c = $('gs_sort').value; state.gsSort = { col: c, desc: !['gene_set','label','p_orig'].includes(c) }; renderGeneSetTable(); };
+const evidenceTabs = ['gene-sets', 'mechanisms'];
+evidenceTabs.forEach((name, i) => {
+  const button = $(`tab-${name}`);
+  button.onclick = () => selectEvidenceTab(name);
+  button.onkeydown = e => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+    e.preventDefault();
+    const target = e.key === 'Home' ? 0 : e.key === 'End' ? evidenceTabs.length - 1 : (i + 1) % evidenceTabs.length;
+    selectEvidenceTab(evidenceTabs[target]); $(`tab-${evidenceTabs[target]}`).focus();
+  };
+});
 attachTypeahead($('gene_search'), geneItems, (_, v) => showGene(v));
 $('gene_search').addEventListener('keydown', e => { if (e.key === 'Enter') { const v = $('gene_search').value.trim(); if (v) showGene(bestGene(v)); } });
 $('modal-close').onclick = () => $('modal').close();
@@ -319,7 +414,7 @@ $('sheet-close').onclick = closeSheet;
 $('sheet-backdrop').onclick = closeSheet;
 $('clear-highlight').onclick = () => { state.selectedGeneSet = null; state.selectedGene = null; setHighlight([]); renderGeneSetTable(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').open) closeSheet(); });
-window.addEventListener('hashchange', () => { const h = hashState(); if (!h.run && !$('view-results').hidden) showLanding(); });
+window.addEventListener('hashchange', () => { const h = hashState(); if (!h.run) { $('view-results').hidden = true; $('view-landing').hidden = false; closeSheet(); restoreHome(h); } });
 loadRuns().catch(err => { $('landing-note').innerHTML = `<span class="warn">${esc(err.message)}</span>`; $('view-landing').hidden = false; });
 """
 
@@ -327,14 +422,22 @@ BODY = r"""
 <div id="view-landing" hidden>
   <div class="landing">
     <h1>{title}</h1>
-    <p class="lede">Browse PIGEAN results across traits, models, and genes.{api_note}</p>
+    <p class="lede">Explore trait evidence through genes, genesets, and mechanisms.{api_note}</p>
+    <div class="tabs home-tabs" role="tablist" aria-label="Search by">
+      <button id="home-tab-trait" class="active" type="button" role="tab" aria-selected="true" aria-controls="home-trait-panel">Trait</button>
+      <button id="home-tab-gene" type="button" role="tab" aria-selected="false" aria-controls="home-entity-panel" tabindex="-1">Gene</button>
+      <button id="home-tab-gene_set" type="button" role="tab" aria-selected="false" aria-controls="home-entity-panel" tabindex="-1">Geneset</button>
+      <button id="home-tab-factor" type="button" role="tab" aria-selected="false" aria-controls="home-entity-panel" tabindex="-1" hidden>Factor</button>
+    </div>
+    <div id="home-trait-panel" role="tabpanel" aria-labelledby="home-tab-trait">
     <div class="field ta-wrap"><label for="trait">Trait</label><input id="trait" placeholder="Search traits by name or id" autocomplete="off"></div>
     <div class="row">
       <div class="field"><label for="model">Model</label><select id="model"></select></div>
       <div class="field"><label for="run">Run <span id="run-count" class="muted"></span></label><select id="run"></select></div>
     </div>
-    <div class="field ta-wrap"><label for="gene_landing">Gene <span class="muted">(optional)</span></label><input id="gene_landing" placeholder="e.g. TCF7L2" autocomplete="off"></div>
     <div class="actions"><button id="open" class="primary" type="button" disabled>Open results</button><span id="landing-note" class="hint"></span></div>
+    </div>
+    {home_search}
   </div>
 </div>
 <div id="view-results" class="shell" hidden>
@@ -365,7 +468,11 @@ BODY = r"""
       <div class="scroll" style="max-height:300px;margin-top:4px"><table id="gene-table"></table></div>
     </section>
     <section class="panel">
-      <h2>Top gene sets</h2>
+      <div class="tabs evidence-tabs" role="tablist" aria-label="Gene sets and mechanisms">
+        <button id="tab-gene-sets" class="active" type="button" role="tab" aria-selected="true" aria-controls="panel-gene-sets">Top Gene Sets</button>
+        <button id="tab-mechanisms" type="button" role="tab" aria-selected="false" aria-controls="panel-mechanisms" tabindex="-1">Top Mechanisms</button>
+      </div>
+      <div id="panel-gene-sets" role="tabpanel" aria-labelledby="tab-gene-sets">
       <div class="controls">
         <div style="flex:1"><label>search gene set (id or library)</label><input id="gs_search" placeholder="e.g. insulin" style="width:100%"></div>
         <div><label for="gs_sort">sort by</label><select id="gs_sort"><option value="beta">beta</option><option value="beta_uncorrected">beta_uncorrected</option><option value="n">N</option><option value="p_orig">P (asc)</option><option value="gene_set">name</option><option value="label">library</option></select></div>
@@ -376,12 +483,17 @@ BODY = r"""
       </div></details>
       <div class="scroll" style="max-height:820px"><table id="gs-table"></table></div>
       <div class="muted" id="gs-count"></div>
+      </div>
+      <div id="panel-mechanisms" role="tabpanel" aria-labelledby="tab-mechanisms" hidden>
+        <div id="mechanism-status" class="muted" role="status" aria-live="polite"></div>
+        <div id="mechanism-graph"></div>
+      </div>
     </section>
   </div>
 </div>
 <dialog id="modal" class="modal"><div class="modal-head"><h2 id="modal-title"></h2><button id="modal-close" type="button" title="close">✕</button></div><div class="modal-body" id="modal-body"></div></dialog>
 <div id="sheet-backdrop"></div>
-<aside id="sheet" aria-label="detail">
+<aside id="sheet" aria-label="detail" inert>
   <div class="sheet-head"><div style="flex:1"><div class="kind" id="sheet-kind"></div><h2 id="sheet-title"></h2></div><button id="sheet-close" type="button" title="close (Esc)">✕</button></div>
   <div id="sheet-body"></div>
 </aside>
@@ -399,5 +511,5 @@ def render_portal_html(*, title: str, plotly_src: str, api_base: str = "") -> st
             (e.g. a bucket-hosted page calling `http://localhost:8765`); empty means same origin.
     """
     api_note = f" API: <code>{html.escape(api_base)}</code>" if api_base else ""
-    body = BODY.replace("{title}", html.escape(title)).replace("{api_note}", api_note)
-    return render_document(title=title, plotly_src=plotly_src, api_base=api_base, css=CSS, body=body, script=SCRIPT)
+    body = BODY.replace("{title}", html.escape(title)).replace("{api_note}", api_note).replace("{home_search}", portal_home_assets.BODY)
+    return render_document(title=title, plotly_src=plotly_src, api_base=api_base, css=CSS + portal_home_assets.CSS, body=body, script=SCRIPT + portal_home_assets.SCRIPT)
