@@ -14,7 +14,8 @@ from pegs_shared.regression import compute_logistic_beta_tildes
 
 
 def subsets():
-    return [subset for n in range(len(FEATURES)+1) for subset in combinations(FEATURES, n)]
+    original = FEATURES[:8]
+    return [subset for n in range(len(original)+1) for subset in combinations(original, n)]
 
 
 def test_original_presets_and_overrides():
@@ -63,3 +64,15 @@ def test_every_original_subset_runs_and_preserves_estimates(features):
         else:
             np.testing.assert_allclose(a, b, rtol=1e-10, atol=1e-11, equal_nan=True)
     assert not ACTIVE.get()
+
+
+def test_new_switches_are_independent_and_presets_unchanged():
+    new = FEATURES[8:]
+    for n in range(len(new)+1):
+        for subset in combinations(new,n):
+            selected = resolve_features('parallel-prefilter',enable=subset)
+            assert set(selected['active']) == set(FEATURES[:8]) | set(subset)
+            for item in subset:
+                without = resolve_features('parallel-prefilter',enable=set(subset)-{item},disable=[item])
+                assert set(without['active']) == set(selected['active'])-{item}
+    assert not set(new) & set().union(*PRESETS.values())
