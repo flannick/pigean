@@ -9,52 +9,63 @@ from scipy.special import expit
 
 _BACKEND = ContextVar('marginal_regression_backend', default='legacy')
 _STRUCTURE_CACHE = ContextVar('annotation_structure_cache', default=None)
+_PREFILTER_POOL = ContextVar('prefilter_pool', default=None)
 
 
 @contextmanager
 def marginal_backend(name):
-    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance'):
+    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
         raise ValueError('Unknown marginal regression backend: %s' % name)
     cache = None
-    if name in ('grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance'):
+    if name in ('grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
         from .structure_cache import ColumnGroupingCache
         cache = ColumnGroupingCache()
-        if name in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance'):
+        if name in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
             cache.covariance_stats = dict(preparations=0, input_edges=0,
                                          stored_pairs=0, aggregated_columns=0,
                                          peak_edge_payload_bytes=0,
                                          peak_lookup_scratch_bytes=0)
+    pool = None
+    if name == 'parallel-prefilter':
+        from concurrent.futures import ThreadPoolExecutor
+        pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='pigean-prefilter')
+    pool_token = _PREFILTER_POOL.set(pool)
     token = _BACKEND.set(name)
     cache_token = _STRUCTURE_CACHE.set(cache)
     try:
         yield cache
     finally:
-        _STRUCTURE_CACHE.reset(cache_token)
-        _BACKEND.reset(token)
+        try:
+            if pool is not None:
+                pool.shutdown(wait=True, cancel_futures=True)
+        finally:
+            _STRUCTURE_CACHE.reset(cache_token)
+            _BACKEND.reset(token)
+            _PREFILTER_POOL.reset(pool_token)
 
 
 def use_sparse_backend():
-    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance')
+    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
 
 
 def use_grouped_backend():
-    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance')
+    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
 
 
 def use_compact_covariance():
-    return _BACKEND.get() in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance')
+    return _BACKEND.get() in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
 
 
 def use_lean_regression():
-    return _BACKEND.get() in ('lean-regression', 'cached-inner', 'compiled-covariance')
+    return _BACKEND.get() in ('lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
 
 
 def use_cached_inner():
-    return _BACKEND.get() in ('cached-inner', 'compiled-covariance')
+    return _BACKEND.get() in ('cached-inner', 'compiled-covariance', 'parallel-prefilter')
 
 
 def use_compiled_covariance():
-    return _BACKEND.get() == 'compiled-covariance'
+    return _BACKEND.get() in ('compiled-covariance', 'parallel-prefilter')
 
 
 def annotation_structure_cache():
@@ -81,6 +92,22 @@ def logistic_moments(X, beta, alpha, max_probability):
 
 
 def sparse_inflation(X, r, beta, alpha, pseudo, fallback, block_size):
+    """Optionally run independent linear chunks on two shared-memory workers."""
+    pool = _PREFILTER_POOL.get()
+    if pool is None or beta is not None or X.shape[1] <= block_size:
+        return _sparse_inflation_serial(X, r, beta, alpha, pseudo, fallback, block_size)
+    # Preserve the original block boundaries and reduction order within each
+    # coefficient. Each worker owns its X copy and temporaries; r is read-only.
+    k = X.shape[1]
+    split = ((k + block_size - 1) // block_size + 1) // 2 * block_size
+    def calculate(begin, end):
+        return _sparse_inflation_serial(
+            X[:, begin:end], r, None, None, pseudo, fallback, block_size)
+    futures = [pool.submit(calculate, begin, end) for begin, end in ((0, split), (split, k))]
+    return np.concatenate([future.result() for future in futures])
+
+
+def _sparse_inflation_serial(X, r, beta, alpha, pseudo, fallback, block_size):
     """Compute the same quadratic form using u = c*1 + sparse_delta.
 
     At implicit zeros, logistic variance depends only on the intercept. The
