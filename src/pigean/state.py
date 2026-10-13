@@ -9307,6 +9307,23 @@ def _update_inner_beta_gene_set_batch(
         else:
             residual_beta_tilde_t_flat = residual_beta_tilde_t_flat + sampled_beta_t[:, compute_mask_m]
 
+    if gibbs_feature_enabled('inner-fused'):
+        # Only the ordinary real float64 path is compiled. Complex or unusual
+        # array types retain the reference safeguards below.
+        arrays = (rand_ps_t, rand_norms_t, hdmp_hdmpn_m, c_const_m, d_const_m,
+                  hdmpn_m, se2s_m, norm_scale_m, sampled_beta_t,
+                  posterior_nonzero_prob_t, posterior_beta_mean_t, residual_beta_tilde_t)
+        if all(isinstance(a, np.ndarray) and a.dtype == np.float64 for a in arrays):
+            from pigean.inner_compiled import conditional_kernel
+            indices = np.flatnonzero(compute_mask_m)
+            residual = np.ascontiguousarray(np.broadcast_to(
+                residual_beta_tilde_t_flat, (sampled_beta_t.shape[0], len(indices))))
+            conditional_kernel(indices, residual, float(alpha_shrink), rand_ps_t,
+                rand_norms_t, hdmp_hdmpn_m, c_const_m, d_const_m, hdmpn_m,
+                se2s_m, norm_scale_m, sampled_beta_t, posterior_nonzero_prob_t,
+                posterior_beta_mean_t, residual_beta_tilde_t, bool(gauss_seidel))
+            return
+
     # 2) Convert residualized effect to inclusion probabilities.
     b2_t_flat = np.power(residual_beta_tilde_t_flat, 2)
     d_const_b2_exp_t_flat = d_const_m[compute_mask_m] * np.exp(-b2_t_flat / (se2s_m[compute_mask_m] * 2.0))

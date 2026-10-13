@@ -12,9 +12,10 @@ from pigean.state import _update_inner_beta_gene_set_batch
 from pegs_shared.sparse_regression import marginal_backend
 
 
+@pytest.mark.parametrize('features', [['inner-matmul'], ['inner-fused'], ['inner-matmul', 'inner-fused']])
 @pytest.mark.parametrize('gauss_seidel', [False, True])
 @pytest.mark.parametrize('active', [[True, True, True], [True, False, True], [False]*3])
-def test_dense_updates_and_rng(gauss_seidel, active):
+def test_dense_updates_and_rng(gauss_seidel, active, features):
     rng = np.random.default_rng(729)
     c,p,g = 4,3,31
     v = rng.normal(size=(g,g)); v = v.T@v/g
@@ -35,7 +36,7 @@ def test_dense_updates_and_rng(gauss_seidel, active):
     for _ in range(5):
         with marginal_backend('legacy'):
             _update_inner_beta_gene_set_batch(**a)
-        with marginal_backend('legacy',enable=['inner-matmul']):
+        with marginal_backend('legacy',enable=features):
             _update_inner_beta_gene_set_batch(**b)
         for key in ('sampled_beta_t','posterior_nonzero_prob_t','posterior_beta_mean_t','residual_beta_tilde_t'):
             np.testing.assert_allclose(a[key],b[key],rtol=1e-12,atol=1e-12)
