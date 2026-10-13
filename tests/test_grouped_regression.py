@@ -74,6 +74,19 @@ def test_operator_fallback_and_validation():
         grouped.inflation(sparse.eye(x.shape[0]-1))
 
 
+def test_unsorted_sparse_negative_correlation_entries():
+    rng, x, _ = example()
+    r = sparse.diags([np.full(179, -.2), np.ones(180), np.full(179, -.2)], [-1,0,1], format='csr')
+    for row in range(180):
+        start, end = r.indptr[row:row+2]
+        r.indices[start:end] = r.indices[start:end][::-1]
+        r.data[start:end] = r.data[start:end][::-1]
+    r.has_sorted_indices = False
+    kw = dict(beta=rng.normal(size=x.shape[1]), alpha=rng.normal(size=x.shape[1]))
+    np.testing.assert_allclose(GroupedDesign(x).inflation(r, **kw),
+                               marginal_inflation(x, r, **kw), rtol=1e-9, atol=1e-11)
+
+
 def test_pipeline_selects_grouped_backend(monkeypatch):
     from types import SimpleNamespace
     from pigean import pipeline

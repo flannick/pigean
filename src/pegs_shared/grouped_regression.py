@@ -60,8 +60,10 @@ class GroupedDesign:
         row_sums = np.asarray(r.sum(axis=1)).ravel()
         col_sums = np.asarray(r.sum(axis=0)).ravel()
         diag = r.diagonal()
-        diag_weights = np.zeros(len(self.values))
-        cross_weights = np.zeros(len(self.values))
+        real = self.X.indices < r.shape[0]
+        all_rows, all_groups = self.X.indices[real], self.groups[real]
+        diag_weights = np.bincount(all_groups, weights=diag[all_rows], minlength=len(self.values))
+        cross_weights = np.bincount(all_groups, weights=row_sums[all_rows]+col_sums[all_rows], minlength=len(self.values))
         left, right, weights = [], [], []
         for j in range(self.k):
             start, end = self.X.indptr[j:j+2]
@@ -70,14 +72,22 @@ class GroupedDesign:
             if pseudo:
                 real = rows < self.n-1
                 rows, group = rows[real], group[real]
-            np.add.at(diag_weights, group, diag[rows])
-            np.add.at(cross_weights, group, row_sums[rows]+col_sums[rows])
-            rr = r[rows, :][:, rows].tocoo()
-            off = rr.row != rr.col
-            if np.any(off):
-                left.append(group[rr.row[off]])
-                right.append(group[rr.col[off]])
-                weights.append(rr.data[off])
+            if not len(rows):
+                continue
+            # Read CSR entries directly instead of allocating two submatrices
+            # per annotation. X's canonical CSC rows are sorted and unique.
+            lengths = r.indptr[rows+1]-r.indptr[rows]
+            local_rows = np.repeat(np.arange(len(rows)), lengths)
+            starts = r.indptr[rows] - np.r_[0, np.cumsum(lengths[:-1])]
+            entries = np.repeat(starts, lengths)+np.arange(len(local_rows))
+            targets = r.indices[entries]
+            positions = np.searchsorted(rows, targets)
+            kept = np.flatnonzero(positions < len(rows))
+            kept = kept[(rows[positions[kept]] == targets[kept]) & (positions[kept] != local_rows[kept])]
+            if len(kept):
+                left.append(group[local_rows[kept]])
+                right.append(group[positions[kept]])
+                weights.append(r.data[entries[kept]])
         left = np.concatenate(left) if left else np.array([], dtype=np.int64)
         right = np.concatenate(right) if right else np.array([], dtype=np.int64)
         weights = np.concatenate(weights) if weights else np.array([], dtype=float)
