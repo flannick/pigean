@@ -41,3 +41,24 @@ The [milestone evidence](https://github.com/flannick/pigean/tree/optimization-mi
 NAFLD's full comparison excluded `static-correlation` and measured an additional 1.415x speedup, with peak RSS +4.88%. Outputs differed substantially and chains remained non-converged; an unchanged-code alternate seed showed comparable sensitivity. These measurements do not establish convergence or general finite-run output equivalence. Grouped arithmetic can also differ from legacy standard errors for constant annotations because of cancellation.
 
 Earlier inner stopping, conditional-mean inference, and incremental residual caching were rejected and are not included in these controls. Independent fPS, variance-threshold, and abandoned debug branches are not part of this optimization configuration.
+
+## Optional inner stopping stability
+
+Add `--gibbs-enable inner-rhat-stable` to use a numerically stabilized inner
+stopping statistic. This independent feature works with legacy arithmetic or
+any optimization subset. It is **off by default and absent from all presets**;
+the recommended arithmetic-only suffix above continues to select the old rule.
+Omit the flag to retain that rule. It also accepts comma-list selection.
+
+The existing inner mean-R-hat rule averages only entries >=1. A value rounded
+just below one is excluded, while exactly one is included, potentially changing
+the denominator enough to trigger an additional Gibbs sweep. This feature maps
+finite float64 R-hat values within 16 spacings at one (about 3.55e-15) to exactly
+one **only for that mean**. Raw R-hat outputs, outlier detection and max-based
+stopping remain unchanged. Material deviations from one are not rounded away.
+
+This is a numerical stopping change, not a posterior approximation or a
+demonstrated mixing improvement. It can change sweep counts, random-number
+consumption and finite-run results. It does not guarantee identical trajectories
+across arithmetic backends. Full-run agreement, runtime and memory validation
+should accompany promotion; it is separate from the arithmetic recommendations.
