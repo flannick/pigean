@@ -7,6 +7,7 @@ FEATURES = (
     'compact-covariance', 'lean-regression', 'cached-inner',
     'compiled-covariance', 'parallel-prefilter', 'inner-matmul', 'inner-fused', 'inner-batching',
     'compiled-prefilter',
+    'inner-cache64',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
@@ -16,6 +17,7 @@ PRESETS = dict(zip(
 ALIASES = {'sparse-regression': 'sparse', 'grouped-regression': 'grouped',
            'cached-grouped-regression': 'grouped-cached'}
 REQUIRES = {
+    'inner-cache64': {'cached-inner'},
     'compiled-prefilter': {'sparse-regression'},
     'annotation-cache': {'grouped-regression'},
     'compact-covariance': {'grouped-regression'},

@@ -5689,7 +5689,8 @@ class PigeanState(object):
         correlation_cache = None
         if use_cached_inner() and not assume_independent and not use_X:
             from pigean.inner_cache import InnerCorrelationCache
-            correlation_cache = InnerCorrelationCache(V, multiple_V, sparse_V)
+            correlation_cache = InnerCorrelationCache(V, multiple_V, sparse_V,
+                max_bytes=(64 if gibbs_feature_enabled('inner-cache64') else 16)*1024*1024)
 
         # ==========================================================================
         # Inner Beta Gibbs Phase 3: Iterative Gibbs updates + convergence checks.

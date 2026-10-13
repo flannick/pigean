@@ -72,7 +72,7 @@ def test_cache_eviction_and_lifetime():
     np.testing.assert_array_equal(other.get(a, active)[2], original * 2)
 
 
-@pytest.mark.parametrize('extra_features', [['inner-batching'], ['inner-matmul', 'inner-fused', 'inner-batching']])
+@pytest.mark.parametrize('extra_features', [['inner-cache64'], ['inner-matmul', 'inner-fused', 'inner-batching', 'inner-cache64']])
 @pytest.mark.parametrize('kind', ['dense', 'sparse', 'multiple', 'X', 'independent'])
 @pytest.mark.parametrize('hyper', [False, True])
 def test_full_inner_fit_and_rng_exact(kind, hyper, extra_features):
