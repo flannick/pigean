@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "PIGEAN (Priors Inferred from GEne ANnotations"
 requires-python = ">=3.10"
 
+[project.optional-dependencies]
+compiled = ["numba>=0.63,<0.64"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

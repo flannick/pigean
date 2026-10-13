@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def compact_edges(X, groups, r, pseudo=False):
+def compact_edges(X, groups, r, pseudo=False, *, compiled=None):
     """Prepare edges for this correlation only; no cross-iteration weights.
 
     A reusable row-position array replaces binary searches for edge targets.
@@ -10,6 +10,12 @@ def compact_edges(X, groups, r, pseudo=False):
     list. Absolute weights are reduced separately to retain the original
     cancellation scale even when positive and negative edges cancel.
     """
+    if compiled is None:
+        from .sparse_regression import use_compiled_covariance
+        compiled = use_compiled_covariance()
+    if compiled:
+        from .compiled_covariance import compiled_edges
+        return compiled_edges(X, groups, r, pseudo)
     positions_by_row = np.full(r.shape[0], -1, dtype=np.int64)
     left, right, weights, absolute = [], [], [], []
     input_edges = aggregated_columns = 0

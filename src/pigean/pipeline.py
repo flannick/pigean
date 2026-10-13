@@ -258,12 +258,12 @@ def run_main_gibbs_stage(services, state, options, mode_state):
     if not mode_state["run_gibbs"]:
         return GibbsStageResult(ran=False, num_chains=None, total_num_iter=None)
     engine = getattr(options, "gibbs_engine", "legacy")
-    if engine not in ("legacy", "sparse-regression", "grouped-regression", "cached-grouped-regression", "compact-covariance", "lean-regression", "cached-inner"):
+    if engine not in ("legacy", "sparse-regression", "grouped-regression", "cached-grouped-regression", "compact-covariance", "lean-regression", "cached-inner", "compiled-covariance"):
         raise ValueError("Unsupported Gibbs engine: %s" % engine)
     gibbs_config = build_main_gibbs_stage_config(options)
     from pegs_shared.sparse_regression import marginal_backend
     with marginal_backend({'legacy': 'legacy', 'sparse-regression': 'sparse', 'grouped-regression': 'grouped',
-                           'cached-grouped-regression': 'grouped-cached', 'compact-covariance': 'compact-covariance', 'lean-regression': 'lean-regression', 'cached-inner': 'cached-inner'}[engine]):
+                           'cached-grouped-regression': 'grouped-cached', 'compact-covariance': 'compact-covariance', 'lean-regression': 'lean-regression', 'cached-inner': 'cached-inner', 'compiled-covariance': 'compiled-covariance'}[engine]):
         state.run_gibbs(**gibbs_config.run_kwargs)
     return GibbsStageResult(
         ran=True,
