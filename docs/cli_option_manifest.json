@@ -3598,7 +3598,7 @@
       "source_line": 495,
       "summary": "enable one Gibbs optimization in addition to the engine preset; repeat for a subset; see independent feature documentation",
       "type": null,
-      "usage_references": 18
+      "usage_references": 21
     },
     {
       "action": null,
