@@ -9395,11 +9395,18 @@ def _update_inner_beta_rhat_and_outliers(
     if summed_posterior_beta_mean_t_mean > 0:
         np.mean(summed_posterior_beta_mean_t, axis=0) / summed_posterior_beta_mean_t_mean
 
+    # Stabilize membership in this mean only. Preserve raw R, max stopping and
+    # outlier detection, including their existing comparisons and RNG behavior.
+    R_for_mean_m = R_m
+    if gibbs_feature_enabled('inner-rhat-stable') and not use_max_r_for_convergence:
+        from .inner_diagnostics import stabilize_rhat_mean_boundary
+        R_for_mean_m = stabilize_rhat_mean_boundary(R_m)
+
     # Calculate thresholded/scaled R summary.
-    num_R_above_1_v = np.sum(R_m >= 1, axis=1)
+    num_R_above_1_v = np.sum(R_for_mean_m >= 1, axis=1)
     num_R_above_1_v[num_R_above_1_v == 0] = 1
 
-    R_m_above_1 = copy.copy(R_m)
+    R_m_above_1 = copy.copy(R_for_mean_m)
     R_m_above_1[R_m_above_1 < 1] = 0
     mean_thresholded_R_v = np.sum(R_m_above_1, axis=1) / num_R_above_1_v
 
