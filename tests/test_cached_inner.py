@@ -72,9 +72,10 @@ def test_cache_eviction_and_lifetime():
     np.testing.assert_array_equal(other.get(a, active)[2], original * 2)
 
 
+@pytest.mark.parametrize('extra_features', [[], ['inner-matmul'], ['inner-fused'], ['inner-matmul', 'inner-fused']])
 @pytest.mark.parametrize('kind', ['dense', 'sparse', 'multiple', 'X', 'independent'])
 @pytest.mark.parametrize('hyper', [False, True])
-def test_full_inner_fit_and_rng_exact(kind, hyper):
+def test_full_inner_fit_and_rng_exact(kind, hyper, extra_features):
     rng = np.random.RandomState(42)
     X = sparse.csc_matrix(rng.random((30, 6)) > .5, dtype=float)
     mean = np.asarray(X.mean(axis=0)).ravel()
@@ -97,7 +98,7 @@ def test_full_inner_fit_and_rng_exact(kind, hyper):
         state.X_orig = X
         np.random.seed(1729)
         random.seed(1729)
-        with marginal_backend(engine):
+        with marginal_backend(engine, enable=extra_features if engine == 'cached-inner' else []):
             result = state._calculate_non_inf_betas(
                 None, beta_tildes=np.array([.8, .4, -.1, .2, .7, .3]),
                 ses=np.full(6, .2), V=V, assume_independent=kind == 'independent',
@@ -107,7 +108,12 @@ def test_full_inner_fit_and_rng_exact(kind, hyper):
         fits.append((result, state.p, state.sigma2, np.random.random(30),
                      [random.random() for _ in range(30)]))
     for a, b in zip(*fits):
-        np.testing.assert_array_equal(a, b)
+        if extra_features:
+            np.testing.assert_allclose(a, b, rtol=1e-10, atol=1e-12)
+        else:
+            np.testing.assert_array_equal(a, b)
+    np.testing.assert_array_equal(fits[0][-2], fits[1][-2])
+    assert fits[0][-1] == fits[1][-1]
 
 
 def test_backend_scope():

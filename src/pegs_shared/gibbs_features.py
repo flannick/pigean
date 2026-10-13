@@ -5,7 +5,7 @@ from contextvars import ContextVar
 FEATURES = (
     'sparse-regression', 'grouped-regression', 'annotation-cache',
     'compact-covariance', 'lean-regression', 'cached-inner',
-    'compiled-covariance', 'parallel-prefilter', 'inner-matmul',
+    'compiled-covariance', 'parallel-prefilter', 'inner-matmul', 'inner-fused',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
