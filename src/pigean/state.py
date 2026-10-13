@@ -6271,6 +6271,14 @@ class PigeanState(object):
             else:
                 max_allowed_batch_correlation = 0.1
 
+        if (gibbs_feature_enabled('inner-batching') and isinstance(V, np.ndarray)
+                and V.ndim == 2 and V.dtype == np.float64 and V.shape[0] == V.shape[1]
+                and sort_values is None and not resort_as_added
+                and find_correlated_instead is None and stop_at is None
+                and np.__version__.startswith('1.26.')):
+            from pigean.inner_batching import compiled_batches
+            return compiled_batches(V, float(max_allowed_batch_correlation), bool(use_sum))
+
         if find_correlated_instead is not None:
             if find_correlated_instead < 1:
                 bail("Need batch size of at least 1")
