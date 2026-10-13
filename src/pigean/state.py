@@ -13556,7 +13556,7 @@ def _run_gibbs_corrected_beta_sampler(
         use_max_r_for_convergence=use_max_r_for_convergence_betas,
         max_frac_sem=max_frac_sem_betas,
         max_allowed_batch_correlation=max_allowed_batch_correlation,
-        gauss_seidel=gauss_seidel_betas,
+        gauss_seidel=(True if gibbs_feature_enabled('inner-mean') else gauss_seidel_betas),
         update_hyper_sigma=False,
         update_hyper_p=False,
         num_missing_gene_sets=num_missing,
