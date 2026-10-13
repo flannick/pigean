@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import numpy as np
 from scipy import sparse
 from scipy.special import expit
+from .gibbs_features import ACTIVE, enabled, resolve_features
 
 
 _BACKEND = ContextVar('marginal_regression_backend', default='legacy')
@@ -13,63 +14,69 @@ _PREFILTER_POOL = ContextVar('prefilter_pool', default=None)
 
 
 @contextmanager
-def marginal_backend(name):
-    if name not in ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
-        raise ValueError('Unknown marginal regression backend: %s' % name)
+def marginal_backend(name, *, enable=(), disable=()):
+    selection = resolve_features(name, enable, disable)
+    feature_token = ACTIVE.set(frozenset(selection['active']))
     cache = None
-    if name in ('grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
-        from .structure_cache import ColumnGroupingCache
-        cache = ColumnGroupingCache()
-        if name in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter'):
-            cache.covariance_stats = dict(preparations=0, input_edges=0,
-                                         stored_pairs=0, aggregated_columns=0,
-                                         peak_edge_payload_bytes=0,
-                                         peak_lookup_scratch_bytes=0)
     pool = None
-    if name == 'parallel-prefilter':
-        from concurrent.futures import ThreadPoolExecutor
-        pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='pigean-prefilter')
-    pool_token = _PREFILTER_POOL.set(pool)
-    token = _BACKEND.set(name)
-    cache_token = _STRUCTURE_CACHE.set(cache)
     try:
-        yield cache
+        if enabled('annotation-cache') or enabled('compact-covariance'):
+            from .structure_cache import ColumnGroupingCache
+            cache = ColumnGroupingCache()
+            cache.covariance_stats = dict(preparations=0, input_edges=0,
+                stored_pairs=0, aggregated_columns=0,
+                peak_edge_payload_bytes=0, peak_lookup_scratch_bytes=0)
+        if enabled('parallel-prefilter'):
+            from concurrent.futures import ThreadPoolExecutor
+            pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='pigean-prefilter')
+        pool_token = _PREFILTER_POOL.set(pool)
+        token = _BACKEND.set(name)
+        cache_token = _STRUCTURE_CACHE.set(cache)
+        try:
+            yield cache
+        finally:
+            _STRUCTURE_CACHE.reset(cache_token)
+            _BACKEND.reset(token)
+            _PREFILTER_POOL.reset(pool_token)
     finally:
         try:
             if pool is not None:
                 pool.shutdown(wait=True, cancel_futures=True)
         finally:
-            _STRUCTURE_CACHE.reset(cache_token)
-            _BACKEND.reset(token)
-            _PREFILTER_POOL.reset(pool_token)
+            ACTIVE.reset(feature_token)
 
 
 def use_sparse_backend():
-    return _BACKEND.get() in ('sparse', 'grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
+    return enabled('sparse-regression')
 
 
 def use_grouped_backend():
-    return _BACKEND.get() in ('grouped', 'grouped-cached', 'compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
+    return enabled('grouped-regression')
 
 
 def use_compact_covariance():
-    return _BACKEND.get() in ('compact-covariance', 'lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
+    return enabled('compact-covariance')
 
 
 def use_lean_regression():
-    return _BACKEND.get() in ('lean-regression', 'cached-inner', 'compiled-covariance', 'parallel-prefilter')
+    return enabled('lean-regression')
 
 
 def use_cached_inner():
-    return _BACKEND.get() in ('cached-inner', 'compiled-covariance', 'parallel-prefilter')
+    return enabled('cached-inner')
 
 
 def use_compiled_covariance():
-    return _BACKEND.get() in ('compiled-covariance', 'parallel-prefilter')
+    return enabled('compiled-covariance')
 
 
 def annotation_structure_cache():
-    return _STRUCTURE_CACHE.get()
+    return _STRUCTURE_CACHE.get() if enabled('annotation-cache') else None
+
+
+def covariance_statistics():
+    cache = _STRUCTURE_CACHE.get()
+    return None if cache is None else cache.covariance_stats
 
 
 def logistic_moments(X, beta, alpha, max_probability):

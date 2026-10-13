@@ -316,7 +316,7 @@ def compute_logistic_beta_tildes(
     it = 0
     compute_mask = np.full(len(beta_tildes), True)
     diverged_mask = np.full(len(beta_tildes), False)
-    sparse_backend = use_sparse_backend()
+    sparse_backend = use_sparse_backend() or grouped_design is not None
     observed_x_y = X.T.dot(Y.T).T.ravel() if sparse_backend else None
 
     def __compute_Y_R(_X, _beta_tildes, _alpha_tildes, max_cap=DEFAULT_MAX_PROBABILITY):
