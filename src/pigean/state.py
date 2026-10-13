@@ -4761,73 +4761,77 @@ class PigeanState(object):
         huge_results = np.zeros(prior_log_bf.shape)
         for i in range(prior_log_bf.shape[0]):
 
-            #need prior * (1 - other_prior)^N in each entry
-            #due to sparse matrices, and limiting memory usage, have to overwrite 
-            #also, the reason for the complication below is that we have to work in log space, which
-            #requires addition rather than subtraction, which we can't do directly on sparse matrices
-            #we also need to switch between operating on data (when we do pointwise operations)
-            #and operating on matrices (when we sum across axes)
+            if gibbs_feature_enabled('huge-prior-softmax'):
+                from pigean.huge_prior import signal_prior_weights
+                signal_priors = signal_prior_weights(signal_log_priors, prior[i,:])
+            else:
+                #need prior * (1 - other_prior)^N in each entry
+                #due to sparse matrices, and limiting memory usage, have to overwrite 
+                #also, the reason for the complication below is that we have to work in log space, which
+                #requires addition rather than subtraction, which we can't do directly on sparse matrices
+                #we also need to switch between operating on data (when we do pointwise operations)
+                #and operating on matrices (when we sum across axes)
 
-            #priors specific to the signal
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(np.log(1 - prior[i,:])))
-            other_log_priors = sparse_aux.sum(axis=1).A1
+                #priors specific to the signal
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(np.log(1 - prior[i,:])))
+                other_log_priors = sparse_aux.sum(axis=1).A1
 
-            signal_log_priors.data = np.ones(len(signal_log_priors.data))
-            signal_log_priors = sparse.csr_matrix(signal_log_priors.multiply(np.log(prior[i,:])))
+                signal_log_priors.data = np.ones(len(signal_log_priors.data))
+                signal_log_priors = sparse.csr_matrix(signal_log_priors.multiply(np.log(prior[i,:])))
 
-            #now this has log(prior/(1-prior))
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                #now this has log(prior/(1-prior))
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            #now need to add in (1-prior)^N
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(other_log_priors).T)
+                #now need to add in (1-prior)^N
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(other_log_priors).T)
 
-            #now this has log(prior * (1-other_prior)^N)
-            signal_log_priors.data = signal_log_priors.data + sparse_aux.data
+                #now this has log(prior * (1-other_prior)^N)
+                signal_log_priors.data = signal_log_priors.data + sparse_aux.data
 
-            #now normalize
-            #log_sum_bf = c + np.log(np.sum(np.exp(var_log_bf[region_vars] - c)))
-            #where c is max value
+                #now normalize
+                #log_sum_bf = c + np.log(np.sum(np.exp(var_log_bf[region_vars] - c)))
+                #where c is max value
 
-            #to get max, have to add minimum (to get it over zero) and then subtract it
-            c = signal_log_priors.min(axis=1)
+                #to get max, have to add minimum (to get it over zero) and then subtract it
+                c = signal_log_priors.min(axis=1)
 
-            #ensure all c are positive (otherwise this will be removed from the sparse matrix and break the subsequent operations on data)
-            c = c.toarray()
-            c[c == 0] = np.min(c) * 1e-4
+                #ensure all c are positive (otherwise this will be removed from the sparse matrix and break the subsequent operations on data)
+                c = c.toarray()
+                c[c == 0] = np.min(c) * 1e-4
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
 
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            c = signal_log_priors.max(axis=1) + c
+                c = signal_log_priors.max(axis=1) + c
 
-            signal_log_priors.data = signal_log_priors.data + sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data + sparse_aux.data
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
-            #store the max
-            c_data = copy.copy(sparse_aux.data)
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
+                #store the max
+                c_data = copy.copy(sparse_aux.data)
 
-            #subtract c
-            sparse_aux.data = np.exp(signal_log_priors.data - c_data)
+                #subtract c
+                sparse_aux.data = np.exp(signal_log_priors.data - c_data)
 
-            norms = sparse_aux.sum(axis=1).A1
-            norms[norms != 0] = np.log(norms[norms != 0])
+                norms = sparse_aux.sum(axis=1).A1
+                norms[norms != 0] = np.log(norms[norms != 0])
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(norms).T)
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(norms).T)
 
-            sparse_aux.data = c_data + sparse_aux.data
+                sparse_aux.data = c_data + sparse_aux.data
 
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            #finally, we can obtain the priors matrix
-            signal_log_priors.data = np.exp(signal_log_priors.data)            
-            
-            signal_priors = signal_log_priors.T
+                #finally, we can obtain the priors matrix
+                signal_log_priors.data = np.exp(signal_log_priors.data)            
+                
+                signal_priors = signal_log_priors.T
 
             #first have to adjust for priors
             #convert to BFs
