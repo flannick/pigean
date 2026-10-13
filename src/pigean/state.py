@@ -38,6 +38,7 @@ import pegs_shared.phewas as pegs_phewas
 import pegs_shared.probability as pegs_probability
 import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
+from pegs_shared.sparse_regression import use_lean_regression
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
 import pegs_shared.xdata as pegs_xdata
@@ -9639,7 +9640,7 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         X_size_mb = state._get_X_size_mb()
         X_h_size_mb = num_chains * X_size_mb
         if X_h_size_mb <= max_mb_X_h:
-            X_hstacked = sparse.hstack([state.X_orig] * num_chains)
+            X_hstacked = None if use_lean_regression() else sparse.hstack([state.X_orig] * num_chains)
         else:
             stack_batch_size = int(max_mb_X_h / X_size_mb)
             if stack_batch_size == 0:
@@ -9648,9 +9649,9 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
                 "Not building X_hstacked, size would be %d > %d; will instead run %d chains at a time"
                 % (X_h_size_mb, max_mb_X_h, stack_batch_size)
             )
-            X_hstacked = sparse.hstack([state.X_orig] * stack_batch_size)
+            X_hstacked = None if use_lean_regression() else sparse.hstack([state.X_orig] * stack_batch_size)
     else:
-        X_hstacked = state.X_orig
+        X_hstacked = None if use_lean_regression() else state.X_orig
 
     num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
 
@@ -11535,19 +11536,21 @@ def _compute_gibbs_logistic_beta_tildes_batch(
     X_hstacked,
 ):
     num_cur_stack = (end - begin)
-    if num_cur_stack == stack_batch_size:
-        cur_X_hstacked = X_hstacked
-    else:
-        cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
-
-    stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+    selected_stack = None
+    if not use_lean_regression():
+        if num_cur_stack == stack_batch_size:
+            cur_X_hstacked = X_hstacked
+        else:
+            cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
+        stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+        selected_stack = cur_X_hstacked[:,stack_mask]
     return state._compute_logistic_beta_tildes(
         state.X_orig[:,pre_gene_set_filter_mask],
         p_sample_m[begin:end,:],
         state.scale_factors[pre_gene_set_filter_mask],
         state.mean_shifts[pre_gene_set_filter_mask],
         resid_correlation_matrix=y_corr_sparse,
-        X_stacked=cur_X_hstacked[:,stack_mask],
+        X_stacked=selected_stack,
     )
 
 
