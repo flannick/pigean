@@ -62,3 +62,11 @@ demonstrated mixing improvement. It can change sweep counts, random-number
 consumption and finite-run results. It does not guarantee identical trajectories
 across arithmetic backends. Full-run agreement, runtime and memory validation
 should accompany promotion; it is separate from the arithmetic recommendations.
+
+The [bounded T2D validation](experiments/inner-rhat-stability/README.md) passed:
+the disabled path reproduced historical optimized outputs exactly; the enabled
+path removed the captured numerical split. In one full pair, active-panel
+R-hat q90 improved 1.841 -> 1.216 with inference time +0.73% and peak RSS +0.65%.
+Enabled versus control prior r/slope was .9842/.9973 and corrected beta
+.8374/.8848. These finite-run shifts and the single-seed scope are why the
+feature remains separately opt-in; no general mixing or speedup claim is made.
