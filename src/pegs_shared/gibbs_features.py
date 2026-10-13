@@ -1,4 +1,5 @@
-"""Explicit, scoped Gibbs feature selection; presets retain historical behavior."""
+"""Scoped Gibbs features; numerical defaults are independent of arithmetic presets."""
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 
@@ -28,7 +29,8 @@ REQUIRES = {
     'compiled-covariance': {'compact-covariance'},
     'parallel-prefilter': {'sparse-regression'},
 }
-ACTIVE = ContextVar('gibbs_active_features', default=frozenset())
+DEFAULT_FEATURES = frozenset({'inner-rhat-stable'})
+ACTIVE = ContextVar('gibbs_active_features', default=DEFAULT_FEATURES)
 
 
 def _feature_names(values):
@@ -55,7 +57,7 @@ def resolve_features(preset='legacy', enable=(), disable=()):
         raise ValueError('Unknown Gibbs features: '+', '.join(sorted(unknown)))
     if enable & disable:
         raise ValueError('Cannot both enable and disable: '+', '.join(sorted(enable & disable)))
-    requested = (set(PRESETS[preset]) | enable) - disable
+    requested = (set(PRESETS[preset]) | DEFAULT_FEATURES | enable) - disable
     active = set(requested)
     while True:
         reduced = {f for f in active if REQUIRES.get(f, set()) <= active}
@@ -68,3 +70,18 @@ def resolve_features(preset='legacy', enable=(), disable=()):
 
 def enabled(feature):
     return feature in ACTIVE.get()
+
+
+@contextmanager
+def default_feature_scope(*, enable=(), disable=()):
+    """Apply numerical defaults/opt-outs during preprocessing as well as Gibbs.
+
+    Arithmetic features remain scoped by marginal_backend at the Gibbs stage.
+    Preserve any arithmetic context supplied by a Python caller.
+    """
+    selected = set(resolve_features(enable=enable, disable=disable)['active'])
+    token = ACTIVE.set((ACTIVE.get() - DEFAULT_FEATURES) | (selected & DEFAULT_FEATURES))
+    try:
+        yield
+    finally:
+        ACTIVE.reset(token)

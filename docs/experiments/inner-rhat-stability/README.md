@@ -1,8 +1,12 @@
 # Inner R-hat mean-boundary stability — 2026-10-13
 
-Retain `--gibbs-enable inner-rhat-stable` as an independent opt-in numerical
-repair. Keep every preset and the default unchanged. This is not an arithmetic
-equivalence claim or a general sparse-mode mixing solution.
+**Current status:** promoted to a default numerical repair on 2026-10-13,
+independently of the arithmetic engine. Use `--gibbs-disable inner-rhat-stable`
+for the historical stopping rule, including preliminary fitting. Explicit
+`--gibbs-enable inner-rhat-stable` remains supported. The experiments below
+were performed while the feature was opt-in; their source hashes and results
+are unchanged. This is not an arithmetic equivalence claim or a general
+sparse-mode mixing solution.
 
 ## Implementation and integration
 
@@ -24,7 +28,7 @@ estimates can change. It is independent of arithmetic backend selection.
 391 numerical/feature/CLI tests plus four subtests and 46 existing inner-cache
 and Gibbs-summary tests pass. Tests exercise actual stopping decisions on a
 one-step rounding perturbation, material deviations, degenerate/nonfinite
-values, max-based stopping, unchanged raw diagnostics/RNG, default-off behavior
+values, max-based stopping, unchanged raw diagnostics/RNG, then-default-off behavior
 and CLI selection with legacy arithmetic. Commands from the code worktree:
 
 ```sh
@@ -123,5 +127,6 @@ Run from the analysis root with its documented environment and trusted fixture.
 The launch script refuses to overwrite outputs. Use fresh result paths for a
 repeat. Each run's `screen.json` preserves expanded arguments, sampler settings,
 source/fixture identity, compiler information, runtime and memory. Future
-validation should assess reproducibility across seeds/traits before making this
-a default or claiming a mixing improvement.
+validation should assess reproducibility across seeds/traits before claiming a
+general mixing improvement. Default promotion addresses a demonstrated numerical
+branch defect; it does not establish a general convergence cure.
