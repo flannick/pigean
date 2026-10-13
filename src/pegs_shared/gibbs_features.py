@@ -8,6 +8,7 @@ FEATURES = (
     'compiled-covariance', 'parallel-prefilter', 'inner-matmul', 'inner-fused', 'inner-batching',
     'compiled-prefilter',
     'inner-cache64',
+    'huge-prior-softmax',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
