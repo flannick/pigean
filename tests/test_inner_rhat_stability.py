@@ -1,12 +1,13 @@
-"""Exercise real inner stopping decisions and the opt-in numerical boundary."""
+"""Exercise real inner stopping decisions and the default numerical boundary."""
 import pickle
+from contextlib import nullcontext
 
 import numpy as np
 import pytest
 
 import pigean.state as state
 from pigean.inner_diagnostics import stabilize_rhat_mean_boundary
-from pegs_shared.gibbs_features import ACTIVE, PRESETS, resolve_features
+from pegs_shared.gibbs_features import ACTIVE, PRESETS, DEFAULT_FEATURES, resolve_features
 from pegs_shared.sparse_regression import marginal_backend
 
 
@@ -18,7 +19,9 @@ def stopping_check(monkeypatch, rhat, enabled, use_max=False):
                         lambda *a: (np.ones_like(rhat), np.ones_like(rhat),
                                     rhat, np.ones((4, 1)), tensors[0].copy()))
     rng_before = pickle.dumps(np.random.get_state())
-    with marginal_backend('legacy', enable=['inner-rhat-stable'] if enabled else []):
+    with (nullcontext() if enabled is None else marginal_backend(
+            'legacy', enable=['inner-rhat-stable'] if enabled else [],
+            disable=[] if enabled else ['inner-rhat-stable'])):
         result = state._update_inner_beta_rhat_and_outliers(
             tensors[0], tensors[1], 11, np.array([True]), use_max, 10,
             tensors[2], tensors[3], tensors[4], np.array([True]), 1.01, 1)
@@ -63,10 +66,26 @@ def test_snap_scope_input_immutability_and_nonfinite_values():
     np.testing.assert_array_equal(values, before)
 
 
-def test_feature_independent_off_by_default_and_context_restored():
+def test_feature_independent_on_by_default_and_context_restored():
     assert all('inner-rhat-stable' not in v for v in PRESETS.values())
+    assert all('inner-rhat-stable' in resolve_features(p)['active'] for p in PRESETS)
     assert resolve_features('legacy', enable=['inner-rhat-stable'])['active'] == ['inner-rhat-stable']
     assert resolve_features('legacy', disable=['inner-rhat-stable'])['active'] == []
     with marginal_backend('legacy', enable=['inner-rhat-stable,inner-matmul']):
         assert ACTIVE.get() == {'inner-rhat-stable', 'inner-matmul'}
-    assert not ACTIVE.get()
+    assert ACTIVE.get() == DEFAULT_FEATURES
+
+
+def test_direct_python_default_uses_stable_boundary(monkeypatch):
+    assert not stopping_check(monkeypatch, [1.0199, np.nextafter(1., 0.)], None)
+
+
+def test_explicit_disable_nested_context_and_exception_restore():
+    with marginal_backend('legacy', disable=['inner-rhat-stable']):
+        assert not ACTIVE.get()
+        with pytest.raises(RuntimeError):
+            with marginal_backend('legacy'):
+                assert ACTIVE.get() == DEFAULT_FEATURES
+                raise RuntimeError('test restoration')
+        assert not ACTIVE.get()
+    assert ACTIVE.get() == DEFAULT_FEATURES

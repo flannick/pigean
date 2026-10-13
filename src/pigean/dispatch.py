@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pegs_shared.gibbs_features import default_feature_scope
 from . import main_support as pigean_main_support
 from . import multi_y as pigean_multi_y
 from . import outputs as pigean_outputs
@@ -7,6 +8,12 @@ from . import pipeline as pigean_pipeline
 
 
 def run_main_pipeline(options, mode, services=None):
+    with default_feature_scope(enable=getattr(options, 'gibbs_enable', None),
+                               disable=getattr(options, 'gibbs_disable', None)):
+        return _run_main_pipeline(options, mode, services)
+
+
+def _run_main_pipeline(options, mode, services=None):
     if services is None:
         services = pigean_main_support.build_cli_services()
     if not options.hide_opts:
