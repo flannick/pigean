@@ -4,6 +4,7 @@ import gzip
 
 import numpy as np
 from scipy import sparse
+from scipy.special import expit
 
 from . import phenotype_annotation as eaggl_phenotype_annotation
 
@@ -57,7 +58,7 @@ def _as_probability_surface(matrix, source_name, *, background_log_bf, dense_ful
             prob.data = np.nan_to_num(prob.data, nan=0.0, posinf=0.0, neginf=0.0)
             if source_name in {"combined", "log_bf"}:
                 shifted = prob.data + float(background_log_bf)
-                prob.data = np.exp(shifted) / (1.0 + np.exp(shifted))
+                prob.data = expit(shifted)
             else:
                 prob.data = np.clip(prob.data, 0.0, 1.0)
         return prob
@@ -65,7 +66,7 @@ def _as_probability_surface(matrix, source_name, *, background_log_bf, dense_ful
     dense = _sanitize_nonfinite(matrix)
     if source_name in {"combined", "log_bf"}:
         shifted = dense + float(background_log_bf)
-        return np.exp(shifted) / (1.0 + np.exp(shifted))
+        return expit(shifted)
     return np.clip(dense, 0.0, 1.0)
 
 

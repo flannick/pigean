@@ -180,6 +180,9 @@ class _RuntimeStub:
     def run_factor(self, **kwargs):
         self.run_factor_kwargs = kwargs
 
+    def _record_params(self, params, overwrite=False):
+        self.recorded_params = (dict(params), overwrite)
+
     def write_matrix_factors(self, out, write_anchor_specific=False, factor_output_scope="primary"):
         self.calls.append(("write_matrix_factors", out, write_anchor_specific, factor_output_scope))
 

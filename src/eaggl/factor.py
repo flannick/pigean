@@ -601,6 +601,7 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     if mode_state.get("factor_projection_only"):
         loaded_genes = None
         loaded_gene_factors = None
+        loaded_gene_discovery_mask = None
         loaded_gene_sets = None
         loaded_gene_set_factors = None
         if options.factor_gene_clusters_in is not None:
@@ -611,6 +612,9 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
             )
             loaded_genes = list(runtime.genes)
             loaded_gene_factors = np.asarray(runtime.exp_gene_factors, dtype=float)
+            discovery_mask = getattr(runtime, 'gene_in_discovery_mask', None)
+            loaded_gene_discovery_mask = (np.ones(len(loaded_genes), dtype=bool) if discovery_mask is None
+                                          else np.asarray(discovery_mask, dtype=bool).copy())
         if options.factor_gene_set_clusters_in is not None:
             load_existing_factor_gene_set_clusters(
                 domain,
@@ -723,13 +727,13 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
                 if loaded_gene_set_factors is not None:
                     runtime.exp_gene_factors = np.asarray(loaded_gene_factors, dtype=float)
                     runtime.gene_prob_factor_vector = np.asarray(loaded_gene_factors, dtype=float)
-                    runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
+                    runtime.gene_in_discovery_mask = loaded_gene_discovery_mask.copy()
                     runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
             elif loaded_gene_factors is not None:
                 runtime.genes = loaded_genes
                 runtime.gene_to_ind = {gene: i for i, gene in enumerate(loaded_genes)}
                 runtime.exp_gene_factors = loaded_gene_factors
-                runtime.gene_in_discovery_mask = np.full(len(loaded_genes), True, dtype=bool)
+                runtime.gene_in_discovery_mask = loaded_gene_discovery_mask.copy()
                 runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
             if loaded_gene_set_factors is not None and (
                 getattr(options, "gene_clusters_full_via_gene_sets_out", None) is not None
@@ -871,8 +875,8 @@ def run_main_factor_only_pipeline(domain, runtime, options, mode_state):
     )
 
     if not runtime.has_gene_sets():
-        domain.log("No gene sets survived the input filters; stopping")
-        domain.sys.exit(0)
+        domain.log("EAGGL_STATUS=empty_selection: no gene sets survived the input filters")
+        domain.sys.exit(3)
 
     if workflow_id == "F2":
         eaggl_gene_list_inputs.build_standalone_gene_list_inputs(domain, runtime, options)
@@ -981,6 +985,17 @@ def _coerce_optional_float(raw_value, *, field_name, row_name, domain):
         )
 
 
+def _validate_supplied_factor_ids(domain, runtime, raw_columns):
+    ids = tuple(number for number, _ in raw_columns)
+    if len(set(ids)) != len(ids):
+        domain.bail('Duplicate numeric factor IDs in supplied table')
+    previous = getattr(runtime, 'supplied_factor_ids', None)
+    if previous is not None and tuple(previous) != ids:
+        domain.bail('Supplied gene and gene-set factor IDs disagree: %s vs %s' % (previous, ids))
+    runtime.supplied_factor_ids = ids
+    runtime._record_params({'supplied_original_factor_ids': ','.join(str(x) for x in ids)}, overwrite=True)
+
+
 def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     """Load prior EAGGL gene-cluster factor loadings for projection-only outputs."""
     if gene_clusters_in is None:
@@ -1013,6 +1028,7 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
             if factor_number is not None:
                 raw_factor_columns.append((factor_number, column_name))
         raw_factor_columns.sort(key=lambda x: x[0])
+        _validate_supplied_factor_ids(domain, runtime, raw_factor_columns)
         factor_columns = [column_name for _, column_name in raw_factor_columns]
         if len(factor_columns) == 0:
             domain.bail(
@@ -1080,8 +1096,8 @@ def load_existing_factor_gene_clusters(domain, runtime, gene_clusters_in):
     runtime.gene_in_discovery_mask = np.asarray(in_discovery_values, dtype=bool)
     runtime.gene_factor_gene_mask = runtime.gene_in_discovery_mask
     runtime.factor_labels = [
-        labels_by_factor_index.get(i, "Factor%d" % (i + 1))
-        for i in range(num_factors)
+        labels_by_factor_index.get(number - 1, "Factor%d" % number)
+        for number, _ in raw_factor_columns
     ]
 
     if all(value is not None for value in combined_values):
@@ -1134,6 +1150,8 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
         reader = csv.DictReader(input_fh, delimiter="\t")
         if reader.fieldnames is None:
             domain.bail("Empty gene-set-clusters file: %s" % gene_set_clusters_in)
+        if len(set(reader.fieldnames)) != len(reader.fieldnames):
+            domain.bail('Duplicate columns in gene-set-clusters file')
 
         raw_factor_columns = []
         for column_name in reader.fieldnames:
@@ -1141,6 +1159,7 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
             if factor_number is not None:
                 raw_factor_columns.append((factor_number, column_name))
         raw_factor_columns.sort(key=lambda x: x[0])
+        _validate_supplied_factor_ids(domain, runtime, raw_factor_columns)
         factor_columns = [column_name for _, column_name in raw_factor_columns]
         if len(factor_columns) == 0:
             domain.bail(
@@ -1211,6 +1230,8 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
         domain.bail("No gene sets found in gene-set-clusters file: %s" % gene_set_clusters_in)
 
     factor_matrix = np.asarray(loadings, dtype=float)
+    if not np.all(np.isfinite(factor_matrix)) or np.any(factor_matrix < 0):
+        domain.bail('Gene-set factor loadings must be finite and nonnegative')
     num_factors = factor_matrix.shape[1]
     existing_lambdak = getattr(runtime, "exp_lambdak", None)
     if existing_lambdak is not None and len(existing_lambdak) != num_factors:
@@ -1239,8 +1260,8 @@ def load_existing_factor_gene_set_clusters(domain, runtime, gene_set_clusters_in
     )
     if getattr(runtime, "factor_labels", None) is None:
         runtime.factor_labels = [
-            labels_by_factor_index.get(i, "Factor%d" % (i + 1))
-            for i in range(num_factors)
+            labels_by_factor_index.get(number - 1, "Factor%d" % number)
+            for number, _ in raw_factor_columns
         ]
 
     if all(value is not None for value in beta_values):
@@ -1995,6 +2016,30 @@ def run_factor_model(runtime, factor_config):
 
 
 def run_main_factor_stage(domain, runtime, options, mode_state, factor_input_state):
+    requested_method = getattr(options, 'symnmf_update_method', 'auto')
+    method = requested_method
+    if method == 'auto':
+        method = ('projected_gradient' if getattr(options, 'discovery_model', 'gene_by_annotation')
+                  == 'gene_by_gene' else 'legacy')
+    if method not in ('legacy', 'projected_gradient'):
+        domain.bail('Unknown symmetric update method: %s' % method)
+    if getattr(options, 'max_num_iterations', None) is None:
+        options.max_num_iterations = 20000 if method == 'projected_gradient' else 100
+    if getattr(options, 'rel_tol', None) is None:
+        options.rel_tol = 1e-6 if method == 'projected_gradient' else 1e-4
+    if (getattr(options, 'max_num_iterations', 100) <= 0 or
+            not np.isfinite(getattr(options, 'rel_tol', 1e-4)) or getattr(options, 'rel_tol', 1e-4) <= 0):
+        domain.bail('Factor iteration budget and tolerance must be positive')
+    runtime.internal_symnmf_update_method = method
+    runtime.internal_symnmf_stopping = getattr(options, 'symnmf_stopping', 'adaptive')
+    if (runtime.internal_symnmf_update_method == 'projected_gradient' and
+            getattr(options, 'discovery_model', 'gene_by_annotation') != 'gene_by_gene'):
+        domain.bail('Projected-gradient discovery requires --discovery-model gene_by_gene')
+    runtime.internal_fresh_factor_fit = True
+    runtime._record_params({'symnmf_update_method': method,
+                           'symnmf_stopping': runtime.internal_symnmf_stopping,
+                           'max_num_iterations': options.max_num_iterations,
+                           'rel_tol': options.rel_tol}, overwrite=True)
     workflow = extract_factor_workflow(mode_state)
     factor_inputs = extract_factor_inputs(factor_input_state)
     factor_config = build_factor_execution_config(options, workflow, factor_inputs)
@@ -2050,9 +2095,29 @@ def run_main_pheno_projection_stage(domain, runtime, options):
                 strict_min_value=True,
                 max_num_entries_at_once=options.max_read_entries_at_once,
             )
-    if runtime.phenos is not None:
+    fresh_discovery = bool(getattr(runtime, 'internal_fresh_factor_fit', False))
+    if runtime.phenos is not None and not fresh_discovery:
         runtime.anchor_pheno_mask = np.full(len(runtime.phenos), True, dtype=bool)
         runtime.anchor_gene_mask = None
+
+    if fresh_discovery:
+        # Additional phenotype profiles are projections, not new discovery anchors.
+        selected_phi = (getattr(runtime, 'params', None) or {}).get('phi', options.phi)
+        if isinstance(selected_phi, list):
+            selected_phi = selected_phi[-1]
+        eaggl_factor_runtime._apply_canonical_trait_linkage(
+            runtime, use_gene_set_basis=project_from_gene_sets,
+            trait_linkage_source=getattr(options, 'trait_linkage_source', 'combined'),
+            trait_linkage_threshold=getattr(options, 'trait_linkage_threshold', 1.0),
+            trait_linkage_computation_mode=getattr(options, 'trait_linkage_computation_mode', 'sparse_full'),
+            trait_factor_linkage_factor_gene_threshold=getattr(options, 'trait_factor_linkage_factor_gene_threshold', .05),
+            trait_factor_linkage_nnls_min_loading=getattr(options, 'trait_factor_linkage_nnls_min_loading', 0.0),
+            trait_factor_linkage_nnls_max_value=getattr(options, 'trait_factor_linkage_nnls_max_value', 1.0),
+            factor_gmt_out=None, pheno_capture_input=options.pheno_capture_input,
+            projection_phi=float(selected_phi), projection_tol=getattr(options, 'rel_tol', 1e-4),
+            update_anchor_relevance=False, log_fn=domain.log, info_level=domain.INFO)
+        runtime._record_params({'post_fit_trait_projection': True}, overwrite=True)
+        return PhewasStageResult(ran=True, output_path=getattr(options, 'trait_factor_links_out', None))
 
     eaggl_factor_runtime.project_phenos_from_loaded_factors(
         runtime,
@@ -2146,7 +2211,10 @@ def should_run_main_factor_phewas_stage(mode_state):
 
 def should_run_main_pheno_projection_stage(mode_state, options):
     return bool(
-        mode_state.get("factor_projection_only")
+        (mode_state.get("factor_projection_only")
+         or (mode_state.get('run_factor') and not mode_state.get('use_phewas_for_factoring', False)
+             and (getattr(options, 'gene_phewas_bfs_in', None) is not None
+                  or getattr(options, 'gene_set_phewas_stats_in', None) is not None)))
         and not getattr(options, "no_trait_linkage", False)
         and (
             getattr(options, "pheno_clusters_out", None) is not None

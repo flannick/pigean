@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `305`
+- Total options: `315`
 - `method_required`: `11`
-- `method_optional`: `191`
-- `engineering`: `86`
+- `method_optional`: `199`
+- `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `249`
+- visibility `expert`: `259`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -63,6 +63,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_clusters_in` | `None` | load a gene-factor table and project gene sets, genes, phenotypes, and/or factor-PheWAS without refitting factors |
 | `--factor-gene-clusters-layout` | `expert` | `yes` | `expert_help` | `factor_gene_clusters_layout` | `genes-by-factors` | supplied gene-factor table layout: genes-by-factors (default) or factors-by-genes (Factor column followed by genes) |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
+| `--factor-max-iterations` | `expert` | `yes` | `expert_help` | `max_num_iterations` | `None` | Iteration ceiling (default: projected gradient 20000; legacy 100) |
 | `--factor-output-scope` | `normal` | `yes` | `core_help` | `factor_output_scope` | `primary` | choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
@@ -78,10 +79,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-prune-genes-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_genes_val` | `None` | - |
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
+| `--factor-rel-tol` | `expert` | `yes` | `expert_help` | `rel_tol` | `None` | Final factorization convergence tolerance |
 | `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
 | `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `euclidean` | choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
+| `--fixed-basis-projection-method` | `expert` | `yes` | `expert_help` | `fixed_basis_projection_method` | `legacy` | Legacy update or opt-in quadratic projections with per-output stationarity checks |
 | `--full-gene-projection-method` | `expert` | `yes` | `advanced_workflows` | `full_gene_projection_method` | `gene_set_loadings` | choose the basis for --gene-clusters-full-out: gene_set_loadings (default, gene-set-routed), direct_gene_gene (diagnostic), or auto |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
@@ -203,6 +206,9 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--phi-selection-target-factor-gene-mass` | `expert` | `yes` | `expert_help` | `phi_selection_target_factor_gene_mass` | `100.0` | - |
 | `--phi-selection-tie-tolerance` | `expert` | `yes` | `expert_help` | `phi_selection_tie_tolerance` | `0.01` | - |
 | `--project-phenos-from-gene-sets` | `expert` | `yes` | `advanced_workflows` | `project_phenos_from_gene_sets` | `False` | project fixed-W trait linkage from the gene-set basis instead of the gene basis |
+| `--projection-context-in` | `expert` | `yes` | `expert_help` | `projection_context_in` | `None` | - |
+| `--projection-max-cycles` | `expert` | `yes` | `expert_help` | `projection_max_cycles` | `2000` | - |
+| `--projection-stationarity-tol` | `expert` | `yes` | `expert_help` | `projection_stationarity_tol` | `1e-08` | - |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in-betas` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in_betas` | `1.01` | - |
@@ -211,6 +217,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--sigma-power` | `expert` | `yes` | `expert_help` | `sigma_power` | `None` | - |
 | `--sparse-frac-betas` | `expert` | `yes` | `expert_help` | `sparse_frac_betas` | `None` | - |
 | `--sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
+| `--symnmf-stopping` | `expert` | `yes` | `expert_help` | `symnmf_stopping` | `adaptive` | Projected gradient: confirmed adaptive stability or the full iteration budget |
+| `--symnmf-update-method` | `expert` | `yes` | `expert_help` | `symnmf_update_method` | `auto` | Auto selects optimized projected gradient for gene-by-gene discovery; legacy for annotation mode |
 | `--threshold-weights` | `expert` | `yes` | `expert_help` | `threshold_weights` | `0.5` | - |
 | `--top-gene-set-prior` | `expert` | `yes` | `expert_help` | `top_gene_set_prior` | `None` | - |
 | `--trait-factor-linkage-factor-gene-threshold` | `normal` | `yes` | `core_help` | `trait_factor_linkage_factor_gene_threshold` | `0.05` | zero EAGGL factor gene loadings below this threshold when exporting factor GMTs for PIGEAN enrichment |
@@ -305,6 +313,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--log-file` | `expert` | `no` | `core_help` | `log_file` | `None` | write structured run logs to this file |
 | `--max-gb` | `expert` | `no` | `expert_help` | `max_gb` | `2.0` | - |
 | `--max-read-entries-at-once` | `expert` | `no` | `expert_help` | `max_read_entries_at_once` | `None` | - |
+| `--numerical-diagnostics-out` | `expert` | `no` | `expert_help` | `numerical_diagnostics_out` | `None` | Write discovery stopping and checked-projection diagnostics as JSON |
 | `--params-out` | `expert` | `no` | `expert_help` | `params_out` | `None` | - |
 | `--phewas-gene-set-stats-out` | `expert` | `no` | `expert_help` | `phewas_gene_set_stats_out` | `None` | - |
 | `--phewas-stats-out` | `expert` | `no` | `advanced_workflows` | `phewas_stats_out` | `None` | - |
@@ -314,6 +323,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--pre-filter-small-batch-size` | `expert` | `no` | `expert_help` | `pre_filter_small_batch_size` | `500` | - |
 | `--print-effective-config` | `expert` | `no` | `core_help` | `print_effective_config` | `False` | print the fully resolved mode/options JSON and exit |
 | `--priors-num-gene-batches` | `expert` | `no` | `expert_help` | `priors_num_gene_batches` | `20` | - |
+| `--projection-context-out` | `expert` | `no` | `expert_help` | `projection_context_out` | `None` | - |
 | `--seed` | `expert` | `no` | `core_help` | `seed` | `None` | set explicit random seed for deterministic reproducibility checks |
 | `--trait-factor-links-out` | `normal` | `no` | `core_help` | `trait_factor_links_out` | `None` | write the canonical long-form trait-factor linkage table |
 | `--warnings-file` | `expert` | `no` | `core_help` | `warnings_file` | `None` | write warning messages to this file |
