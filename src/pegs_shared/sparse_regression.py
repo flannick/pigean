@@ -100,15 +100,19 @@ def logistic_moments(X, beta, alpha, max_probability):
 
 def sparse_inflation(X, r, beta, alpha, pseudo, fallback, block_size):
     """Optionally run independent linear chunks on two shared-memory workers."""
+    calculate_serial = _sparse_inflation_serial
+    if enabled('compiled-prefilter') and beta is None:
+        from .compiled_prefilter import linear_inflation
+        calculate_serial = linear_inflation
     pool = _PREFILTER_POOL.get()
     if pool is None or beta is not None or X.shape[1] <= block_size:
-        return _sparse_inflation_serial(X, r, beta, alpha, pseudo, fallback, block_size)
+        return calculate_serial(X, r, beta, alpha, pseudo, fallback, block_size)
     # Preserve the original block boundaries and reduction order within each
     # coefficient. Each worker owns its X copy and temporaries; r is read-only.
     k = X.shape[1]
     split = ((k + block_size - 1) // block_size + 1) // 2 * block_size
     def calculate(begin, end):
-        return _sparse_inflation_serial(
+        return calculate_serial(
             X[:, begin:end], r, None, None, pseudo, fallback, block_size)
     futures = [pool.submit(calculate, begin, end) for begin, end in ((0, split), (split, k))]
     return np.concatenate([future.result() for future in futures])
