@@ -11,6 +11,7 @@ from .gibbs_features import ACTIVE, enabled, resolve_features
 _BACKEND = ContextVar('marginal_regression_backend', default='legacy')
 _STRUCTURE_CACHE = ContextVar('annotation_structure_cache', default=None)
 _PREFILTER_POOL = ContextVar('prefilter_pool', default=None)
+_STATIC_V_CACHE = ContextVar('static_annotation_correlation_cache', default=None)
 
 
 @contextmanager
@@ -19,7 +20,11 @@ def marginal_backend(name, *, enable=(), disable=()):
     feature_token = ACTIVE.set(frozenset(selection['active']))
     cache = None
     pool = None
+    static_v = None
     try:
+        if enabled('static-correlation'):
+            from pigean.static_correlation import StaticCorrelationCache
+            static_v = StaticCorrelationCache()
         if enabled('annotation-cache') or enabled('compact-covariance'):
             from .structure_cache import ColumnGroupingCache
             cache = ColumnGroupingCache()
@@ -32,9 +37,11 @@ def marginal_backend(name, *, enable=(), disable=()):
         pool_token = _PREFILTER_POOL.set(pool)
         token = _BACKEND.set(name)
         cache_token = _STRUCTURE_CACHE.set(cache)
+        static_token = _STATIC_V_CACHE.set(static_v)
         try:
             yield cache
         finally:
+            _STATIC_V_CACHE.reset(static_token)
             _STRUCTURE_CACHE.reset(cache_token)
             _BACKEND.reset(token)
             _PREFILTER_POOL.reset(pool_token)
@@ -179,3 +186,7 @@ def _sparse_inflation_serial(X, r, beta, alpha, pseudo, fallback, block_size):
                 alpha=None if alpha is None else alpha[begin:end][unsafe],
                 pseudo=pseudo, block_size=block_size, backend='legacy')
     return output
+
+
+def static_correlation_cache():
+    return _STATIC_V_CACHE.get()

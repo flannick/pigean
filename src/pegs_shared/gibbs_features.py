@@ -9,6 +9,7 @@ FEATURES = (
     'compiled-prefilter',
     'inner-cache64',
     'huge-prior-softmax',
+    'static-correlation',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
