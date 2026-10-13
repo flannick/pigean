@@ -1,0 +1,9 @@
+........................................................................ [ 63%]
+.........................................                                [100%]
+=============================== warnings summary ===============================
+tests/test_annotation_structure_cache.py::test_changed_response_covariance_and_chain_count_match_uncached[False]
+tests/test_annotation_structure_cache.py::test_changed_response_covariance_and_chain_count_match_uncached[True]
+  /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/parallel-prefilter/src/pegs_shared/regression.py:514: RuntimeWarning: invalid value encountered in sqrt
+    ses = scale_factors / np.sqrt(variances)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

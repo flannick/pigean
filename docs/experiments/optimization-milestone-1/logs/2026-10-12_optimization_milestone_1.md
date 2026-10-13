@@ -1,0 +1,9 @@
+# 2026-10-12 accepted first optimization milestone
+
+The user accepted the 6.94x T2D inference speedup, 6.83x saved-input-to-output gain and 40.4% peak-RSS reduction as a major first improvement. They explicitly authorized commit and tagging. Earlier original-gate failures remain in the comparison JSON as historical measurements; acceptance no longer requires tenfold speed or exact seeded trajectories. Statistical equivalence and improved convergence are not claimed. Updated the master tracker, future plan and human-readable full-run summary accordingly.
+
+Verified all eight cumulative implementations are committed through `f9a36f83b42d4c12c730b782d1fb88745c6c1d30` on `codex/parallel-prefilter`, with a clean source worktree. Existing 113 focused checks and the full 500-update T2D pair are the validation evidence; no source-code change or new fit is required for the evidence/tagging step. Preserve the legacy default and separate fPS/variance branches.
+
+Inspected the current inner conditional update: correlation residual products, masked elementwise inclusion/mean calculations and random draws are distinct operations. The full-run inner share of 66.0% gives hypothetical total speedups of 1.49x for a 2x inner improvement and 2.12x for a 5x inner improvement; eliminating inner work gives a 2.94x ceiling at unchanged workload. Added deferred incremental residual arithmetic and inner variational approximation to the tracker. Proposed sequence is in `plans/next_inference_directions_20261012.md`.
+
+Refreshed primary sources: Carbonetto/Stephens variational selection, Polson/Scott/Windle Pólya–Gamma augmentation, Zanella/Roberts importance tempering, and Jankowiak variable selection (2022 paper supersedes the earlier binomial-regression preprint). The current inner coefficient sampler already uses Gaussian summaries; a logistic augmentation is a broader target/formulation change. No unmeasured PIGEAN speedup is asserted for any research method.

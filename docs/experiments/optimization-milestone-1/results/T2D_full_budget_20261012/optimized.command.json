@@ -1,0 +1,36 @@
+{
+  "argv": [
+    "/Users/flannick/codex-workspace/analysis/.venv/bin/python",
+    "/Users/flannick/codex-workspace/analysis/pigean_optimize/scripts/screen_inference.py",
+    "--repo",
+    "/Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/parallel-prefilter",
+    "--fixture",
+    "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/feature_foundation_20261011/fixtures/T2D/fixture.pkl.gz",
+    "--out",
+    "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/T2D_full_budget_20261012/optimized",
+    "--iterations",
+    "500",
+    "--seconds",
+    "10800",
+    "--seed",
+    "0",
+    "--engine",
+    "parallel-prefilter",
+    "--prepare-engine",
+    "--write-outputs",
+    "--fixed-budget-validation",
+    "--trace-stride",
+    "100",
+    "--monitor"
+  ],
+  "environment": {
+    "PYTHONHASHSEED": "0",
+    "PYTHONNOUSERSITE": "1",
+    "MPLBACKEND": "Agg",
+    "MPLCONFIGDIR": "/Users/flannick/codex-workspace/.cache/matplotlib",
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  }
+}

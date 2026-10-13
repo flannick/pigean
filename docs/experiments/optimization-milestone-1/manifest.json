@@ -1,0 +1,139 @@
+{
+  "tag": "optimization-milestone-1",
+  "source_commit_tested": "f9a36f83b42d4c12c730b782d1fb88745c6c1d30",
+  "baseline_commit": "8b8c5e6abfd11689e87550f5e9f64a867906edcd",
+  "original_analysis_root": "/Users/flannick/codex-workspace/analysis/pigean_optimize",
+  "scope": "Small evidence and driver archive. Raw fixtures, full outputs and compiler caches excluded.",
+  "files": [
+    {
+      "path": "plans/optimization_tracker.md",
+      "sha256": "20a7816d45d19caf86443ab16a36f7a444b32b8eae7ce08a698b45577e98b03c",
+      "bytes": 31939
+    },
+    {
+      "path": "plans/feature_foundation_20261011.md",
+      "sha256": "c276c867e8e0541306ada88f84dd310eab686a952e272666fcf31d5db43913f9",
+      "bytes": 4091
+    },
+    {
+      "path": "plans/optimization_milestone_1_20261012.md",
+      "sha256": "722c62fbde53edc7728ec7d7a95f6363512d63ad1c95c289e7662115ce5c2cb1",
+      "bytes": 1546
+    },
+    {
+      "path": "plans/next_inference_directions_20261012.md",
+      "sha256": "0cf5a30e2a1b91e03fd63c2d54b67e770902d343c93ab04e236e949dc33128fc",
+      "bytes": 5130
+    },
+    {
+      "path": "logs/2026-10-12_T2D_full_budget.md",
+      "sha256": "49bdd2c96536dbd97283f691f90dc87b1eef3ac411cd9c9a4dd4289dcb78e9ff",
+      "bytes": 4550
+    },
+    {
+      "path": "logs/2026-10-12_optimization_milestone_1.md",
+      "sha256": "ddec2bcd2f98e6440abda5b1ccf1ace9ae55fea3f61ef54593866d98dc1ed217",
+      "bytes": 1970
+    },
+    {
+      "path": "scripts/screen_inference.py",
+      "sha256": "525c0fd458e72e70bc391701b523f2d9e403f178f19b80a75d4ee0467b5a821f",
+      "bytes": 15769
+    },
+    {
+      "path": "scripts/compare_inference_screen.py",
+      "sha256": "e060c7f411971dd0d37a57ae245ac6fb2c83808e7d16ea479bd130b3c9506b70",
+      "bytes": 5643
+    },
+    {
+      "path": "scripts/run_T2D_full_budget.py",
+      "sha256": "a2490427c395381f496cf6fa3ebc0dbe5762f2c2d3055c05a2c89858fbc65cf1",
+      "bytes": 6913
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/comparison.json",
+      "sha256": "ca4273ae98578489d251da44f3e55a526aac75ad4a1cc502f1d4ecfecaeb85e3",
+      "bytes": 9941
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/summary.md",
+      "sha256": "7c6e48b3d3059b816cd1935047d64051930a3b05c45b33abe42bcf5d52553c3e",
+      "bytes": 6202
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/legacy/screen.json",
+      "sha256": "880fe5f5cdd345e9f6916ab4a49a6012ae68fa16a8bc8ddf4f6413a7c3d5a8dd",
+      "bytes": 5630
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/optimized/screen.json",
+      "sha256": "b38a0136758cfc99aa0ce74c0e78b4ab8c8103672178db9cc897c2ce38d95595",
+      "bytes": 6751
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/legacy.command.json",
+      "sha256": "30a06d5d70396cee64b61955d370e2bdffa47522b4bf4f7643f2ef712c642442",
+      "bytes": 1093
+    },
+    {
+      "path": "results/T2D_full_budget_20261012/optimized.command.json",
+      "sha256": "01bbc01c878a2e0c9152e4737c496c0824708d68d06bf7ba049faad87c77f505",
+      "bytes": 1105
+    },
+    {
+      "path": "results/parallel_covariance_20261012/tests.txt",
+      "sha256": "6be9d35d10e20ec1f9cf0a3c668f8f79a0c05c09fafc9518d177c61e513163ed",
+      "bytes": 757
+    },
+    {
+      "path": "results/feature_foundation_20261011/fixtures/T2D/fixture.pkl.gz.json",
+      "sha256": "3b13e05998ed9d8d2f80fd3e38062f0ea920753d7f8202d423ee0608e4d4c148",
+      "bytes": 5099
+    },
+    {
+      "path": "logs/2026-10-11_bounded_optimization.md",
+      "sha256": "3771a2e50d900b5e8a7b7289da6db88b42070b902334cdd8d3a37ecec5b48716",
+      "bytes": 5147
+    },
+    {
+      "path": "logs/2026-10-11_grouped_regression.md",
+      "sha256": "5ca54cbaf53557f1488bd84aa7aca0aaea6b9ab0aaf2e4353c79f0e26ca5e111",
+      "bytes": 6610
+    },
+    {
+      "path": "logs/2026-10-12_annotation_structure_reuse.md",
+      "sha256": "2d5f6a78fb2c60c6c4ece06dfdad0cfbc437349bffc0a2a54818e2a8bfa2d344",
+      "bytes": 6387
+    },
+    {
+      "path": "logs/2026-10-12_compact_covariance.md",
+      "sha256": "42a95295b6f577e6dbfb9a47f6cd4732d52d108c2858e250f58558b18dc14031",
+      "bytes": 6450
+    },
+    {
+      "path": "logs/2026-10-12_lean_regression.md",
+      "sha256": "ff87acb8ecd72522d5d93b020221feb72fe154d6011e12bf701ea13595e9ff31",
+      "bytes": 6876
+    },
+    {
+      "path": "logs/2026-10-12_inner_gibbs_arithmetic.md",
+      "sha256": "cc0018cc21801ee052ec57eb2933327d0e022866746f426b0684f5dc3686ee9b",
+      "bytes": 7349
+    },
+    {
+      "path": "logs/2026-10-12_compiled_covariance.md",
+      "sha256": "3b4dacad7fdb4f6a5b23b58ea09ee076817d5b8425568193c3a973b1dddbd6fe",
+      "bytes": 7902
+    },
+    {
+      "path": "logs/2026-10-12_parallel_covariance.md",
+      "sha256": "50c047d7c536e648089868a5bf466753e8c4171a62ec3f3336ec1bde11fc08be",
+      "bytes": 10163
+    },
+    {
+      "path": "logs/2026-10-11_convergence_runtime_research.md",
+      "sha256": "ef7788d910698a0f8771836b7ec7932a58aae80510ba86cc3f8c2edbc68b9417",
+      "bytes": 9921
+    }
+  ]
+}

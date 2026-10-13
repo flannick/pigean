@@ -1,0 +1,7 @@
+# First optimization milestone and next directions
+
+1. Verify the cumulative optimization branch is clean and contains all eight implementations. Preserve the separate fPS/variance branches and the legacy default.
+2. Record the user's acceptance of the 6.94x T2D inference gain and broad output agreement as a major first improvement. Preserve the original numerical gate results as historical evidence, without treating them as a rejection of the accepted milestone or asserting proven statistical equivalence.
+3. Archive the small validation receipts, comparison, rerunnable driver sources, tracker and relevant method logs in the PIGEAN source repository. Include hashes and original analysis paths; exclude raw inputs and large outputs. Commit this documentation/evidence atomically and create annotated tag `optimization-milestone-1`. Publish only this cumulative branch and tag under the user's standing instruction to commit and push beneficial changes.
+4. Review the 66% inner-fit share, calculate bounded additional speedups, and inspect current inner conditional arithmetic. Refresh primary methodological references for alternative inference. Recommend a short inner-arithmetic investigation followed by an explicitly defined approximation or sampler experiment, with separate speed and statistical criteria.
+5. Verify commit/tag identity and remote publication, update the analysis log, and report the milestone, remaining uncertainty and recommended sequence. Do not launch new inference experiments or change defaults in this step.
