@@ -39,6 +39,7 @@ import pegs_shared.probability as pegs_probability
 import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
 from pegs_shared.sparse_regression import use_lean_regression, use_cached_inner
+from pegs_shared.gibbs_features import enabled as gibbs_feature_enabled
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
 import pegs_shared.xdata as pegs_xdata
@@ -9282,8 +9283,15 @@ def _update_inner_beta_gene_set_batch(
             ).T
             res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v, :][:, compute_mask_union])
         else:
-            res_beta_hat_union_t = sampled_beta_t[:, compute_mask_v, :].dot(
-                V[:, compute_mask_union] if selected_V is None else selected_V)
+            left = sampled_beta_t[:, compute_mask_v, :]
+            right = V[:, compute_mask_union] if selected_V is None else selected_V
+            if gibbs_feature_enabled('inner-matmul'):
+                # A 2-D product reaches BLAS instead of NumPy's generic tensor-dot
+                # loop. Preserve batch/chain order; reductions may differ in rounding.
+                res_beta_hat_union_t = left.reshape(-1, left.shape[-1]).dot(right).reshape(
+                    left.shape[0], left.shape[1], right.shape[1])
+            else:
+                res_beta_hat_union_t = left.dot(right)
 
         if betas_trace_out is not None and betas_trace_gene_sets is not None:
             cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
