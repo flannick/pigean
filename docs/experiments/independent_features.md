@@ -36,3 +36,5 @@ Retained candidate command suffix:
 ```
 
 Omit any enabling flag to disable that extension. Use `--gibbs-disable` to remove preset features; dependent features become explicitly inactive if their prerequisites are removed.
+
+Final arithmetic candidate also adds `--gibbs-enable inner-cache64` and `--gibbs-enable huge-prior-softmax`. The first requires `cached-inner`; the second independently normalizes HuGE signal prior odds. Both remain off in every preset. The six-feature combination changes arithmetic/cache capacity only; `inner-early-check` and `inner-mean` must be explicitly added to run inference experiments.
