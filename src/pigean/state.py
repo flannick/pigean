@@ -13324,12 +13324,16 @@ def _prepare_gibbs_corrected_batch_inputs(
     cur_gene_set_mask = np.any(gene_set_mask_m[begin:end,:], axis=0)
     num_gene_set_mask = np.sum(cur_gene_set_mask)
     max_num_gene_set_mask = np.max(np.sum(gene_set_mask_m, axis=1))
-    V_superset = state._calculate_V_internal(
-        state.X_orig[:,cur_gene_set_mask],
-        state.y_corr_cholesky,
-        state.mean_shifts[cur_gene_set_mask],
-        state.scale_factors[cur_gene_set_mask],
-    )
+    from pegs_shared.sparse_regression import static_correlation_cache
+    correlation = static_correlation_cache()
+    V_superset = correlation.get(state, cur_gene_set_mask) if correlation is not None else None
+    if V_superset is None:
+        V_superset = state._calculate_V_internal(
+            state.X_orig[:,cur_gene_set_mask],
+            state.y_corr_cholesky,
+            state.mean_shifts[cur_gene_set_mask],
+            state.scale_factors[cur_gene_set_mask],
+        )
 
     # If the superset is not too much larger than max-per-chain, reuse one V;
     # otherwise subset V per chain.
