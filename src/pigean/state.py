@@ -4766,7 +4766,7 @@ class PigeanState(object):
                 signal_priors = signal_prior_weights(signal_log_priors, prior[i,:])
             else:
                 #need prior * (1 - other_prior)^N in each entry
-                #due to sparse matrices, and limiting memory usage, have to overwrite 
+                #due to sparse matrices, and limiting memory usage, have to overwrite
                 #also, the reason for the complication below is that we have to work in log space, which
                 #requires addition rather than subtraction, which we can't do directly on sparse matrices
                 #we also need to switch between operating on data (when we do pointwise operations)
@@ -4829,8 +4829,8 @@ class PigeanState(object):
                 signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
                 #finally, we can obtain the priors matrix
-                signal_log_priors.data = np.exp(signal_log_priors.data)            
-                
+                signal_log_priors.data = np.exp(signal_log_priors.data)
+
                 signal_priors = signal_log_priors.T
 
             #first have to adjust for priors

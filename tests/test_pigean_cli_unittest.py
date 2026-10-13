@@ -35,6 +35,9 @@ class PigeanCliTest(unittest.TestCase):
         proc = self._run("gibbs", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         options = json.loads(proc.stdout)["options"]
+        self.assertEqual(options["gibbs_engine"], "legacy")
+        self.assertIsNone(options["gibbs_enable"])
+        self.assertIsNone(options["gibbs_disable"])
         self.assertTrue(options["disable_stall_detection"])
         self.assertEqual(options["max_num_restarts"], 0)
         self.assertEqual(options["gibbs_reruns"], 1)
@@ -49,6 +52,37 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(options["max_abs_mcse_d"], 0.10)
         self.assertEqual(options["max_post_beta_rhat"], 1.25)
         self.assertEqual(options["max_rel_prior_beta_inconsistency"], 0.50)
+
+    def test_gibbs_feature_lists_and_repeated_flags(self) -> None:
+        from pegs_shared.gibbs_features import FEATURES, resolve_features
+        suffix = "inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation"
+        proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
+                         "--gibbs-enable", suffix, "--gibbs-enable", "inner-matmul",
+                         "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES))
+        proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
+                         "--gibbs-enable", "inner-matmul", "--gibbs-enable", "inner-fused",
+                         "--gibbs-disable", "annotation-cache,compiled-covariance",
+                         "--gibbs-disable", "lean-regression", "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        options = json.loads(proc.stdout)["options"]
+        selected = resolve_features(options["gibbs_engine"], options["gibbs_enable"], options["gibbs_disable"])
+        self.assertTrue({'inner-matmul', 'inner-fused'} <= set(selected['active']))
+        self.assertFalse({'annotation-cache', 'compiled-covariance', 'lean-regression'} & set(selected['active']))
+
+    def test_gibbs_feature_lists_fail_closed(self) -> None:
+        for flags, message in [
+            (("--gibbs-enable", "inner-matmul,typo"), "Unknown Gibbs features"),
+            (("--gibbs-disable", "inner-matmul,"), "Empty Gibbs feature name"),
+            (("--gibbs-enable", "inner-matmul,inner-fused", "--gibbs-disable", "inner-fused"), "Cannot both enable and disable"),
+            (("--gibbs-enable", "inner-mean"), "Unknown Gibbs features"),
+        ]:
+            with self.subTest(flags=flags):
+                proc = self._run("gibbs", *flags, "--print-effective-config")
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertIn(message, proc.stdout + proc.stderr)
 
     def test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables(self) -> None:
         default_proc = self._run("gibbs", "--print-effective-config")

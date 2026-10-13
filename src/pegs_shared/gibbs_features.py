@@ -30,11 +30,25 @@ REQUIRES = {
 ACTIVE = ContextVar('gibbs_active_features', default=frozenset())
 
 
+def _feature_names(values):
+    """Flatten repeated options and comma lists without accepting empty names."""
+    if isinstance(values, str):
+        values = (values,)
+    names = set()
+    for value in values or ():
+        for part in value.split(','):
+            name = part.strip()
+            if not name:
+                raise ValueError('Empty Gibbs feature name in: %r' % value)
+            names.add(name)
+    return names
+
+
 def resolve_features(preset='legacy', enable=(), disable=()):
     preset = ALIASES.get(preset, preset)
     if preset not in PRESETS:
         raise ValueError('Unknown Gibbs preset: '+preset)
-    enable, disable = set(enable or ()), set(disable or ())
+    enable, disable = _feature_names(enable), _feature_names(disable)
     unknown = (enable | disable) - set(FEATURES)
     if unknown:
         raise ValueError('Unknown Gibbs features: '+', '.join(sorted(unknown)))

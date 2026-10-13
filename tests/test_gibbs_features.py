@@ -45,6 +45,46 @@ def test_fail_closed_and_inactive_prerequisites():
     assert not ACTIVE.get()
 
 
+def test_comma_lists_repetition_whitespace_and_duplicates():
+    expected = resolve_features('parallel-prefilter',
+                                enable=['inner-matmul', 'inner-fused'],
+                                disable=['annotation-cache', 'compiled-covariance'])
+    observed = resolve_features('parallel-prefilter',
+                                enable=[' inner-matmul, inner-fused ', 'inner-matmul'],
+                                disable=['annotation-cache,compiled-covariance', 'annotation-cache'])
+    assert observed == expected
+    with marginal_backend('parallel-prefilter',
+                          enable=['inner-matmul,inner-fused'],
+                          disable=['annotation-cache,compiled-covariance']):
+        assert ACTIVE.get() == set(expected['active'])
+        assert annotation_structure_cache() is None
+    assert not ACTIVE.get()
+    assert resolve_features(enable='inner-matmul,inner-fused')['active'] == ['inner-fused', 'inner-matmul']
+
+
+@pytest.mark.parametrize('value', ['', ' ', ',', 'inner-matmul,', ',inner-matmul', 'inner-matmul,,inner-fused'])
+@pytest.mark.parametrize('option', ['enable', 'disable'])
+def test_empty_list_members_are_rejected(value, option):
+    with pytest.raises(ValueError, match='Empty Gibbs feature name'):
+        resolve_features(**{option: [value]})
+
+
+def test_comma_lists_preserve_validation_and_prerequisites():
+    with pytest.raises(ValueError, match='Unknown Gibbs features: typo'):
+        resolve_features(enable=['inner-matmul,typo'])
+    with pytest.raises(ValueError, match='Cannot both enable and disable: inner-fused'):
+        resolve_features(enable=['inner-matmul,inner-fused'], disable=['inner-fused,cached-inner'])
+    result = resolve_features('parallel-prefilter', disable=['grouped-regression,cached-inner'])
+    assert set(result['active']) == {'sparse-regression', 'parallel-prefilter'}
+    assert set(result['inactive']) == {'annotation-cache', 'compact-covariance', 'lean-regression', 'compiled-covariance'}
+
+
+@pytest.mark.parametrize('name', ['inner-early-check', 'inner-mean', 'inner-residual'])
+def test_rejected_experiments_are_not_available(name):
+    with pytest.raises(ValueError, match='Unknown Gibbs features'):
+        resolve_features(enable=[name])
+
+
 @pytest.mark.parametrize('features', subsets())
 def test_every_original_subset_runs_and_preserves_estimates(features):
     rng = np.random.default_rng(639)
@@ -76,3 +116,23 @@ def test_new_switches_are_independent_and_presets_unchanged():
                 without = resolve_features('parallel-prefilter',enable=set(subset)-{item},disable=[item])
                 assert set(without['active']) == set(selected['active'])-{item}
     assert not set(new) & set().union(*PRESETS.values())
+
+
+@pytest.mark.parametrize('enable,expected', [(None, set()), (['inner-matmul,inner-fused'], {'inner-matmul', 'inner-fused'})])
+def test_pipeline_scopes_features_without_changing_sampler_arguments(monkeypatch, enable, expected):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from pigean import pipeline
+
+    kwargs = {'num_chains': 10, 'total_num_iter': 500}
+    config = SimpleNamespace(run_kwargs=kwargs, num_chains=10, total_num_iter=500)
+    monkeypatch.setattr(pipeline, 'build_main_gibbs_stage_config', lambda options: config)
+    def sample(**passed):
+        assert passed == kwargs
+        assert ACTIVE.get() == expected
+    state = SimpleNamespace(run_gibbs=Mock(side_effect=sample))
+    options = SimpleNamespace(gibbs_engine='legacy', gibbs_enable=enable, gibbs_disable=None)
+    result = pipeline.run_main_gibbs_stage(Mock(), state, options, {'run_gibbs': True})
+    state.run_gibbs.assert_called_once_with(**kwargs)
+    assert result.ran
+    assert not ACTIVE.get()
