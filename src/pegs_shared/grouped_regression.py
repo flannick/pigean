@@ -2,7 +2,7 @@
 import numpy as np
 from scipy import sparse
 from scipy.special import expit
-from .sparse_regression import annotation_structure_cache, use_compact_covariance
+from .sparse_regression import annotation_structure_cache, use_compact_covariance, covariance_statistics
 
 
 class GroupedDesign:
@@ -83,7 +83,7 @@ class GroupedDesign:
             from .covariance_edges import compact_edges
             (left, right, weights, absolute_weights), stats = compact_edges(
                 self.X, self.groups, r, pseudo)
-            summary = annotation_structure_cache().covariance_stats
+            summary = covariance_statistics()
             summary['preparations'] += 1
             for field in ('input_edges', 'stored_pairs', 'aggregated_columns'):
                 summary[field] += stats[field]
