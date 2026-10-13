@@ -257,6 +257,9 @@ def build_main_gibbs_stage_config(options):
 def run_main_gibbs_stage(services, state, options, mode_state):
     if not mode_state["run_gibbs"]:
         return GibbsStageResult(ran=False, num_chains=None, total_num_iter=None)
+    engine = getattr(options, "gibbs_engine", "legacy")
+    if engine != "legacy":
+        raise ValueError("Unsupported Gibbs engine: %s" % engine)
     gibbs_config = build_main_gibbs_stage_config(options)
     state.run_gibbs(**gibbs_config.run_kwargs)
     return GibbsStageResult(
