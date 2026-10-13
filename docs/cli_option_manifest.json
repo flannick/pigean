@@ -3578,7 +3578,7 @@
       "source_line": 496,
       "summary": "disable one Gibbs optimization from the engine preset; repeat for a subset; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 3
+      "usage_references": 6
     },
     {
       "action": "append",
@@ -3598,7 +3598,7 @@
       "source_line": 495,
       "summary": "enable one Gibbs optimization in addition to the engine preset; repeat for a subset; see independent feature documentation",
       "type": null,
-      "usage_references": 5
+      "usage_references": 16
     },
     {
       "action": null,
@@ -3618,7 +3618,7 @@
       "source_line": 494,
       "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks",
       "type": "choice",
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": null,
