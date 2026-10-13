@@ -1,0 +1,44 @@
+{
+  "status": "CAPTURED_SWEEPS_ONLY",
+  "features": [],
+  "sweeps": 6,
+  "batches": 65,
+  "seconds": {
+    "baseline": [
+      0.12647595792077482,
+      0.11737854219973087,
+      0.13456645794212818
+    ],
+    "candidate": [
+      0.09779012482613325,
+      0.09288158291019499,
+      0.10479695815593004
+    ]
+  },
+  "medians": {
+    "baseline": 0.12647595792077482,
+    "candidate": 0.09779012482613325
+  },
+  "speedup": 1.2933407963804502,
+  "max_abs_difference": 0.0,
+  "source_sha256": {
+    "src/pigean/state.py": "87f9d6978d589278a5194f2ae4c10d540edc58629dd2d26090aad2f90b0dc7de",
+    "src/pigean/inner_batching.py": "48a8f6c108f8ba3724a46a94fbb552211071e9fa1592f6a655cff6ede5259a40",
+    "src/pigean/inner_cache.py": "b9c7cf2a4af13e7098eb4d4f5f934d66a4330479de35fc14a8ce3b4e7fd78d79",
+    "src/pigean/inner_compiled.py": "ebf9f6466d5db136ee5e0595278dc3406ffa5796bbca959aad5964c5ac0a9c4b"
+  },
+  "correlation_cache": {
+    "baseline": {
+      "hits": 0,
+      "misses": 390,
+      "payload_bytes": 16542001,
+      "max_bytes": 16777216
+    },
+    "candidate": {
+      "hits": 325,
+      "misses": 65,
+      "payload_bytes": 19162397,
+      "max_bytes": 67108864
+    }
+  }
+}

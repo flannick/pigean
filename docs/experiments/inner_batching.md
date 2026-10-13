@@ -5,3 +5,7 @@
 The selected batches and threshold comparison are preserved, including the NumPy 1.26 contiguous float64 reduction order. Other NumPy versions, custom ordering and alternative covariance paths use the reference implementation. This is not the abandoned blockwise redesign. Requires the optional Numba dependency. The compiler adds cold setup time; scratch storage is linear in coefficient count, alongside the existing masks and correlation matrix.
 
 Partition/reduction boundary tests and full inner-fit/RNG tests validate arithmetic. Captured production partition timing and full outer validation must establish usefulness.
+
+## Completed validation
+
+See [optimization milestone 2](optimization-milestone-2/README.md) for the completed full T2D timings, NAFLD sensitivity checks, memory measurements and retained configuration. This feature remains independently selectable and off in all historical presets. Kernel gains must not be interpreted as whole-run gains. Long-run NAFLD outputs are sensitive despite fixed-input arithmetic checks; no convergence improvement is claimed.

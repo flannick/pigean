@@ -38,3 +38,13 @@ Retained candidate command suffix:
 Omit any enabling flag to disable that extension. Use `--gibbs-disable` to remove preset features; dependent features become explicitly inactive if their prerequisites are removed.
 
 Final arithmetic candidate also adds `--gibbs-enable inner-cache64` and `--gibbs-enable huge-prior-softmax`. The first requires `cached-inner`; the second independently normalizes HuGE signal prior odds. Both remain off in every preset. The six-feature combination changes arithmetic/cache capacity only; `inner-early-check` and `inner-mean` must be explicitly added to run inference experiments.
+
+The optional seventh arithmetic extension is `--gibbs-enable static-correlation`, which caches fixed full annotation correlations within a 256 MiB cap and validates input content on each request. Unsupported/oversized/whitened inputs fall back. It has full T2D evidence; the NAFLD full comparison uses the six-feature configuration. See the milestone evidence for this distinction and the observed peak-memory variability.
+
+Recommended T2D arithmetic suffix:
+
+```text
+--gibbs-engine parallel-prefilter --gibbs-enable inner-matmul --gibbs-enable inner-fused --gibbs-enable inner-batching --gibbs-enable compiled-prefilter --gibbs-enable inner-cache64 --gibbs-enable huge-prior-softmax --gibbs-enable static-correlation
+```
+
+The independent `inner-early-check` and `inner-mean` probes remain available but were rejected from the recommended stack after screening. Legacy is still default; no package version or main-branch promotion is made.

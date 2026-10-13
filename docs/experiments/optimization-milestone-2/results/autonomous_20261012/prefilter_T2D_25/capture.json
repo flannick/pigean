@@ -1,0 +1,17 @@
+{
+  "outer": 24,
+  "capture_seconds": 24.478650875156745,
+  "source_commit": "8d4a9f075f5c6bfb503d8049de62ea3a8d9981ee",
+  "fixture_sha256": "f4a455b83c957e9c22ba1abdb61004ab281db059c3ca45e06c8462c7b445727e",
+  "conditional_sha256": "daa46782e4ef564cdf5aa225b045f0695a8de57ae237096b0f1dce9d0c7e6895",
+  "shapes": {
+    "X": [
+      19746,
+      4912
+    ],
+    "r": [
+      19746,
+      19746
+    ]
+  }
+}

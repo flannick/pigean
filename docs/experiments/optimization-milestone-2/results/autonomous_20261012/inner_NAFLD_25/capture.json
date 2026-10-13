@@ -1,0 +1,94 @@
+{
+  "outer": 25,
+  "capture_seconds": 8.247601416893303,
+  "source_commit": "cfbb7d977ce8c9dd33209788387872a26e2f5b82",
+  "fixture_sha256": "7d58f1fb6628e65c8a48492ce23e88e911c58b5a0a382a26d576777bd3f5bdc7",
+  "conditional_sha256": "ff3515c32f6bc0d1efaba0585fcd9851cf2b10e907f524ddc37fa52696264433",
+  "shapes": {
+    "compute_mask_m": [
+      10,
+      5
+    ],
+    "compute_mask_v": [
+      10
+    ],
+    "rand_ps_t": [
+      4,
+      10,
+      5
+    ],
+    "rand_norms_t": [
+      4,
+      10,
+      5
+    ],
+    "hdmp_hdmpn_m": [
+      10,
+      5
+    ],
+    "c_const_m": [
+      10,
+      5
+    ],
+    "d_const_m": [
+      10,
+      5
+    ],
+    "hdmpn_m": [
+      10,
+      5
+    ],
+    "se2s_m": [
+      10,
+      5
+    ],
+    "norm_scale_m": [
+      10,
+      5
+    ],
+    "beta_tildes_m": [
+      10,
+      5
+    ],
+    "sampled_beta_t": [
+      4,
+      10,
+      5
+    ],
+    "V": [
+      5,
+      5
+    ],
+    "X_orig": [
+      18321,
+      3364
+    ],
+    "scale_factors_m": [
+      10,
+      5
+    ],
+    "mean_shifts_m": [
+      10,
+      5
+    ],
+    "V_diag_m": [
+      10,
+      5
+    ],
+    "posterior_nonzero_prob_t": [
+      4,
+      10,
+      5
+    ],
+    "posterior_beta_mean_t": [
+      4,
+      10,
+      5
+    ],
+    "residual_beta_tilde_t": [
+      4,
+      10,
+      5
+    ]
+  }
+}

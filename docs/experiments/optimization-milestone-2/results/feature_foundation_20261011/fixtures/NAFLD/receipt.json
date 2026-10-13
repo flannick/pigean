@@ -1,0 +1,76 @@
+{
+  "source": {
+    "repo": "/Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/experiment-baseline",
+    "commit": "ca12beeba4a80fb829695ec992718e05465c4e73"
+  },
+  "spec_path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/config/experiments_20261011/NAFLD_capture.json",
+  "spec_sha256": "e251209e128c22b95a409fae6e56bfdd5c4f2d6e275e18c457ed4b2afcb3a635",
+  "runner_sha256": "ba5c4d6feef3bedb8fe4d1ac3041c03e8c827648e6527ae538469103525f7599",
+  "seed": 0,
+  "inputs": {
+    "gene-map-in": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/portal_gencode.gene.map",
+      "sha256": "65a9fd75392b519363491e4a26c99a2fbcffc9501132057ea5481f2ebcd49132"
+    },
+    "gene-loc-file": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.loc",
+      "sha256": "0f37c84a9ba460ac88c416863146c8e05b309d35cadf7ccff596be610365242b"
+    },
+    "gene-loc-file-huge": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/refGene_hg19_TSS.subset.loc",
+      "sha256": "1e6aa427d730f0cb75bc3b4df5a1e44ed1eb8b02a8b6f21f387b4ff8be3a0127"
+    },
+    "exons-loc-file-huge": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/NCBI37.3.plink.gene.exons.loc",
+      "sha256": "abc7bbce31c4b2fe05ff2d410d9ca1081538d6852d65c11376449b5a9f6aaeed"
+    },
+    "huge-statistics-in": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/latest_08_12/6_library/NAFLD/historical_codepath_parity_2026-08-14/signal_path_isolation/matched_x_huge_compare/current/huge_statistics.tar.gz",
+      "sha256": "412c9c6261584f7b23f6ae3aaf0140aca109944c542128d0d99f1cecaba788df"
+    },
+    "library-0": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/gene_set_list_mouse_2024.txt",
+      "sha256": "bf5635ecd4f485b03d6f266cdc61d37a19e22c3a1afe272323e1889f14c54597"
+    },
+    "library-1": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/gene_set_list_msigdb_nohp.txt",
+      "sha256": "42ed39dc4ff8ad51fab3c031a3fdfa88709abdc0fa7784dd58410011169d0f4d"
+    },
+    "library-2": {
+      "path": "/Users/flannick/codex-workspace/analysis/resources/pigean/data/large/gene_set_list_mesh.txt",
+      "sha256": "f5186232c7fea1f246ee3621a1d2ab251fa7f695541af25ed219495679a3024f"
+    },
+    "library-3": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/gene_set_list_ocr_human.txt",
+      "sha256": "9ec13d4d19ca18f6ce499a2d27efc75b977482d5a88985869ac12dc0eb763c46"
+    },
+    "library-4": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/results/nafld_sampler_pathology_2026-08-29/pigean_worktree/bundles/model_large-2026.02.22/data/gene_set_list_string_notext_medium.txt",
+      "sha256": "378bf62a31f1a5aae56920fa8c3bccc5bdaba1829ad8e1017d3250dd8e52facb"
+    },
+    "library-5": {
+      "path": "/Users/flannick/codex-workspace/analysis/resources/pigean/data/large/gene_set_list_pops_sparse_small.txt",
+      "sha256": "2f8d6220f8bbb3c5038ed4e71d12dda14cf39a2f65ca08151f52017e264efb54"
+    },
+    "replay_driver": {
+      "path": "/Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/experiment-foundation/scripts/experiments/inference.py",
+      "sha256": "fd818e3462bb43645eff421eb52c30fbb3b3c799c3925ec35fb05e114233d4b5"
+    }
+  },
+  "status": "COMPLETE",
+  "returncode": 0,
+  "wall_seconds": 192.1869865830522,
+  "started_at": 1791735140.867789,
+  "finished_at": 1791735333.617642,
+  "peak_rss_bytes": 2524446720,
+  "outer_iteration_seconds": null,
+  "outer_iteration_timer_count": 0,
+  "outputs": {
+    "fixture.pkl.gz": "7d58f1fb6628e65c8a48492ce23e88e911c58b5a0a382a26d576777bd3f5bdc7",
+    "fixture.pkl.gz.json": "2638b1026500e16eecc19ac7eba1d32208706bd6b243cc9619962c8dba697231"
+  },
+  "inference_seconds": null,
+  "last_diagnostics": null,
+  "platform": "macOS-15.7.7-arm64-arm-64bit",
+  "python": "3.10.8 (main, Oct 13 2022, 09:48:40) [Clang 14.0.0 (clang-1400.0.29.102)]"
+}

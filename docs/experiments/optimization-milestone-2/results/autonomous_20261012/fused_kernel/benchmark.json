@@ -1,0 +1,135 @@
+{
+  "status": "CONDITIONAL_ONLY",
+  "source_commit": "7149f5b6f856c9162653a3c5a17ad6d0865a81d3",
+  "dirty_source": true,
+  "features": [
+    "inner-matmul",
+    "inner-fused"
+  ],
+  "baseline_features": [
+    "inner-matmul"
+  ],
+  "capture": {
+    "outer": 25,
+    "capture_seconds": 36.08463287493214,
+    "source_commit": "c735d0efa3c1c6c5c35fc71aafb970ed5838d0e3",
+    "fixture_sha256": "f4a455b83c957e9c22ba1abdb61004ab281db059c3ca45e06c8462c7b445727e",
+    "conditional_sha256": "c1da5c7324a87b2272451613a5f1dd2d592705276f565090c1372f288b4b93fb",
+    "shapes": {
+      "compute_mask_m": [
+        10,
+        1503
+      ],
+      "compute_mask_v": [
+        10
+      ],
+      "rand_ps_t": [
+        4,
+        10,
+        1503
+      ],
+      "rand_norms_t": [
+        4,
+        10,
+        1503
+      ],
+      "hdmp_hdmpn_m": [
+        10,
+        1503
+      ],
+      "c_const_m": [
+        10,
+        1503
+      ],
+      "d_const_m": [
+        10,
+        1503
+      ],
+      "hdmpn_m": [
+        10,
+        1503
+      ],
+      "se2s_m": [
+        10,
+        1503
+      ],
+      "norm_scale_m": [
+        10,
+        1503
+      ],
+      "beta_tildes_m": [
+        10,
+        1503
+      ],
+      "sampled_beta_t": [
+        4,
+        10,
+        1503
+      ],
+      "V": [
+        1503,
+        1503
+      ],
+      "X_orig": [
+        19746,
+        4912
+      ],
+      "scale_factors_m": [
+        10,
+        1503
+      ],
+      "mean_shifts_m": [
+        10,
+        1503
+      ],
+      "V_diag_m": [
+        10,
+        1503
+      ],
+      "posterior_nonzero_prob_t": [
+        4,
+        10,
+        1503
+      ],
+      "posterior_beta_mean_t": [
+        4,
+        10,
+        1503
+      ],
+      "residual_beta_tilde_t": [
+        4,
+        10,
+        1503
+      ]
+    }
+  },
+  "calls_per_measurement": 30,
+  "preparation_seconds": 0.008574249921366572,
+  "max_absolute_difference": {
+    "sampled_beta_t": 0.0,
+    "posterior_nonzero_prob_t": 0.0,
+    "posterior_beta_mean_t": 0.0,
+    "residual_beta_tilde_t": 0.0
+  },
+  "seconds": {
+    "baseline": [
+      0.032376915914937854,
+      0.03295487491413951,
+      0.03522950015030801,
+      0.0356195829808712,
+      0.03496675007045269
+    ],
+    "candidate": [
+      0.03304491611197591,
+      0.03583191684447229,
+      0.03255162504501641,
+      0.033184124855324626,
+      0.03595987497828901
+    ]
+  },
+  "median_seconds": {
+    "baseline": 0.03496675007045269,
+    "candidate": 0.033184124855324626
+  },
+  "speedup": 1.0537192173335868
+}

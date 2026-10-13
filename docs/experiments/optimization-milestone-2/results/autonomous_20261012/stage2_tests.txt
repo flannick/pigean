@@ -1,0 +1,32 @@
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.......F                                                                 [100%]
+=================================== FAILURES ===================================
+____________ CliManifestTest.test_cli_manifest_and_docs_are_current ____________
+
+self = <tests.test_cli_manifest_unittest.CliManifestTest testMethod=test_cli_manifest_and_docs_are_current>
+
+    def test_cli_manifest_and_docs_are_current(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        cmd = [sys.executable, "scripts/generate_cli_manifest.py", "--check"]
+        proc = subprocess.run(
+            cmd,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+>       self.assertEqual(
+            proc.returncode,
+            0,
+            msg=(proc.stderr or "") + (proc.stdout or ""),
+        )
+E       AssertionError: 1 != 0 : CLI manifest is out of date: /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/optimization-stage-2/docs/cli_option_manifest.json
+
+tests/test_cli_manifest_unittest.py:20: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_cli_manifest_unittest.py::CliManifestTest::test_cli_manifest_and_docs_are_current
+1 failed, 367 passed in 9.15s

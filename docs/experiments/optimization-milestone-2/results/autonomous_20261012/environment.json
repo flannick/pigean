@@ -1,0 +1,19 @@
+{
+  "python": "3.10.8 (main, Oct 13 2022, 09:48:40) [Clang 14.0.0 (clang-1400.0.29.102)]",
+  "os": "Darwin",
+  "os_release": "24.6.0",
+  "architecture": "arm64",
+  "packages": {
+    "numpy": "1.26.4",
+    "scipy": "1.15.3",
+    "pandas": "1.5.3",
+    "numba": "0.63.1",
+    "llvmlite": "0.46.0"
+  },
+  "benchmark_thread_limits": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  }
+}

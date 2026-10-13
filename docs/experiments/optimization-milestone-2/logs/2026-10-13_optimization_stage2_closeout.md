@@ -1,0 +1,13 @@
+# Optimization stage 2 closeout
+
+Work started on 2026-10-12 and continued through 2026-10-13. The sequential empirical pass is complete: nine full 500-update fits, four separate 101-update profiles, three bounded inference screens, and three deliberate input captures, plus fixed-input kernels and unit checks. All launchers returned terminal status; no sampler remains queued. Full empirical details and commands are in `2026-10-12_autonomous_optimization.md` and the individual receipts.
+
+Retain seven independently selectable arithmetic extensions. T2D's best full Gibbs time is 309.418 s, 20.04x versus the historical 6201.423 s legacy run and 2.76x versus the contemporaneous 852.626 s first-milestone control. Priors, uncorrected/corrected betas and checkpoint trajectories match the first milestone numerically; the legacy-to-milestone stochastic difference remains. Measured peak RSS is 1.486 GiB versus historical legacy 2.479 GiB. Input preparation is excluded. Memory high-water varies across configurations; cache payload bounds are documented separately.
+
+NAFLD's six-feature full comparison gives 1.415x additional speed, but long outputs differ and R-hat remains poor. One unchanged-code alternate-seed control shows comparable disagreement. HuGE normalization ablation does not change optimized outputs. Fixed-input early NAFLD tests pass. This supports retention as arithmetic options without claiming general finite-run output interchangeability or convergence.
+
+Reject incremental residual caching (0.879x captured sweeps), earlier inner checks (1.079x short full-loop screen with scale shifts), and current conditional-mean iteration (1.037x with changed estimates) from the recommended stack. Preserve the residual branch and the off-by-default inference probes for reproducibility. Broader approximations/samplers require the explicit-target work in the new next-direction plan.
+
+Closeout actions: archive compact scripts, receipts, comparisons, profiles and test evidence with raw-artifact hashes; refresh CLI references; commit documentation; publish the retained branch and an annotated `optimization-milestone-2` performance tag. Legacy remains default, main is not merged, and fPS/variance branches remain separate. No raw fixture, large output, external input or release bundle is committed.
+
+Final validation: 402 targeted tests passed in 5.95 s after documentation/CLI regeneration. The archive contains 114 copied compact evidence files (about 0.6 MB), with every copy hash verified and 55 excluded raw gzip artifacts checksum-bound. There are no numerical source/test changes relative to tested `c281eec`; the closeout commit is documentation and evidence only.

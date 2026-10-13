@@ -5,3 +5,7 @@
 The kernel uses float64, no fast-math, the same supplied uniform/normal draws, and the same update equations. It accepts C/F/strided real float64 arrays; other types retain reference safeguards. Scalar exponential/reduction rounding may differ and can change long seeded trajectories. There is no new approximation, stopping change or convergence claim.
 
 72 focused tests passed, including independent/combined switches, dense/sparse/per-parallel/X/independent inner fits, hyperparameter adaptation and subsequent RNG values. A real T2D outer-25 conditional showed 1.85x incremental kernel speedup beyond inner-matmul across five alternating 30-call pairs; compilation was measured separately. The first development guard excluded an F-contiguous SE array and therefore never dispatched; that diagnostic timing is retained but is not a fused-kernel measurement. The corrected benchmark explicitly verifies compiled signatures. Full sampler validation is the next gate.
+
+## Completed validation
+
+See [optimization milestone 2](optimization-milestone-2/README.md) for the completed full T2D timings, NAFLD sensitivity checks, memory measurements and retained configuration. This feature remains independently selectable and off in all historical presets. Kernel gains must not be interpreted as whole-run gains. Long-run NAFLD outputs are sensitive despite fixed-input arithmetic checks; no convergence improvement is claimed.

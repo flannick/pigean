@@ -1,0 +1,37 @@
+{
+  "status": "CAPTURED_SWEEPS_ONLY",
+  "features": [
+    "inner-residual"
+  ],
+  "sweeps": 6,
+  "batches": 65,
+  "seconds": {
+    "baseline": [
+      0.12136537511833012,
+      0.11912770802155137,
+      0.11743108392693102
+    ],
+    "candidate": [
+      0.134195958962664,
+      0.1432638328988105,
+      0.135528750019148
+    ]
+  },
+  "medians": {
+    "baseline": 0.11912770802155137,
+    "candidate": 0.135528750019148
+  },
+  "speedup": 0.8789847763276838,
+  "max_abs_difference": 7.563394355258879e-16,
+  "source_sha256": {
+    "src/pigean/state.py": "569f07186fd0f59398bdf5f538c566c5fbd9f3d0f183929004c4bb03571e289c",
+    "src/pigean/inner_cache.py": "b9c7cf2a4af13e7098eb4d4f5f934d66a4330479de35fc14a8ce3b4e7fd78d79",
+    "src/pigean/inner_compiled.py": "ebf9f6466d5db136ee5e0595278dc3406ffa5796bbca959aad5964c5ac0a9c4b",
+    "src/pigean/inner_residual.py": "456fb2c671cfef780fd8f732426fd8a25720a1fa37b4218b034848b9c93e3f72"
+  },
+  "residual_cache": {
+    "calls": 390,
+    "rebuilds": 4,
+    "delta_updates": 383
+  }
+}

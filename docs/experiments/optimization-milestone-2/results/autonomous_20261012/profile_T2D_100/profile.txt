@@ -1,0 +1,96 @@
+         33700525 function calls (33647825 primitive calls) in 166.806 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1006 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002  166.799  166.799 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:4200(run_gibbs)
+        1    0.000    0.000  166.796  166.796 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1837(run_outer_gibbs)
+        1    0.000    0.000  166.789  166.789 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1517(_run_gibbs_epochs_with_optional_traces)
+        1    0.000    0.000  166.788  166.788 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1484(_run_gibbs_epoch_phase)
+        1    0.000    0.000  166.788  166.788 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1457(_run_and_apply_gibbs_epoch_attempt)
+        1    0.002    0.002  166.788  166.788 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1416(_run_single_gibbs_epoch_attempt)
+        1    0.000    0.000  166.786  166.786 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1346(_run_started_gibbs_epoch_attempt)
+        1    0.160    0.160  166.745  166.745 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1782(_run_gibbs_epoch_iterations)
+      101    0.001    0.000  166.586    1.649 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs.py:1706(_run_single_gibbs_iteration)
+      101    0.001    0.000  120.227    1.190 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs_callbacks.py:287(run_gibbs_iteration_correction_and_updates)
+      101    0.031    0.000  120.195    1.190 /Users/flannick/codex-workspace/analysis/pigean_optimize/scripts/screen_inference.py:153(record_update)
+      101    0.005    0.000  120.074    1.189 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11162(_compute_gibbs_iteration_betas_and_priors)
+      101    0.045    0.000  109.910    1.088 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11074(_run_gibbs_corrected_betas_step)
+      101    0.001    0.000  109.865    1.088 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:13052(_compute_gibbs_corrected_betas_for_gene_set_mask)
+      303    0.106    0.000  106.472    0.351 /Users/flannick/codex-workspace/analysis/pigean_optimize/scripts/screen_inference.py:116(timed_inner)
+      303    1.422    0.005  106.366    0.351 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:5345(_calculate_non_inf_betas)
+      101    0.001    0.000  102.363    1.013 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:13480(_run_gibbs_corrected_beta_sampler)
+    71341   33.068    0.000   85.146    0.001 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:9203(_update_inner_beta_gene_set_batch)
+      101    0.001    0.000   46.100    0.456 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/gibbs_callbacks.py:255(prepare_gibbs_iteration_state)
+      101    0.013    0.000   43.861    0.434 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:10780(_prepare_gibbs_iteration_inputs)
+    71752   43.104    0.001   43.104    0.001 {method 'dot' of 'numpy.ndarray' objects}
+      101    0.041    0.000   42.026    0.416 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11602(_compute_gibbs_logistic_beta_tildes)
+      101    0.001    0.000   23.529    0.233 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11422(_compute_gibbs_logistic_outputs_for_batches)
+      101    0.032    0.000   23.488    0.233 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11543(_compute_gibbs_logistic_beta_tildes_batch)
+      101    0.000    0.000   23.388    0.232 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:5275(_compute_logistic_beta_tildes)
+      101    0.112    0.001   23.388    0.232 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/model.py:65(compute_logistic_beta_tildes)
+      101    0.808    0.008   23.275    0.230 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/regression.py:153(compute_logistic_beta_tildes)
+      101    0.006    0.000   18.059    0.179 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11317(_compute_gibbs_pre_gene_set_filter_mask)
+      101    0.006    0.000   18.018    0.178 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:11364(_compute_gibbs_linear_prefilter_betas)
+      101    0.000    0.000   15.898    0.157 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:5250(_compute_beta_tildes)
+      101    0.002    0.000   15.897    0.157 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/model.py:18(compute_beta_tildes)
+      101    0.066    0.001   15.896    0.157 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/regression.py:56(compute_beta_tildes)
+      101   11.115    0.110   15.725    0.156 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:6264(_compute_gene_set_batches)
+      101    0.009    0.000   15.213    0.151 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/covariance.py:37(marginal_inflation)
+      101    0.001    0.000   14.487    0.143 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/sparse_regression.py:94(sparse_inflation)
+      101    0.000    0.000   14.482    0.143 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/sparse_regression.py:107(<listcomp>)
+      202    0.001    0.000   14.481    0.072 /opt/homebrew/Cellar/python@3.10/3.10.8/Frameworks/Python.framework/Versions/3.10/lib/python3.10/concurrent/futures/_base.py:430(result)
+      105    0.000    0.000   14.481    0.138 /opt/homebrew/Cellar/python@3.10/3.10.8/Frameworks/Python.framework/Versions/3.10/lib/python3.10/threading.py:288(wait)
+      220   14.480    0.066   14.480    0.066 {method 'acquire' of '_thread.lock' objects}
+      101    0.040    0.000   11.858    0.117 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/regression.py:483(<listcomp>)
+     1010    2.403    0.002   11.818    0.012 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:126(inflation)
+      101    0.010    0.000    9.941    0.098 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:13622(_refresh_gibbs_iteration_priors_and_huge)
+      101    0.016    0.000    9.171    0.091 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:13583(_maybe_refresh_gibbs_huge_scores)
+      101    1.478    0.015    9.079    0.090 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:4705(_distill_huge_signal_bfs)
+     1010    0.863    0.001    7.946    0.008 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:65(_prepare_correlation)
+
+
+         33700525 function calls (33647825 primitive calls) in 166.806 seconds
+
+   Ordered by: internal time
+   List reduced from 1006 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    71752   43.104    0.001   43.104    0.001 {method 'dot' of 'numpy.ndarray' objects}
+    71341   33.068    0.000   85.146    0.001 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:9203(_update_inner_beta_gene_set_batch)
+      220   14.480    0.066   14.480    0.066 {method 'acquire' of '_thread.lock' objects}
+      101   11.115    0.110   15.725    0.156 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:6264(_compute_gene_set_batches)
+      101    6.239    0.062    6.240    0.062 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/compiled_covariance.py:13(_edge_kernel)
+    71139    5.296    0.000    6.171    0.000 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/inner_cache.py:29(get)
+  2858414    4.564    0.000    4.565    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     5574    4.547    0.001    4.548    0.001 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:62(<genexpr>)
+      101    3.405    0.034    3.405    0.034 {built-in method scipy.sparse._sparsetools.csr_matmat}
+      101    2.577    0.026    2.577    0.026 {built-in method scipy.sparse._sparsetools.csr_matmat_maxnnz}
+      929    2.528    0.003    7.098    0.008 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:48(moments)
+     1010    2.403    0.002   11.818    0.012 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:126(inflation)
+     1528    2.127    0.001    2.127    0.001 {method 'standard_normal' of 'numpy.random.mtrand.RandomState' objects}
+     8484    1.702    0.000    1.702    0.000 {built-in method scipy.sparse._sparsetools.coo_tocsr}
+      101    1.478    0.015    9.079    0.090 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:4705(_distill_huge_signal_bfs)
+      303    1.422    0.005  106.366    0.351 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:5345(_calculate_non_inf_betas)
+  2789469    1.186    0.000    5.956    0.000 /Users/flannick/codex-workspace/analysis/.venv/lib/python3.10/site-packages/numpy/core/fromnumeric.py:71(_wrapreduction)
+     7272    1.002    0.000    1.002    0.000 {method 'reduceat' of 'numpy.ufunc' objects}
+  2631913    0.976    0.000    6.619    0.000 /Users/flannick/codex-workspace/analysis/.venv/lib/python3.10/site-packages/numpy/core/fromnumeric.py:2177(sum)
+     1010    0.863    0.001    7.946    0.008 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:65(_prepare_correlation)
+    10403    0.839    0.000    2.517    0.000 /Users/flannick/codex-workspace/analysis/.venv/lib/python3.10/site-packages/scipy/sparse/_compressed.py:391(multiply)
+     6060    0.829    0.000    0.829    0.000 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:133(total)
+      101    0.808    0.008   23.275    0.230 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/regression.py:153(compute_logistic_beta_tildes)
+    11514    0.776    0.000    0.776    0.000 {built-in method scipy.sparse._sparsetools.csr_has_canonical_format}
+   285257    0.746    0.000    0.960    0.000 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/structure_cache.py:23(column_groups)
+      101    0.710    0.007    2.353    0.023 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pegs_shared/grouped_regression.py:9(__init__)
+      202    0.673    0.003    0.673    0.003 {built-in method scipy.sparse._sparsetools.csr_matvecs}
+    92928    0.618    0.000    0.618    0.000 {method 'get' of 'dict' objects}
+     2525    0.606    0.000    0.606    0.000 {built-in method scipy.sparse._sparsetools.csc_tocsr}
+     8484    0.591    0.000    0.591    0.000 {built-in method scipy.sparse._sparsetools.expandptr}
+     1325    0.578    0.000    0.645    0.000 /Users/flannick/codex-workspace/analysis/pigean_optimize/worktrees/inner-optimization/src/pigean/state.py:9026(_apply_inner_beta_sparsity_update)
+      202    0.562    0.003    0.562    0.003 {built-in method scipy.sparse._sparsetools.csr_minus_csr}
+      418    0.539    0.001    0.539    0.001 {built-in method scipy.sparse._sparsetools.csc_matvecs}
+  2789469    0.521    0.000    0.521    0.000 /Users/flannick/codex-workspace/analysis/.venv/lib/python3.10/site-packages/numpy/core/fromnumeric.py:72(<dictcomp>)
+      721    0.485    0.001    0.485    0.001 /Users/flannick/codex-workspace/analysis/.venv/lib/python3.10/site-packages/numpy/core/numeric.py:841(outer)
+
+

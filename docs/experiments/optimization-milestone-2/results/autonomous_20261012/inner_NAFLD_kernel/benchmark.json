@@ -1,0 +1,136 @@
+{
+  "status": "CONDITIONAL_ONLY",
+  "source_commit": "cfbb7d977ce8c9dd33209788387872a26e2f5b82",
+  "dirty_source": false,
+  "features": [
+    "inner-matmul",
+    "inner-fused"
+  ],
+  "baseline_features": [],
+  "capture": {
+    "outer": 25,
+    "capture_seconds": 8.247601416893303,
+    "source_commit": "cfbb7d977ce8c9dd33209788387872a26e2f5b82",
+    "fixture_sha256": "7d58f1fb6628e65c8a48492ce23e88e911c58b5a0a382a26d576777bd3f5bdc7",
+    "conditional_sha256": "ff3515c32f6bc0d1efaba0585fcd9851cf2b10e907f524ddc37fa52696264433",
+    "shapes": {
+      "compute_mask_m": [
+        10,
+        5
+      ],
+      "compute_mask_v": [
+        10
+      ],
+      "rand_ps_t": [
+        4,
+        10,
+        5
+      ],
+      "rand_norms_t": [
+        4,
+        10,
+        5
+      ],
+      "hdmp_hdmpn_m": [
+        10,
+        5
+      ],
+      "c_const_m": [
+        10,
+        5
+      ],
+      "d_const_m": [
+        10,
+        5
+      ],
+      "hdmpn_m": [
+        10,
+        5
+      ],
+      "se2s_m": [
+        10,
+        5
+      ],
+      "norm_scale_m": [
+        10,
+        5
+      ],
+      "beta_tildes_m": [
+        10,
+        5
+      ],
+      "sampled_beta_t": [
+        4,
+        10,
+        5
+      ],
+      "V": [
+        5,
+        5
+      ],
+      "X_orig": [
+        18321,
+        3364
+      ],
+      "scale_factors_m": [
+        10,
+        5
+      ],
+      "mean_shifts_m": [
+        10,
+        5
+      ],
+      "V_diag_m": [
+        10,
+        5
+      ],
+      "posterior_nonzero_prob_t": [
+        4,
+        10,
+        5
+      ],
+      "posterior_beta_mean_t": [
+        4,
+        10,
+        5
+      ],
+      "residual_beta_tilde_t": [
+        4,
+        10,
+        5
+      ]
+    }
+  },
+  "calls_per_measurement": 30,
+  "preparation_seconds": 0.39090500003658235,
+  "max_absolute_difference": {
+    "sampled_beta_t": 0.0,
+    "posterior_nonzero_prob_t": 0.0,
+    "posterior_beta_mean_t": 0.0,
+    "residual_beta_tilde_t": 0.0
+  },
+  "seconds": {
+    "baseline": [
+      0.001744499895721674,
+      0.0017339999321848154,
+      0.0017185830511152744,
+      0.00171150011010468,
+      0.0017153751105070114
+    ],
+    "candidate": [
+      0.0008659169543534517,
+      0.0008518749382346869,
+      0.0008530830964446068,
+      0.0008467501029372215,
+      0.0008482921402901411
+    ]
+  },
+  "median_seconds": {
+    "baseline": 0.0017185830511152744,
+    "candidate": 0.0008518749382346869
+  },
+  "speedup": 2.0174123852928916,
+  "compiled_signatures": [
+    "(Array(int64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, Array(float64, 3, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), Array(float64, 2, 'F', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), bool)"
+  ]
+}

@@ -5,3 +5,7 @@
 This is an arithmetic optimization, not a new model or inference approximation. Floating-point reduction order changes. It is independent of other optimization flags and off in all presets; Numba is optional unless enabled. Tests cover all 16 combinations of downstream regional/absence modes with ordinary/extreme priors, empty and singleton signals, and stored zero entries. Full production-size timing and sampler validation are required before retention.
 
 The fPS branch remains separate. A future merge may need to reconcile the guarded prior-normalization block in HuGE distillation; this feature should preserve whichever downstream regional evidence semantics that branch selects. No fPS behavior is adopted here.
+
+## Completed validation
+
+See [optimization milestone 2](optimization-milestone-2/README.md) for the completed full T2D timings, NAFLD sensitivity checks, memory measurements and retained configuration. This feature remains independently selectable and off in all historical presets. Kernel gains must not be interpreted as whole-run gains. Long-run NAFLD outputs are sensitive despite fixed-input arithmetic checks; no convergence improvement is claimed.

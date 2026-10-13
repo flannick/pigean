@@ -5,3 +5,7 @@
 On the captured 1503-coefficient T2D problem, the original cap caused 390 misses and zero hits over six sweeps. The larger cap retained 18.3 MiB, with 65 misses and 325 hits, and exactly identical output arrays. Three alternating timing pairs measured 0.12648 / 0.09779 s medians (1.293x conditional-sweep speedup). The higher limit adds at most 48 MiB retained payload per fit plus Python overhead, but this input needed only about 2.5 MiB more retained payload. Total process RSS and full runtime still need validation.
 
 Benefit depends on fitting the working set; small problems already fit 16 MiB, while sufficiently large problems still exceed 64 MiB. Additional sweeps amortize slice creation. This is a bounded capacity option, not a promise that larger caches always improve performance.
+
+## Completed validation
+
+See [optimization milestone 2](optimization-milestone-2/README.md) for the completed full T2D timings, NAFLD sensitivity checks, memory measurements and retained configuration. This feature remains independently selectable and off in all historical presets. Kernel gains must not be interpreted as whole-run gains. Long-run NAFLD outputs are sensitive despite fixed-input arithmetic checks; no convergence improvement is claimed.

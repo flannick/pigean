@@ -1,0 +1,8 @@
+{
+  "sampled_coefficients": 100,
+  "V_max_asymmetry": 0.0,
+  "conditional_precision_max_relative_asymmetry": 0.1684688577582207,
+  "se2_min": 0.00019591479535747687,
+  "se2_max": 0.09016460469737728,
+  "conditional_precision_asymmetric_pair_fraction": 0.99
+}
