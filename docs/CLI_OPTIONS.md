@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `369`
+- Total options: `372`
 - `method_required`: `20`
-- `method_optional`: `199`
+- `method_optional`: `202`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `325`
+- visibility `expert`: `328`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -108,6 +108,9 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gene-universe-from-y` | `expert` | `yes` | `expert_help` | `gene_universe_from_y` | `False` | use only genes present in the input Y values as the analysis universe |
 | `--gene-universe-in` | `expert` | `yes` | `expert_help` | `gene_universe_in` | `None` | load an explicit gene universe shared across Y input modes |
 | `--gene-zs-gws-prob-true` | `expert` | `yes` | `expert_help` | `gene_zs_gws_prob_true` | `None` | - |
+| `--gibbs-disable` | `expert` | `yes` | `expert_help` | `gibbs_disable` | `None` | disable Gibbs optimizations from the engine preset; use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent |
+| `--gibbs-enable` | `expert` | `yes` | `expert_help` | `gibbs_enable` | `None` | enable Gibbs optimizations in addition to the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md |
+| `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |

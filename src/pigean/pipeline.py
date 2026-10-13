@@ -257,8 +257,20 @@ def build_main_gibbs_stage_config(options):
 def run_main_gibbs_stage(services, state, options, mode_state):
     if not mode_state["run_gibbs"]:
         return GibbsStageResult(ran=False, num_chains=None, total_num_iter=None)
+    engine = getattr(options, "gibbs_engine", "legacy")
+    if engine not in ("legacy", "sparse-regression", "grouped-regression", "cached-grouped-regression", "compact-covariance", "lean-regression", "cached-inner", "compiled-covariance", "parallel-prefilter"):
+        raise ValueError("Unsupported Gibbs engine: %s" % engine)
     gibbs_config = build_main_gibbs_stage_config(options)
-    state.run_gibbs(**gibbs_config.run_kwargs)
+    from pegs_shared.sparse_regression import marginal_backend
+    from pegs_shared.gibbs_features import resolve_features
+    enable = getattr(options, 'gibbs_enable', None)
+    disable = getattr(options, 'gibbs_disable', None)
+    selection = resolve_features(engine, enable, disable)
+    if enable or disable:
+        services.log('Gibbs active features: %s; inactive prerequisites: %s' % (
+            ', '.join(selection['active']) or 'none', selection['inactive']))
+    with marginal_backend(engine, enable=enable, disable=disable):
+        state.run_gibbs(**gibbs_config.run_kwargs)
     return GibbsStageResult(
         ran=True,
         num_chains=gibbs_config.num_chains,

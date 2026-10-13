@@ -8,6 +8,8 @@ import scipy.sparse as sparse
 from pegs_shared.cli import _default_bail
 from pegs_shared.probability import DEFAULT_MAX_PROBABILITY
 from pegs_shared.covariance import marginal_inflation, validate_correlation
+from pegs_shared.sparse_regression import logistic_moments, use_sparse_backend, use_grouped_backend, use_lean_regression
+from pegs_shared.grouped_regression import GroupedDesign
 
 
 NEUTRAL_BETA_TILDE_SE = 100.0
@@ -138,7 +140,8 @@ def compute_beta_tildes(
         se_inflation_factors = np.zeros(beta_tildes.shape)
 
         for i, matrix in enumerate(resid_correlation_matrix_list):
-            inflation = marginal_inflation(X, matrix)
+            inflation = marginal_inflation(X, matrix, backend='sparse' if use_sparse_backend() else 'legacy',
+                                          block_size=512 if use_grouped_backend() else 64)
             if len(resid_correlation_matrix_list) == 1:
                 se_inflation_factors = np.broadcast_to(inflation, beta_tildes.shape).copy()
             else:
@@ -283,6 +286,7 @@ def compute_logistic_beta_tildes(
 
     len_Y = Y.shape[1]
     num_chains = Y.shape[0]
+    lean = use_lean_regression()
 
     if append_pseudo:
         log_fun("Appending pseudo counts", trace_level)
@@ -291,23 +295,29 @@ def compute_logistic_beta_tildes(
         len_Y = Y.shape[1]
         X = sparse.csc_matrix(sparse.vstack((X, sparse.csr_matrix(np.ones((1, X.shape[1]))))))
 
-        if X_stacked is not None:
+        if X_stacked is not None and not lean:
             X_stacked = sparse.csc_matrix(sparse.vstack((X_stacked, sparse.csr_matrix(np.ones((1, X_stacked.shape[1]))))))
 
-    if X_stacked is None:
+    if X_stacked is None and not lean:
         if num_chains > 1:
             X_stacked = sparse.hstack([X] * num_chains)
         else:
             X_stacked = X
 
-    num_non_zero = np.tile((X != 0).sum(axis=0).A1, num_chains)
-    num_zero = X_stacked.shape[0] - num_non_zero
+    grouped_design = GroupedDesign(X, num_chains) if use_grouped_backend() else None
+    if lean:
+        num_zero = np.tile(grouped_design.zeros, num_chains)
+    else:
+        num_non_zero = np.tile((X != 0).sum(axis=0).A1, num_chains)
+        num_zero = X_stacked.shape[0] - num_non_zero
 
     beta_tildes = np.zeros(X.shape[1] * num_chains)
     alpha_tildes = np.zeros(X.shape[1] * num_chains)
     it = 0
     compute_mask = np.full(len(beta_tildes), True)
     diverged_mask = np.full(len(beta_tildes), False)
+    sparse_backend = use_sparse_backend() or grouped_design is not None
+    observed_x_y = X.T.dot(Y.T).T.ravel() if sparse_backend else None
 
     def __compute_Y_R(_X, _beta_tildes, _alpha_tildes, max_cap=DEFAULT_MAX_PROBABILITY):
         exp_X_stacked_beta_alpha = _X.multiply(_beta_tildes)
@@ -331,13 +341,24 @@ def compute_logistic_beta_tildes(
         return (Y_pred_zero, R_zero)
 
     max_it = 100
+    if lean:
+        Y_sum = np.repeat(np.sum(Y, axis=1), X.shape[1])
     log_fun("Performing IRLS...")
     while True:
         it += 1
         prev_beta_tildes = copy.copy(beta_tildes)
         prev_alpha_tildes = copy.copy(alpha_tildes)
 
-        (Y_pred, R) = __compute_Y_R(X_stacked[:, compute_mask], beta_tildes[compute_mask], alpha_tildes[compute_mask])
+        if grouped_design is not None:
+            p_sum, r_sum, xp_sum, xr_sum, xxr_sum = grouped_design.moments(
+                beta_tildes[compute_mask], alpha_tildes[compute_mask],
+                DEFAULT_MAX_PROBABILITY, compute_mask)
+        elif sparse_backend:
+            p_sum, r_sum, xp_sum, xr_sum, xxr_sum = logistic_moments(
+                X_stacked[:, compute_mask], beta_tildes[compute_mask],
+                alpha_tildes[compute_mask], DEFAULT_MAX_PROBABILITY)
+        else:
+            (Y_pred, R) = __compute_Y_R(X_stacked[:, compute_mask], beta_tildes[compute_mask], alpha_tildes[compute_mask])
 
         max_val = 100
         overflow_mask = alpha_tildes > max_val
@@ -345,14 +366,20 @@ def compute_logistic_beta_tildes(
 
         (Y_pred_zero, R_zero) = __compute_Y_R_zero(alpha_tildes[compute_mask])
 
-        Y_sum_per_chain = np.sum(Y, axis=1)
-        # Coefficients are flattened trait-major (all gene sets for one
-        # trait). Each trait total must follow that same ordering.
-        Y_sum = np.repeat(Y_sum_per_chain, X.shape[1])
+        if not lean:
+            Y_sum_per_chain = np.sum(Y, axis=1)
+            # Coefficients are flattened trait-major (all gene sets for one
+            # trait). Each trait total must follow that same ordering.
+            Y_sum = np.repeat(Y_sum_per_chain, X.shape[1])
 
-        X_r_X_beta = X_stacked[:, compute_mask].power(2).multiply(R).sum(axis=0).A1.ravel()
-        X_r_X_alpha = R.sum(axis=0).A1.ravel() + R_zero * num_zero[compute_mask]
-        X_r_X_beta_alpha = X_stacked[:, compute_mask].multiply(R).sum(axis=0).A1.ravel()
+        if sparse_backend:
+            X_r_X_beta = xxr_sum
+            X_r_X_alpha = r_sum + R_zero * num_zero[compute_mask]
+            X_r_X_beta_alpha = xr_sum
+        else:
+            X_r_X_beta = X_stacked[:, compute_mask].power(2).multiply(R).sum(axis=0).A1.ravel()
+            X_r_X_alpha = R.sum(axis=0).A1.ravel() + R_zero * num_zero[compute_mask]
+            X_r_X_beta_alpha = X_stacked[:, compute_mask].multiply(R).sum(axis=0).A1.ravel()
         denom = X_r_X_beta * X_r_X_alpha - np.square(X_r_X_beta_alpha)
 
         diverged = np.logical_or(np.logical_or(X_r_X_beta == 0, X_r_X_beta_alpha == 0), denom == 0)
@@ -364,10 +391,14 @@ def compute_logistic_beta_tildes(
             compute_mask[cur_indices[diverged]] = False
             diverged_mask[cur_indices[diverged]] = True
 
-            Y_pred = sparse.csc_matrix(Y_pred)
-            R = sparse.csc_matrix(R)
-            Y_pred = Y_pred[:, not_diverged]
-            R = R[:, not_diverged]
+            if sparse_backend:
+                p_sum = p_sum[not_diverged]
+                xp_sum = xp_sum[not_diverged]
+            else:
+                Y_pred = sparse.csc_matrix(Y_pred)
+                R = sparse.csc_matrix(R)
+                Y_pred = Y_pred[:, not_diverged]
+                R = R[:, not_diverged]
             Y_pred_zero = Y_pred_zero[not_diverged]
             R_zero = R_zero[not_diverged]
             X_r_X_beta = X_r_X_beta[not_diverged]
@@ -378,8 +409,12 @@ def compute_logistic_beta_tildes(
         if np.sum(np.isnan(X_r_X_beta) | np.isnan(X_r_X_alpha) | np.isnan(X_r_X_beta_alpha)) > 0:
             bail_fn("Error: something went wrong")
 
-        R_inv_Y_T_beta = X_stacked[:, compute_mask].multiply(Y_pred).sum(axis=0).A1.ravel() - X.T.dot(Y.T).T.ravel()[compute_mask]
-        R_inv_Y_T_alpha = (Y_pred.sum(axis=0).A1.ravel() + Y_pred_zero * num_zero[compute_mask]) - Y_sum[compute_mask]
+        if sparse_backend:
+            R_inv_Y_T_beta = xp_sum - observed_x_y[compute_mask]
+            R_inv_Y_T_alpha = p_sum + Y_pred_zero * num_zero[compute_mask] - Y_sum[compute_mask]
+        else:
+            R_inv_Y_T_beta = X_stacked[:, compute_mask].multiply(Y_pred).sum(axis=0).A1.ravel() - X.T.dot(Y.T).T.ravel()[compute_mask]
+            R_inv_Y_T_alpha = (Y_pred.sum(axis=0).A1.ravel() + Y_pred_zero * num_zero[compute_mask]) - Y_sum[compute_mask]
 
         beta_tilde_row = (X_r_X_beta * prev_beta_tildes[compute_mask] + X_r_X_beta_alpha * prev_alpha_tildes[compute_mask] - R_inv_Y_T_beta)
         alpha_tilde_row = (X_r_X_alpha * prev_alpha_tildes[compute_mask] + X_r_X_beta_alpha * prev_beta_tildes[compute_mask] - R_inv_Y_T_alpha)
@@ -407,17 +442,30 @@ def compute_logistic_beta_tildes(
             alpha_tildes[diverged_mask] = Y_sum[diverged_mask] / len_Y
 
         max_coeff = 100
-        (Y_pred, V) = __compute_Y_R(X_stacked, beta_tildes, alpha_tildes)
+        if grouped_design is not None:
+            _, r_sum, _, xr_sum, xxr_sum = grouped_design.moments(
+                beta_tildes, alpha_tildes, DEFAULT_MAX_PROBABILITY)
+        elif sparse_backend:
+            _, r_sum, _, xr_sum, xxr_sum = logistic_moments(
+                X_stacked, beta_tildes, alpha_tildes, DEFAULT_MAX_PROBABILITY)
+        else:
+            (Y_pred, V) = __compute_Y_R(X_stacked, beta_tildes, alpha_tildes)
 
         params_too_large_mask = np.logical_or(np.abs(alpha_tildes) > max_coeff, np.abs(beta_tildes) > max_coeff)
         alpha_tildes[np.abs(alpha_tildes) > max_coeff] = max_coeff
 
         p_const = np.exp(alpha_tildes) / (1 + np.exp(alpha_tildes))
-        variance_denom = (V.sum(axis=0).A1 + p_const * (1 - p_const) * (len_Y - (X_stacked != 0).sum(axis=0).A1))
+        if sparse_backend:
+            variance_denom = r_sum + p_const * (1 - p_const) * num_zero
+        else:
+            variance_denom = (V.sum(axis=0).A1 + p_const * (1 - p_const) * (len_Y - (X_stacked != 0).sum(axis=0).A1))
         denom_zero = variance_denom == 0
         variance_denom[denom_zero] = 1
 
-        variances = X_stacked.power(2).multiply(V).sum(axis=0).A1 - np.power(X_stacked.multiply(V).sum(axis=0).A1, 2) / variance_denom
+        if sparse_backend:
+            variances = xxr_sum - xr_sum**2 / variance_denom
+        else:
+            variances = X_stacked.power(2).multiply(V).sum(axis=0).A1 - np.power(X_stacked.multiply(V).sum(axis=0).A1, 2) / variance_denom
         variances[denom_zero] = NEUTRAL_BETA_TILDE_SE
 
         additional_diverged_mask = np.logical_and(~diverged_mask, np.logical_or(np.logical_or(variances < 0, denom_zero), params_too_large_mask))
@@ -431,11 +479,19 @@ def compute_logistic_beta_tildes(
         matrices = resid_correlation_matrix if isinstance(resid_correlation_matrix, list) else [resid_correlation_matrix] * num_chains
         if len(matrices) != num_chains:
             raise ValueError('Need one residual correlation matrix per trait')
-        se_inflation_factors = np.concatenate([
-            marginal_inflation(X, matrix,
-                beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
-                alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo)
-            for i, matrix in enumerate(matrices)])
+        if grouped_design is not None:
+            se_inflation_factors = np.concatenate([
+                grouped_design.inflation(matrix,
+                    beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
+                    alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo)
+                for i, matrix in enumerate(matrices)])
+        else:
+            se_inflation_factors = np.concatenate([
+                marginal_inflation(X, matrix,
+                    beta=beta_tildes[i*X.shape[1]:(i+1)*X.shape[1]],
+                    alpha=alpha_tildes[i*X.shape[1]:(i+1)*X.shape[1]], pseudo=append_pseudo,
+                    backend='sparse' if sparse_backend else 'legacy')
+                for i, matrix in enumerate(matrices)])
 
     if num_chains > 1:
         beta_tildes = beta_tildes.reshape(num_chains, X.shape[1])

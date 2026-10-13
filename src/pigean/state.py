@@ -38,6 +38,8 @@ import pegs_shared.phewas as pegs_phewas
 import pegs_shared.probability as pegs_probability
 import pegs_shared.output_tables as pegs_output_tables
 import pegs_shared.regression as pegs_regression
+from pegs_shared.sparse_regression import use_lean_regression, use_cached_inner
+from pegs_shared.gibbs_features import enabled as gibbs_feature_enabled
 import pegs_shared.runtime_matrix as pegs_runtime_matrix
 import pegs_shared.types as pegs_types
 import pegs_shared.xdata as pegs_xdata
@@ -4759,73 +4761,77 @@ class PigeanState(object):
         huge_results = np.zeros(prior_log_bf.shape)
         for i in range(prior_log_bf.shape[0]):
 
-            #need prior * (1 - other_prior)^N in each entry
-            #due to sparse matrices, and limiting memory usage, have to overwrite 
-            #also, the reason for the complication below is that we have to work in log space, which
-            #requires addition rather than subtraction, which we can't do directly on sparse matrices
-            #we also need to switch between operating on data (when we do pointwise operations)
-            #and operating on matrices (when we sum across axes)
+            if gibbs_feature_enabled('huge-prior-softmax'):
+                from pigean.huge_prior import signal_prior_weights
+                signal_priors = signal_prior_weights(signal_log_priors, prior[i,:])
+            else:
+                #need prior * (1 - other_prior)^N in each entry
+                #due to sparse matrices, and limiting memory usage, have to overwrite
+                #also, the reason for the complication below is that we have to work in log space, which
+                #requires addition rather than subtraction, which we can't do directly on sparse matrices
+                #we also need to switch between operating on data (when we do pointwise operations)
+                #and operating on matrices (when we sum across axes)
 
-            #priors specific to the signal
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(np.log(1 - prior[i,:])))
-            other_log_priors = sparse_aux.sum(axis=1).A1
+                #priors specific to the signal
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(np.log(1 - prior[i,:])))
+                other_log_priors = sparse_aux.sum(axis=1).A1
 
-            signal_log_priors.data = np.ones(len(signal_log_priors.data))
-            signal_log_priors = sparse.csr_matrix(signal_log_priors.multiply(np.log(prior[i,:])))
+                signal_log_priors.data = np.ones(len(signal_log_priors.data))
+                signal_log_priors = sparse.csr_matrix(signal_log_priors.multiply(np.log(prior[i,:])))
 
-            #now this has log(prior/(1-prior))
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                #now this has log(prior/(1-prior))
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            #now need to add in (1-prior)^N
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(other_log_priors).T)
+                #now need to add in (1-prior)^N
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(other_log_priors).T)
 
-            #now this has log(prior * (1-other_prior)^N)
-            signal_log_priors.data = signal_log_priors.data + sparse_aux.data
+                #now this has log(prior * (1-other_prior)^N)
+                signal_log_priors.data = signal_log_priors.data + sparse_aux.data
 
-            #now normalize
-            #log_sum_bf = c + np.log(np.sum(np.exp(var_log_bf[region_vars] - c)))
-            #where c is max value
+                #now normalize
+                #log_sum_bf = c + np.log(np.sum(np.exp(var_log_bf[region_vars] - c)))
+                #where c is max value
 
-            #to get max, have to add minimum (to get it over zero) and then subtract it
-            c = signal_log_priors.min(axis=1)
+                #to get max, have to add minimum (to get it over zero) and then subtract it
+                c = signal_log_priors.min(axis=1)
 
-            #ensure all c are positive (otherwise this will be removed from the sparse matrix and break the subsequent operations on data)
-            c = c.toarray()
-            c[c == 0] = np.min(c) * 1e-4
+                #ensure all c are positive (otherwise this will be removed from the sparse matrix and break the subsequent operations on data)
+                c = c.toarray()
+                c[c == 0] = np.min(c) * 1e-4
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
 
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            c = signal_log_priors.max(axis=1) + c
+                c = signal_log_priors.max(axis=1) + c
 
-            signal_log_priors.data = signal_log_priors.data + sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data + sparse_aux.data
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
-            #store the max
-            c_data = copy.copy(sparse_aux.data)
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.multiply(c))
+                #store the max
+                c_data = copy.copy(sparse_aux.data)
 
-            #subtract c
-            sparse_aux.data = np.exp(signal_log_priors.data - c_data)
+                #subtract c
+                sparse_aux.data = np.exp(signal_log_priors.data - c_data)
 
-            norms = sparse_aux.sum(axis=1).A1
-            norms[norms != 0] = np.log(norms[norms != 0])
+                norms = sparse_aux.sum(axis=1).A1
+                norms[norms != 0] = np.log(norms[norms != 0])
 
-            sparse_aux.data = np.ones(len(sparse_aux.data))
-            sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(norms).T)
+                sparse_aux.data = np.ones(len(sparse_aux.data))
+                sparse_aux = sparse.csr_matrix(sparse_aux.T.multiply(norms).T)
 
-            sparse_aux.data = c_data + sparse_aux.data
+                sparse_aux.data = c_data + sparse_aux.data
 
-            signal_log_priors.data = signal_log_priors.data - sparse_aux.data
+                signal_log_priors.data = signal_log_priors.data - sparse_aux.data
 
-            #finally, we can obtain the priors matrix
-            signal_log_priors.data = np.exp(signal_log_priors.data)            
-            
-            signal_priors = signal_log_priors.T
+                #finally, we can obtain the priors matrix
+                signal_log_priors.data = np.exp(signal_log_priors.data)
+
+                signal_priors = signal_log_priors.T
 
             #first have to adjust for priors
             #convert to BFs
@@ -5682,6 +5688,14 @@ class PigeanState(object):
         printed_warning_swing = False
         printed_warning_increase = False
 
+        # Correlation is fixed within this call, even when p/sigma are updated.
+        # Do not carry slices across outer updates or materialize V for use_X.
+        correlation_cache = None
+        if use_cached_inner() and not assume_independent and not use_X:
+            from pigean.inner_cache import InnerCorrelationCache
+            correlation_cache = InnerCorrelationCache(V, multiple_V, sparse_V,
+                max_bytes=(64 if gibbs_feature_enabled('inner-cache64') else 16)*1024*1024)
+
         # ==========================================================================
         # Inner Beta Gibbs Phase 3: Iterative Gibbs updates + convergence checks.
         # ==========================================================================
@@ -5754,6 +5768,7 @@ class PigeanState(object):
                     posterior_beta_mean_t=posterior_beta_mean_t,
                     gauss_seidel=gauss_seidel,
                     residual_beta_tilde_t=residual_beta_tilde_t,
+                    correlation_cache=correlation_cache,
                 )
 
             _apply_inner_beta_sparsity_update(
@@ -6260,6 +6275,14 @@ class PigeanState(object):
                 max_allowed_batch_correlation = 0.5
             else:
                 max_allowed_batch_correlation = 0.1
+
+        if (gibbs_feature_enabled('inner-batching') and isinstance(V, np.ndarray)
+                and V.ndim == 2 and V.dtype == np.float64 and V.shape[0] == V.shape[1]
+                and sort_values is None and not resort_as_added
+                and find_correlated_instead is None and stop_at is None
+                and np.__version__.startswith('1.26.')):
+            from pigean.inner_batching import compiled_batches
+            return compiled_batches(V, float(max_allowed_batch_correlation), bool(use_sum))
 
         if find_correlated_instead is not None:
             if find_correlated_instead < 1:
@@ -9221,10 +9244,16 @@ def _update_inner_beta_gene_set_batch(
     posterior_beta_mean_t,
     gauss_seidel,
     residual_beta_tilde_t,
+    correlation_cache=None,
 ):
     # 1) Build residualized beta_tilde for the active batch.
-    compute_mask_union = np.any(compute_mask_m, axis=0)
-    compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
+    if correlation_cache is None:
+        compute_mask_union = np.any(compute_mask_m, axis=0)
+        compute_mask_union_filter_m = compute_mask_m[:, compute_mask_union]
+        selected_V = None
+    else:
+        compute_mask_union, compute_mask_union_filter_m, selected_V = correlation_cache.get(
+            compute_mask_m, compute_mask_v)
 
     if assume_independent:
         residual_beta_tilde_t_flat = beta_tildes_m[compute_mask_m]
@@ -9236,10 +9265,10 @@ def _update_inner_beta_gene_set_batch(
             res_beta_hat_union_t = np.einsum(
                 "hij,ijk->hik",
                 sampled_beta_t[:, compute_mask_v, :],
-                V[compute_mask_v, :, :][:, :, compute_mask_union],
+                V[compute_mask_v, :, :][:, :, compute_mask_union] if selected_V is None else selected_V,
             ).reshape((sampled_beta_t.shape[0], current_num_parallel, np.sum(compute_mask_union)))
         elif sparse_V:
-            res_beta_hat_union_t = V[compute_mask_union, :].dot(
+            res_beta_hat_union_t = (V[compute_mask_union, :] if selected_V is None else selected_V).dot(
                 sampled_beta_t[:, compute_mask_v, :].T.reshape(
                     (sampled_beta_t.shape[2], np.sum(compute_mask_v) * sampled_beta_t.shape[0])
                 )
@@ -9267,7 +9296,15 @@ def _update_inner_beta_gene_set_batch(
             ).T
             res_beta_hat_union_t /= (X_orig.shape[0] * scale_factors_m[compute_mask_v, :][:, compute_mask_union])
         else:
-            res_beta_hat_union_t = sampled_beta_t[:, compute_mask_v, :].dot(V[:, compute_mask_union])
+            left = sampled_beta_t[:, compute_mask_v, :]
+            right = V[:, compute_mask_union] if selected_V is None else selected_V
+            if gibbs_feature_enabled('inner-matmul'):
+                # A 2-D product reaches BLAS instead of NumPy's generic tensor-dot
+                # loop. Preserve batch/chain order; reductions may differ in rounding.
+                res_beta_hat_union_t = left.reshape(-1, left.shape[-1]).dot(right).reshape(
+                    left.shape[0], left.shape[1], right.shape[1])
+            else:
+                res_beta_hat_union_t = left.dot(right)
 
         if betas_trace_out is not None and betas_trace_gene_sets is not None:
             cur_sets = [betas_trace_gene_sets[x] for x in range(len(betas_trace_gene_sets)) if compute_mask_union[x]]
@@ -9282,6 +9319,23 @@ def _update_inner_beta_gene_set_batch(
             residual_beta_tilde_t_flat = residual_beta_tilde_t_flat + V_diag_m[compute_mask_m] * sampled_beta_t[:, compute_mask_m]
         else:
             residual_beta_tilde_t_flat = residual_beta_tilde_t_flat + sampled_beta_t[:, compute_mask_m]
+
+    if gibbs_feature_enabled('inner-fused'):
+        # Only the ordinary real float64 path is compiled. Complex or unusual
+        # array types retain the reference safeguards below.
+        arrays = (rand_ps_t, rand_norms_t, hdmp_hdmpn_m, c_const_m, d_const_m,
+                  hdmpn_m, se2s_m, norm_scale_m, sampled_beta_t,
+                  posterior_nonzero_prob_t, posterior_beta_mean_t, residual_beta_tilde_t)
+        if all(isinstance(a, np.ndarray) and a.dtype == np.float64 for a in arrays):
+            from pigean.inner_compiled import conditional_kernel
+            indices = np.flatnonzero(compute_mask_m)
+            residual = np.ascontiguousarray(np.broadcast_to(
+                residual_beta_tilde_t_flat, (sampled_beta_t.shape[0], len(indices))))
+            conditional_kernel(indices, residual, float(alpha_shrink), rand_ps_t,
+                rand_norms_t, hdmp_hdmpn_m, c_const_m, d_const_m, hdmpn_m,
+                se2s_m, norm_scale_m, sampled_beta_t, posterior_nonzero_prob_t,
+                posterior_beta_mean_t, residual_beta_tilde_t, bool(gauss_seidel))
+            return
 
     # 2) Convert residualized effect to inclusion probabilities.
     b2_t_flat = np.power(residual_beta_tilde_t_flat, 2)
@@ -9639,7 +9693,7 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
         X_size_mb = state._get_X_size_mb()
         X_h_size_mb = num_chains * X_size_mb
         if X_h_size_mb <= max_mb_X_h:
-            X_hstacked = sparse.hstack([state.X_orig] * num_chains)
+            X_hstacked = None if use_lean_regression() else sparse.hstack([state.X_orig] * num_chains)
         else:
             stack_batch_size = int(max_mb_X_h / X_size_mb)
             if stack_batch_size == 0:
@@ -9648,9 +9702,9 @@ def _initialize_gibbs_epoch_state(state, num_chains, num_full_gene_sets, use_mea
                 "Not building X_hstacked, size would be %d > %d; will instead run %d chains at a time"
                 % (X_h_size_mb, max_mb_X_h, stack_batch_size)
             )
-            X_hstacked = sparse.hstack([state.X_orig] * stack_batch_size)
+            X_hstacked = None if use_lean_regression() else sparse.hstack([state.X_orig] * stack_batch_size)
     else:
-        X_hstacked = state.X_orig
+        X_hstacked = None if use_lean_regression() else state.X_orig
 
     num_stack_batches = int(np.ceil(num_chains / float(stack_batch_size)))
 
@@ -11535,19 +11589,21 @@ def _compute_gibbs_logistic_beta_tildes_batch(
     X_hstacked,
 ):
     num_cur_stack = (end - begin)
-    if num_cur_stack == stack_batch_size:
-        cur_X_hstacked = X_hstacked
-    else:
-        cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
-
-    stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+    selected_stack = None
+    if not use_lean_regression():
+        if num_cur_stack == stack_batch_size:
+            cur_X_hstacked = X_hstacked
+        else:
+            cur_X_hstacked = sparse.hstack([state.X_orig] * num_cur_stack)
+        stack_mask = np.tile(pre_gene_set_filter_mask, num_cur_stack)
+        selected_stack = cur_X_hstacked[:,stack_mask]
     return state._compute_logistic_beta_tildes(
         state.X_orig[:,pre_gene_set_filter_mask],
         p_sample_m[begin:end,:],
         state.scale_factors[pre_gene_set_filter_mask],
         state.mean_shifts[pre_gene_set_filter_mask],
         resid_correlation_matrix=y_corr_sparse,
-        X_stacked=cur_X_hstacked[:,stack_mask],
+        X_stacked=selected_stack,
     )
 
 
@@ -13268,12 +13324,16 @@ def _prepare_gibbs_corrected_batch_inputs(
     cur_gene_set_mask = np.any(gene_set_mask_m[begin:end,:], axis=0)
     num_gene_set_mask = np.sum(cur_gene_set_mask)
     max_num_gene_set_mask = np.max(np.sum(gene_set_mask_m, axis=1))
-    V_superset = state._calculate_V_internal(
-        state.X_orig[:,cur_gene_set_mask],
-        state.y_corr_cholesky,
-        state.mean_shifts[cur_gene_set_mask],
-        state.scale_factors[cur_gene_set_mask],
-    )
+    from pegs_shared.sparse_regression import static_correlation_cache
+    correlation = static_correlation_cache()
+    V_superset = correlation.get(state, cur_gene_set_mask) if correlation is not None else None
+    if V_superset is None:
+        V_superset = state._calculate_V_internal(
+            state.X_orig[:,cur_gene_set_mask],
+            state.y_corr_cholesky,
+            state.mean_shifts[cur_gene_set_mask],
+            state.scale_factors[cur_gene_set_mask],
+        )
 
     # If the superset is not too much larger than max-per-chain, reuse one V;
     # otherwise subset V per chain.
