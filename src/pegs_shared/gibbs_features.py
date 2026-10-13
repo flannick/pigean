@@ -10,6 +10,7 @@ FEATURES = (
     'inner-cache64',
     'huge-prior-softmax',
     'static-correlation',
+    'inner-rhat-stable',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',

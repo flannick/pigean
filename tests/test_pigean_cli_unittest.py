@@ -61,7 +61,7 @@ class PigeanCliTest(unittest.TestCase):
                          "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         options = json.loads(proc.stdout)["options"]
-        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES))
+        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES) - {"inner-rhat-stable"})
         proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
                          "--gibbs-enable", "inner-matmul", "--gibbs-enable", "inner-fused",
                          "--gibbs-disable", "annotation-cache,compiled-covariance",
@@ -83,6 +83,15 @@ class PigeanCliTest(unittest.TestCase):
                 proc = self._run("gibbs", *flags, "--print-effective-config")
                 self.assertNotEqual(proc.returncode, 0)
                 self.assertIn(message, proc.stdout + proc.stderr)
+
+    def test_inner_rhat_stability_is_selectable_with_legacy_arithmetic(self) -> None:
+        from pegs_shared.gibbs_features import resolve_features
+        proc = self._run("gibbs", "--gibbs-enable", "inner-rhat-stable",
+                         "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"],
+                         ["inner-rhat-stable"])
 
     def test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables(self) -> None:
         default_proc = self._run("gibbs", "--print-effective-config")
