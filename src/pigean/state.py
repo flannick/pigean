@@ -13550,7 +13550,7 @@ def _run_gibbs_corrected_beta_sampler(
         return_sample=True,
         max_num_burn_in=passed_in_max_num_burn_in,
         max_num_iter=max_num_iter_betas,
-        min_num_iter=min_num_iter_betas,
+        min_num_iter=(max(1, min_num_iter_betas // 2) if gibbs_feature_enabled('inner-early-check') else min_num_iter_betas),
         num_chains=num_chains_betas,
         r_threshold_burn_in=r_threshold_burn_in_betas,
         use_max_r_for_convergence=use_max_r_for_convergence_betas,
