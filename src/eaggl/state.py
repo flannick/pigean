@@ -1475,9 +1475,23 @@ class EagglState(object):
             S_new = np.ones_like(V_new)  # If no weighting, S is a matrix of ones
 
 
-        # Initialize H_new with positive random values, shape (K, M_new)
+        # Equal positive initialization is deterministic and factor-permutation equivariant.
+        if getattr(self, 'internal_projection_method', 'legacy') == 'verified_quadratic':
+            from .verified_projection import project
+            result, diagnostic = project(W, V_new, left=P_gene_set if use_extended else None,
+                right=P_gene_new if use_extended else None, phi=phi, lambdas=lambdak,
+                cap=1.0 if cap_genes else None, mass=1.0 if normalize_genes else None,
+                max_cycles=self.internal_projection_max_cycles, tol=self.internal_projection_tol)
+            if add_intercept:
+                result = result[:, :-1]
+            diagnostics = getattr(self, 'internal_projection_diagnostics', None)
+            if diagnostics is None:
+                self.internal_projection_diagnostics = []
+            self.internal_projection_diagnostics.append(diagnostic)
+            return result
+
         V_max = np.max(V_new)
-        H_new = np.random.random((K, M_new)) * V_max
+        H_new = np.full((K, M_new), max(float(V_max), eps) / max(K, 1), dtype=float)
 
         # Initialize lambdak if not provided
         if lambdak is None:
@@ -1488,6 +1502,8 @@ class EagglState(object):
 
         # Initialize V_ap_new
         V_ap_new = W @ H_new  # Shape: (N, M_new)
+        diff = float('inf')
+        it = -1
 
         for it in range(n_iter):
             # Compute numerator and denominator for H_new
@@ -1522,6 +1538,15 @@ class EagglState(object):
         if add_intercept:
             H_new = H_new[:-1,:]
 
+        diagnostics = getattr(self, 'internal_projection_diagnostics', None)
+        if diagnostics is None:
+            diagnostics = []
+            self.internal_projection_diagnostics = diagnostics
+        diagnostics.append({'features': N, 'outputs': M_new, 'factors': K,
+                            'iterations': it + 1, 'converged': bool(diff < tol),
+                            'relative_change': float(diff),
+                            'hit_iteration_cap': bool(it + 1 >= n_iter and diff >= tol)})
+
         return H_new.T
 
 
@@ -1541,6 +1566,18 @@ class EagglState(object):
         """
 
         orig_vector = False
+        if getattr(self, 'internal_projection_method', 'legacy') == 'verified_quadratic':
+            from .verified_projection import project
+            vector = X_new.ndim == 1
+            response = X_new[np.newaxis, :] if vector else X_new
+            result, diagnostic = project(W, response.T, cap=max_value, mass=max_sum,
+                max_cycles=self.internal_projection_max_cycles, tol=self.internal_projection_tol)
+            diagnostics = getattr(self, 'internal_projection_diagnostics', None)
+            if diagnostics is None:
+                self.internal_projection_diagnostics = []
+            self.internal_projection_diagnostics.append(diagnostic)
+            return result[0] if vector else result
+
         if X_new.ndim == 1:
             orig_vector = True
             X_new = X_new[np.newaxis, :]
@@ -2012,6 +2049,36 @@ class EagglState(object):
         lambda_bound = b0 / C_sym
         lambdak = (0.5 * np.sum(W ** 2, axis=0) + b0) / C_sym
         lambda_cut = 1.5 * lambda_bound
+        self.last_factorization_hyperparameters = {'b0': b0, 'C': C_sym, 'phi_eff': phi_eff}
+        self.last_factorization_objective_trace = []
+        self.last_factorization_stopping_diagnostics = {}
+        update_method = getattr(self, 'internal_symnmf_update_method', 'legacy')
+        if update_method == 'projected_gradient':
+            from .symnmf_numerics import projected_gradient_fit
+            W, like, evid, lambdak, error, diagnostics = projected_gradient_fit(
+                W, update_target, A, phi_eff=phi_eff, C=C_sym, b0=b0,
+                sparsity=float(sparsity), row_sum_cap=row_sum_cap,
+                max_iter=max_iter, rel_tol=rel_tol, views=view_stack, log_fn=log_fn,
+                stopping=getattr(self, 'internal_symnmf_stopping', 'adaptive'))
+            self.last_factorization_final_delambda = diagnostics['final_delambda']
+            self.last_factorization_iterations = diagnostics['iterations']
+            self.last_factorization_converged = diagnostics['converged']
+            self.last_factorization_hit_iteration_cap = diagnostics['hit_iteration_cap']
+            self.last_factorization_projected_gradient_relative = diagnostics['projected_gradient_relative']
+            self.last_factorization_failed_line_search = diagnostics['failed_line_search']
+            self.last_factorization_objective_trace = diagnostics['objective_trace']
+            self.last_factorization_stopping_diagnostics = {
+                key: diagnostics[key] for key in ('stopping_policy', 'stopping_status',
+                'endpoint_passed', 'adaptive_confirmed', 'failed_confirmations',
+                'window_W_change', 'strong_window_W_change')}
+            self.last_factorization_lambda_cut = float(lambda_cut)
+            self.last_factorization_scale_details = {
+                'raw_mean': raw_mean, 'raw_std': raw_std, 'weighted_mean': raw_mean,
+                'weighted_std': raw_std, 'row_scale_min': 1.0, 'row_scale_median': 1.0,
+                'row_scale_mean': 1.0, 'row_scale_max': 1.0}
+            return W, like, evid, lambdak, error
+        if update_method != 'legacy':
+            raise ValueError('Unknown symmetric update method: %s' % update_method)
 
         delambda = 1.0
         like = None
@@ -2069,6 +2136,7 @@ class EagglState(object):
             )
             evid = like + regularization
             error = data_error
+            self.last_factorization_objective_trace.append(float(evid))
 
             if iteration % 25 == 0 or iteration == 1 or delambda < rel_tol:
                 factors_non_zero = int(np.sum(lambdak >= lambda_cut))
@@ -3160,37 +3228,30 @@ class EagglState(object):
             return
         log("Writing consensus factor diagnostics to %s" % output_file, INFO)
         with open_gz(output_file, "w") as output_fh:
-            output_fh.write("record_type\tmode\treference_run\trun_index\tseed\tevidence\tlikelihood\treconstruction_error\tnum_factors\treference_factor_index\tsupport_runs\tsupport_fraction\tkept\tmatched_run_indices\tmatched_cosines\n")
+            header = ['record_type', 'mode', 'reference_run', 'run_index', 'seed', 'evidence',
+                      'likelihood', 'reconstruction_error', 'num_factors', 'reference_factor_index',
+                      'support_runs', 'support_fraction', 'kept', 'matched_run_indices', 'matched_cosines',
+                      'converged', 'hit_iteration_cap', 'final_iterations', 'final_delambda',
+                      'projected_gradient_relative', 'update_method', 'fallback_to_reference',
+                      'objective_first', 'objective_last', 'stopping_policy', 'stopping_status',
+                      'endpoint_passed', 'adaptive_confirmed', 'failed_confirmations',
+                      'window_W_change', 'strong_window_W_change']
+            output_fh.write('\t'.join(header) + '\n')
             mode = self.consensus_mode if self.consensus_mode is not None else "single"
             reference_run = self.consensus_reference_run if self.consensus_reference_run is not None else 0
             for run_summary in self.consensus_run_diagnostics or []:
-                output_fh.write(
-                    "run\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\t\t\t\t\t\n"
-                    % (
-                        mode,
-                        reference_run,
-                        run_summary.get("run_index", ""),
-                        run_summary.get("seed", ""),
-                        run_summary.get("evidence", ""),
-                        run_summary.get("likelihood", ""),
-                        run_summary.get("reconstruction_error", ""),
-                        run_summary.get("num_factors", ""),
-                    )
-                )
+                trace = run_summary.get('objective_trace', [])
+                record = dict(run_summary, record_type='run', mode=mode, reference_run=reference_run,
+                              fallback_to_reference=getattr(self, 'consensus_fallback_to_reference', False),
+                              objective_first=trace[0] if trace else '', objective_last=trace[-1] if trace else '')
+                record.update(run_summary.get('stopping_diagnostics', {}))
+                output_fh.write('\t'.join('' if record.get(k) is None else str(record.get(k, '')) for k in header) + '\n')
             for factor_support in self.consensus_factor_support or []:
-                output_fh.write(
-                    "factor\t%s\t%s\t\t\t\t\t\t\t%s\t%s\t%s\t%s\t%s\t%s\n"
-                    % (
-                        mode,
-                        reference_run,
-                        factor_support.get("reference_factor_index", ""),
-                        factor_support.get("support_runs", ""),
-                        factor_support.get("support_fraction", ""),
-                        factor_support.get("kept", ""),
-                        ",".join([str(x) for x in factor_support.get("matched_run_indices", [])]),
-                        ",".join(["%.6g" % float(x) for x in factor_support.get("matched_cosines", [])]),
-                    )
-                )
+                record = dict(factor_support, record_type='factor', mode=mode, reference_run=reference_run,
+                              fallback_to_reference=getattr(self, 'consensus_fallback_to_reference', False))
+                record['matched_run_indices'] = ','.join(str(x) for x in record.get('matched_run_indices', []))
+                record['matched_cosines'] = ','.join('%.6g' % x for x in record.get('matched_cosines', []))
+                output_fh.write('\t'.join(str(record.get(k, '')) for k in header) + '\n')
 
     def write_clusters(self, gene_set_clusters_output_file=None, gene_clusters_output_file=None, pheno_clusters_output_file=None, write_anchor_specific=False, anchor_genes=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary"):
 

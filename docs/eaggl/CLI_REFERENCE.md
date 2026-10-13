@@ -5,6 +5,7 @@ This is the canonical human-written manual for the stable, routinely used `pytho
 Use this document for practical command shapes, workflow selection, and the meaning of the main EAGGL flags.
 Use `docs/eaggl/CLI_OPTIONS.md` for the exhaustive machine-generated parser inventory.
 Use `README.md` for the full repository documentation map.
+Mode-specific numerical defaults, adaptive stopping, checked projections and saved projection context are described in [NUMERICAL_UPDATES.md](NUMERICAL_UPDATES.md).
 Optional downstream analyses use explicit `--run-*` booleans with separate `--*-in` / `--*-out` flags. Older hybrid flags remain accepted as compatibility aliases but are not the canonical documented surface.
 
 Scope rules for this document:

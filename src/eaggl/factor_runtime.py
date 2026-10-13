@@ -1362,6 +1362,8 @@ def _apply_canonical_trait_linkage(
         return False
 
     state.exp_pheno_factors = linkage_result["nnls"]
+    state.internal_last_projection_phi = float(projection_phi)
+    state.internal_last_projection_tol = float(projection_tol)
     state.pheno_capture_strength = linkage_result["trait_total_support"]
     state.pheno_capture_basis = linkage_inputs["basis_name"]
     state.pheno_capture_input = pheno_capture_input
@@ -1520,8 +1522,8 @@ def project_phenos_from_loaded_factors(
         trait_linkage_threshold=trait_linkage_threshold,
         trait_linkage_computation_mode=trait_linkage_computation_mode,
         pheno_capture_input=pheno_capture_input,
-        projection_phi=0.0,
-        projection_tol=1e-5,
+        projection_phi=getattr(state, 'internal_loaded_projection_phi', 0.0),
+        projection_tol=getattr(state, 'internal_loaded_projection_tol', 1e-5),
         update_anchor_relevance=True,
         log_fn=log_fn,
         info_level=info_level,
@@ -4437,6 +4439,10 @@ def _build_factor_run_summary(state, *, run_index, seed, evidence, likelihood, r
         "final_iterations": None if getattr(state, "last_factorization_iterations", None) is None else int(state.last_factorization_iterations),
         "converged": None if getattr(state, "last_factorization_converged", None) is None else bool(state.last_factorization_converged),
         "hit_iteration_cap": None if getattr(state, "last_factorization_hit_iteration_cap", None) is None else bool(state.last_factorization_hit_iteration_cap),
+        "projected_gradient_relative": getattr(state, "last_factorization_projected_gradient_relative", None),
+        "update_method": getattr(state, "internal_symnmf_update_method", "legacy"),
+        "objective_trace": copy.deepcopy(getattr(state, "last_factorization_objective_trace", [])),
+        "stopping_diagnostics": copy.deepcopy(getattr(state, "last_factorization_stopping_diagnostics", {})),
     }
 
 
@@ -4535,6 +4541,20 @@ def _finalize_factor_outputs(
         state.trait_linkage_marginal = state.trait_linkage_marginal[:, reorder_inds]
     if state.trait_linkage_marginal_overlap is not None:
         state.trait_linkage_marginal_overlap = state.trait_linkage_marginal_overlap[:, reorder_inds]
+    for name in ("trait_linkage_nnls", "trait_linkage_cosine", "trait_linkage_euclidean",
+                 "trait_linkage_beta", "trait_linkage_beta_uncorrected", "trait_linkage_beta_tilde",
+                 "trait_linkage_se", "trait_linkage_z", "trait_linkage_p_value"):
+        values = getattr(state, name, None)
+        if values is not None:
+            if np.asarray(values).shape[-1] != len(reorder_inds):
+                raise ValueError("Factor axis mismatch for %s" % name)
+            setattr(state, name, np.asarray(values)[:, reorder_inds])
+    for name in ("trait_linkage_factor_num_genes", "trait_linkage_factor_weight_sum"):
+        values = getattr(state, name, None)
+        if values is not None:
+            if len(values) != len(reorder_inds):
+                raise ValueError("Factor axis mismatch for %s" % name)
+            setattr(state, name, np.asarray(values)[reorder_inds])
     if state.trait_linkage_factor_total_mass is not None:
         state.trait_linkage_factor_total_mass = state.trait_linkage_factor_total_mass[reorder_inds]
     if state.trait_linkage_factor_n_eff is not None:
@@ -4555,6 +4575,28 @@ def _finalize_factor_outputs(
             state.exp_pheno_factors[state.exp_pheno_factors < np.max(state.exp_pheno_factors) * threshold] = 0
         if np.max(state.exp_gene_set_factors) > 0:
             state.exp_gene_set_factors[state.exp_gene_set_factors < np.max(state.exp_gene_set_factors) * threshold] = 0
+
+    # Final sparsification must also be reflected in the exported direct projection cache.
+    full_gene_factors = getattr(state, 'exp_gene_factors_full_projected', None)
+    discovery_mask = getattr(state, 'gene_in_discovery_mask', None)
+    if full_gene_factors is not None and discovery_mask is not None and state.exp_gene_factors is not None:
+        discovery_mask = np.asarray(discovery_mask, dtype=bool)
+        fitted = np.asarray(state.exp_gene_factors)
+        discovery_basis = fitted[discovery_mask] if fitted.shape[0] == len(discovery_mask) else fitted
+        state.exp_gene_factors_full_projected[discovery_mask] = discovery_basis
+
+    if getattr(state, 'trait_linkage_nnls', None) is not None and state.exp_pheno_factors is not None:
+        final_linkage = np.asarray(state.exp_pheno_factors).copy()
+        state.trait_linkage_nnls = final_linkage
+        state.trait_linkage_joint = final_linkage.copy()
+        state.trait_linkage_cosine = eaggl_trait_linkage.factor_basis_cosines(final_linkage)
+        state.trait_linkage_euclidean = eaggl_trait_linkage.factor_basis_euclidean_distances(final_linkage)
+        if getattr(state, 'trait_linkage_basis', None) == 'genes' and state.exp_gene_factors is not None:
+            retained_basis = state.exp_gene_factors
+            if discovery_mask is not None:
+                retained_basis = retained_basis[np.asarray(discovery_mask, dtype=bool)]
+            state.trait_linkage_factor_num_genes = np.sum(retained_basis > 0, axis=0).astype(int)
+            state.trait_linkage_factor_weight_sum = np.sum(retained_basis, axis=0)
 
     num_top = 5
     exp_gene_factors_for_top = state.get_factor_loadings(state.exp_gene_factors, loading_type=factor_top_loading_type)
@@ -5060,16 +5102,15 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
         #we are going to approximate things below the threshold as zero probability, and not fold those in the background prior
         #to get around this we would have to use a dense matrix
         if sparse.issparse(gene_or_pheno_full_vector):
-            gene_or_pheno_full_prob_vector_data = np.exp(gene_or_pheno_full_vector.data + state.background_log_bf)
-            gene_or_pheno_full_prob_vector_data = gene_or_pheno_full_prob_vector_data / (1 + gene_or_pheno_full_prob_vector_data)
+            gene_or_pheno_full_prob_vector_data = scipy.special.expit(gene_or_pheno_full_vector.data + state.background_log_bf)
             gene_or_pheno_full_prob_vector = copy.copy(gene_or_pheno_full_vector)
             gene_or_pheno_full_prob_vector.data = gene_or_pheno_full_prob_vector_data
         else:
-            gene_or_pheno_full_prob_vector = np.exp(gene_or_pheno_full_vector + state.background_log_bf) / (1 + np.exp(gene_or_pheno_full_vector + state.background_log_bf))
+            gene_or_pheno_full_prob_vector = scipy.special.expit(gene_or_pheno_full_vector + state.background_log_bf)
         gene_or_pheno_full_prob_vector = _sanitize_dense_or_sparse_nonnegative_probabilities(gene_or_pheno_full_prob_vector)
 
     if anchor_gene_set:
-        gene_or_pheno_prob_vector = np.exp(gene_or_pheno_vector + state.background_log_bf) / (1 + np.exp(gene_or_pheno_vector + state.background_log_bf)) if gene_or_pheno_vector is not None else np.ones((len(gene_or_pheno_mask), num_users))
+        gene_or_pheno_prob_vector = scipy.special.expit(gene_or_pheno_vector + state.background_log_bf) if gene_or_pheno_vector is not None else np.ones((len(gene_or_pheno_mask), num_users))
     else:
         gene_or_pheno_prob_vector = gene_or_pheno_full_prob_vector[:,anchor_mask] if gene_or_pheno_full_prob_vector is not None else np.ones((len(gene_or_pheno_mask), num_users))
     gene_or_pheno_prob_vector = _sanitize_dense_or_sparse_nonnegative_probabilities(gene_or_pheno_prob_vector)
@@ -5131,12 +5172,11 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
     gene_set_full_prob_vector = None
     if gene_set_full_vector is not None:
         if sparse.issparse(gene_set_full_vector):
-            gene_set_full_prob_vector_data = np.exp(gene_set_full_vector.data + state.background_log_bf)
-            gene_set_full_prob_vector_data = gene_set_full_prob_vector_data / (1 + gene_set_full_prob_vector_data)
+            gene_set_full_prob_vector_data = scipy.special.expit(gene_set_full_vector.data + state.background_log_bf)
             gene_set_full_prob_vector = copy.copy(gene_set_full_vector)
             gene_set_full_prob_vector.data = gene_set_full_prob_vector_data
         else:
-            gene_set_full_prob_vector = np.exp(gene_set_full_vector + state.background_log_bf) / (1 + np.exp(gene_set_full_vector + state.background_log_bf))
+            gene_set_full_prob_vector = scipy.special.expit(gene_set_full_vector + state.background_log_bf)
 
     gene_set_prob_vector = gene_set_full_prob_vector[:,anchor_mask] if gene_set_full_prob_vector is not None else np.ones((len(gene_set_mask), num_users))
 
@@ -5764,7 +5804,7 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
             trait_factor_linkage_factor_gene_threshold=trait_factor_linkage_factor_gene_threshold,
             trait_factor_linkage_nnls_min_loading=trait_factor_linkage_nnls_min_loading,
             trait_factor_linkage_nnls_max_value=trait_factor_linkage_nnls_max_value,
-            factor_gmt_out=factor_gmt_out,
+            factor_gmt_out=None,
             pheno_capture_input=pheno_capture_input,
             projection_phi=phi,
             projection_tol=rel_tol,
@@ -5806,7 +5846,8 @@ def _run_factor_single(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, s
 
 def _run_factor_with_seed(state, *, seed, run_index, factor_kwargs):
     def _runner():
-        return _run_factor_single(state, **factor_kwargs)
+        seeded_kwargs = dict(factor_kwargs, seed=seed)
+        return _run_factor_single(state, **seeded_kwargs)
 
     summary = _run_with_numpy_seed(seed, _runner)
     if summary is None:
@@ -5845,6 +5886,65 @@ def _collect_consensus_matches(run_states, run_summaries, reference_index, min_f
     return factor_matches
 
 
+def _refresh_consensus_projections(state, factor_kwargs):
+    """Rebuild derived fields from the final gene-by-gene consensus basis."""
+    if _state_discovery_model(state) == "gene_by_gene":
+        mask = np.asarray(state.gene_in_discovery_mask, dtype=bool)
+        basis = np.asarray(state.exp_gene_factors)[mask, :]
+        state.exp_gene_set_factors = state._project_H_with_fixed_W(
+            basis, state.X_orig[mask, :], state.gene_prob_factor_vector[mask, :],
+            state.gene_set_prob_factor_vector, phi=factor_kwargs['phi'],
+            tol=factor_kwargs['rel_tol'], cap_genes=True, normalize_genes=False)
+        state.exp_gene_factors_full_projected = state.project_full_gene_factors_gene_by_gene(
+            retained_discovery_gene_factors=basis, cap_genes=True)
+        state._record_params({'consensus_projections_recomputed': True}, overwrite=True)
+
+    # These arrays describe a particular basis and cannot survive factor aggregation.
+    for name in ("trait_linkage_joint", "trait_linkage_marginal", "trait_linkage_marginal_overlap",
+                 "trait_linkage_nnls", "trait_linkage_cosine", "trait_linkage_euclidean",
+                 "trait_linkage_beta", "trait_linkage_beta_uncorrected", "trait_linkage_beta_tilde",
+                 "trait_linkage_se", "trait_linkage_z", "trait_linkage_p_value",
+                 "trait_linkage_factor_num_genes", "trait_linkage_factor_weight_sum",
+                 "trait_linkage_factor_total_mass", "trait_linkage_factor_n_eff",
+                 "trait_linkage_factor_top_share", "trait_linkage_factor_top10_share",
+                 "trait_linkage_broad_factor_flag"):
+        setattr(state, name, None)
+    factor_gene_set_x_pheno = bool(state.pheno_in_discovery_mask is not None and state.gene_in_discovery_mask is None)
+    basis = state.exp_pheno_factors if factor_gene_set_x_pheno else state.exp_gene_factors
+    probability = state.pheno_prob_factor_vector if factor_gene_set_x_pheno else state.gene_prob_factor_vector
+    if not _apply_fixed_w_anchor_relevance(
+            state, basis=basis, feature_by_anchor=probability, feature_anchor_weights=probability,
+            projection_phi=factor_kwargs['phi'], projection_tol=factor_kwargs['rel_tol']):
+        state.factor_anchor_relevance = np.ones((state.num_factors(), 1))
+        state.factor_anchor_marginal_relevance = np.ones((state.num_factors(), 1))
+        state.factor_relevance = np.ones(state.num_factors())
+        state.factor_marginal_relevance = np.ones(state.num_factors())
+    if not factor_kwargs.get('no_trait_linkage', False):
+        _apply_canonical_trait_linkage(
+            state, use_gene_set_basis=bool(factor_kwargs.get('project_phenos_from_gene_sets') or factor_gene_set_x_pheno),
+            trait_linkage_source=factor_kwargs.get('trait_linkage_source', 'combined'),
+            trait_linkage_threshold=factor_kwargs.get('trait_linkage_threshold', 1.0),
+            trait_linkage_computation_mode=factor_kwargs.get('trait_linkage_computation_mode', 'sparse_full'),
+            trait_factor_linkage_factor_gene_threshold=factor_kwargs.get('trait_factor_linkage_factor_gene_threshold', 0.05),
+            trait_factor_linkage_nnls_min_loading=factor_kwargs.get('trait_factor_linkage_nnls_min_loading', 0.0),
+            trait_factor_linkage_nnls_max_value=factor_kwargs.get('trait_factor_linkage_nnls_max_value', 1.0),
+            factor_gmt_out=None, pheno_capture_input=factor_kwargs.get('pheno_capture_input', 'weighted_thresholded'),
+            projection_phi=factor_kwargs['phi'], projection_tol=factor_kwargs['rel_tol'],
+            update_anchor_relevance=state.anchor_pheno_mask is not None,
+            log_fn=factor_kwargs['log_fn'], info_level=factor_kwargs['info_level'])
+
+
+def _write_final_factor_gmt(state, factor_kwargs):
+    path = factor_kwargs.get('factor_gmt_out')
+    if path is None or state.exp_gene_factors is None or state.num_factors() == 0:
+        return
+    indices = state._factor_output_indices(factor_kwargs.get('factor_output_scope', 'primary'))
+    eaggl_trait_linkage.write_factor_gmt(
+        path, state.genes, ['Factor%d' % (i + 1) for i in indices],
+        state.exp_gene_factors[:, indices],
+        threshold=factor_kwargs.get('trait_factor_linkage_factor_gene_threshold', 0.05))
+
+
 def _apply_consensus_solution(
     reference_state,
     run_states,
@@ -5858,7 +5958,7 @@ def _apply_consensus_solution(
     eligible_indices = [idx for idx, state in enumerate(run_states) if _extract_canonical_factor_matrix(state) is not None and state.num_factors() > 0]
     if len(eligible_indices) == 0:
         return _clone_runtime_state(run_states[min(range(len(run_summaries)), key=lambda idx: _best_run_sort_key(run_summaries[idx]))]), {
-            "mode": "consensus",
+            "mode": "consensus_empty",
             "reference_run_index": None,
             "run_summaries": copy.deepcopy(run_summaries),
             "factor_support": [],
@@ -5944,7 +6044,7 @@ def _apply_consensus_solution(
     if len(kept_factor_columns) == 0:
         consensus_state = _clone_runtime_state(run_states[reference_index])
         diagnostics = {
-            "mode": "consensus",
+            "mode": "consensus_fallback_reference",
             "reference_run_index": int(reference_index),
             "run_summaries": copy.deepcopy(run_summaries),
             "factor_support": factor_support_rows,
@@ -5958,6 +6058,26 @@ def _apply_consensus_solution(
     consensus_state.exp_lambdak = np.asarray(kept_lambda, dtype=float)
     consensus_state.factor_anchor_relevance = np.vstack(kept_anchor_relevance)
     consensus_state.factor_relevance = np.asarray(kept_factor_relevance, dtype=float)
+
+    if _state_discovery_model(consensus_state) == "gene_by_gene":
+        from .symnmf_numerics import project_nonnegative_rows
+        consensus_state.exp_gene_factors = project_nonnegative_rows(
+            consensus_state.exp_gene_factors, factor_kwargs.get('gene_gene_row_sum_cap', True))
+        hyper = getattr(consensus_state, 'last_factorization_hyperparameters', None)
+        if hyper is not None:
+            consensus_state.exp_lambdak = (0.5 * np.sum(consensus_state.exp_gene_factors ** 2, axis=0) + hyper['b0']) / hyper['C']
+        _refresh_consensus_projections(consensus_state, factor_kwargs)
+    else:
+        # Non-gene-by-gene consensus is not part of this pilot release's supported correction surface.
+        factor_kwargs['warn_fn']('Internal release: non-gene-by-gene consensus projections are not certified')
+        consensus_state.exp_gene_factors_full_projected = None
+        retained = [row['reference_factor_index'] for row in factor_support_rows if row['kept']]
+        marginal = getattr(consensus_state, 'factor_anchor_marginal_relevance', None)
+        if marginal is not None:
+            consensus_state.factor_anchor_marginal_relevance = marginal[retained, :]
+        marginal = getattr(consensus_state, 'factor_marginal_relevance', None)
+        if marginal is not None:
+            consensus_state.factor_marginal_relevance = marginal[retained]
 
     _finalize_factor_outputs(
         consensus_state,
@@ -6457,6 +6577,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         state.consensus_reference_run = 0
         state.consensus_run_diagnostics = [summary]
         state.consensus_factor_support = []
+        _write_final_factor_gmt(state, factor_kwargs)
         return
 
     child_seeds = _derive_factor_run_seeds(seed, factor_runs)
@@ -6494,4 +6615,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     state.consensus_reference_run = diagnostics["reference_run_index"]
     state.consensus_run_diagnostics = diagnostics["run_summaries"]
     state.consensus_factor_support = diagnostics["factor_support"]
+    state.consensus_fallback_to_reference = bool(diagnostics.get('fallback_to_reference', False))
     state.consensus_stats_out = consensus_stats_out
+    state._record_params({'consensus_final_status': state.consensus_mode,
+                          'consensus_fallback_to_reference': state.consensus_fallback_to_reference}, overwrite=True)
+    _write_final_factor_gmt(state, factor_kwargs)

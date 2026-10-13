@@ -60,11 +60,10 @@ def _factor_columns(fieldnames, path):
     columns = [column_name for _, column_name in found]
     if not columns:
         _bail("Could not find raw Factor1..FactorK loading columns in %s" % path)
-    expected = list(range(1, len(columns) + 1))
     observed = [number for number, _ in found]
-    if observed != expected:
+    if min(observed) < 1 or len(set(observed)) != len(observed):
         _bail(
-            "Factor columns in %s must be contiguous Factor1..FactorK; found %s"
+            "Factor columns in %s must have unique positive IDs; found %s"
             % (path, ",".join("Factor%d" % value for value in observed))
         )
     return columns

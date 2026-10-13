@@ -1,8 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import math
+from pathlib import Path
 
 from . import annotation_diagnostics
+
+
+def _json_safe(value):
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
 
 
 @dataclass
@@ -158,3 +171,11 @@ def write_factor_outputs_for_plan(runtime, output_plan):
 def write_main_factor_outputs(runtime, options):
     output_plan = build_factor_output_plan(options)
     write_factor_outputs_for_plan(runtime, output_plan)
+    diagnostics_path = getattr(options, 'numerical_diagnostics_out', None)
+    if diagnostics_path is not None:
+        records = [{k: v for k, v in row.items() if k != 'objective_trace'}
+                   for row in (getattr(runtime, 'consensus_run_diagnostics', None) or [])]
+        payload = dict(discovery_restarts=records,
+                       projections=getattr(runtime, 'internal_projection_diagnostics', []),
+                       convergence_interpretation='Configured stopping checks, not a global-optimality certificate')
+        Path(diagnostics_path).write_text(json.dumps(_json_safe(payload), indent=2, allow_nan=False)+'\n')

@@ -72,7 +72,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 161
+      "usage_references": 165
     },
     {
       "action": "append",
@@ -1563,7 +1563,7 @@
       "source_line": 324,
       "summary": "force deterministic random seed behavior (seed=0 unless --seed is set)",
       "type": null,
-      "usage_references": 58
+      "usage_references": 59
     },
     {
       "action": null,
@@ -2676,7 +2676,7 @@
       "source_line": 453,
       "summary": "input gene-phewas BFS table for advanced phewas workflows",
       "type": null,
-      "usage_references": 24
+      "usage_references": 27
     },
     {
       "action": null,
@@ -3159,7 +3159,7 @@
       "source_line": 241,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": "string",
-      "usage_references": 76
+      "usage_references": 78
     },
     {
       "action": null,
@@ -3306,7 +3306,7 @@
       "source_line": 257,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 85
+      "usage_references": 87
     },
     {
       "action": null,
@@ -6831,7 +6831,7 @@
       "source_line": 323,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 37
+      "usage_references": 40
     },
     {
       "action": null,

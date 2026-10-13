@@ -193,6 +193,22 @@ parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
 parser.add_option("","--full-gene-projection-method",type="choice",choices=["gene_set_loadings","direct_gene_gene","auto"],default="gene_set_loadings") #projection basis for --gene-clusters-full-out; gene_set_loadings is the recommended default
+parser.add_option("", "--factor-max-iterations", dest="max_num_iterations", type="int", default=None,
+                  help="Iteration ceiling (default: projected gradient 20000; legacy 100)")
+parser.add_option("", "--factor-rel-tol", dest="rel_tol", type="float", default=None,
+                  help="Final factorization convergence tolerance")
+parser.add_option("", "--symnmf-update-method", type="choice", choices=["auto", "legacy", "projected_gradient"], default="auto",
+                  help="Auto selects optimized projected gradient for gene-by-gene discovery; legacy for annotation mode")
+parser.add_option("", "--symnmf-stopping", type="choice", choices=["adaptive", "fixed"], default="adaptive",
+                  help="Projected gradient: confirmed adaptive stability or the full iteration budget")
+parser.add_option("", "--fixed-basis-projection-method", type="choice", choices=["legacy", "verified_quadratic"], default="legacy",
+                  help="Legacy update or opt-in quadratic projections with per-output stationarity checks")
+parser.add_option("", "--projection-max-cycles", type="int", default=2000)
+parser.add_option("", "--projection-stationarity-tol", type="float", default=1e-8)
+parser.add_option("", "--projection-context-out", default=None)
+parser.add_option("", "--projection-context-in", default=None)
+parser.add_option("", "--numerical-diagnostics-out", default=None,
+                  help="Write discovery stopping and checked-projection diagnostics as JSON")
 parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-gene mode only: write annotation bridge diagnostics for retained annotations
 parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
 parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair

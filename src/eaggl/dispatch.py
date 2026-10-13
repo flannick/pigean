@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 
 def run_main_pipeline(domain, options):
     mode_state = domain._build_main_mode_state()
@@ -10,6 +12,12 @@ def run_main_pipeline(domain, options):
     domain._log_runtime_environment_if_requested(options)
 
     state = domain.EagglState(background_prior=options.background_prior, batch_size=options.batch_size)
+    state.internal_projection_method = getattr(options, 'fixed_basis_projection_method', 'legacy')
+    state.internal_projection_max_cycles = getattr(options, 'projection_max_cycles', 2000)
+    state.internal_projection_tol = getattr(options, 'projection_stationarity_tol', 1e-8)
+    if (state.internal_projection_max_cycles <= 0 or not math.isfinite(state.internal_projection_tol)
+            or state.internal_projection_tol <= 0):
+        domain.bail('Projection budget and tolerance must be positive')
     state._record_params(
         {
             "clustering_workflow_id": clustering_provenance.get("workflow_id"),
@@ -44,10 +52,18 @@ def run_main_pipeline(domain, options):
         factor_model_stage_result = domain._run_main_factor_stage(state, options, mode_state, factor_input_state)
 
     pheno_projection_stage_result = domain.PhewasStageResult(ran=False, output_path=getattr(options, "pheno_clusters_out", None))
+    if getattr(options, 'projection_context_in', None) is not None:
+        from .projection_context import restore_context
+        if not mode_state.get('factor_projection_only'):
+            domain.bail('--projection-context-in requires supplied factors, not a fresh discovery run')
+        restore_context(state, options.projection_context_in, options)
     if domain._should_run_main_pheno_projection_stage(mode_state, options):
         pheno_projection_stage_result = domain._run_main_pheno_projection_stage(state, options)
 
     domain._write_main_factor_outputs(state, options)
+    if getattr(options, 'projection_context_out', None) is not None:
+        from .projection_context import save_context
+        save_context(state, options.projection_context_out, options)
 
     factor_phewas_stage_result = domain.PhewasStageResult(ran=False, output_path=options.factor_phewas_stats_out)
     if domain._should_run_main_factor_phewas_stage(mode_state):
