@@ -6,7 +6,7 @@ FEATURES = (
     'sparse-regression', 'grouped-regression', 'annotation-cache',
     'compact-covariance', 'lean-regression', 'cached-inner',
     'compiled-covariance', 'parallel-prefilter', 'inner-matmul', 'inner-fused',
-    'inner-batching', 'inner-early-check', 'inner-mean', 'compiled-prefilter',
+    'inner-batching', 'inner-early-check', 'inner-mean', 'compiled-prefilter', 'inner-cache64',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
@@ -22,6 +22,7 @@ REQUIRES = {
     'compiled-covariance': {'compact-covariance'},
     'parallel-prefilter': {'sparse-regression'},
     'compiled-prefilter': {'sparse-regression'},
+    'inner-cache64': {'cached-inner'},
 }
 ACTIVE = ContextVar('gibbs_active_features', default=frozenset())
 
