@@ -23,6 +23,37 @@ outlier detection retain their original calculations. Mathematical model and
 conditional updates are unchanged; stopping, RNG consumption and finite-run
 estimates can change. It is independent of arithmetic backend selection.
 
+## Default promotion validation
+
+Default implementation: `08eb17983240bd0344dfd72d874e0e680e077411`.
+606 tests and 10 subtests passed across numerical decisions, all original
+arithmetic subsets, preprocessing/Gibbs opt-out scope, CLI, summary/cache/
+hyperparameter behavior, and EAGGL solvers, projections, factor stages and
+portal handoff. Two existing EAGGL deprecated-option warnings were emitted.
+After updating help, five CLI checks and two subtests passed again; the
+regenerated CLI manifest/documentation consistency check passed.
+
+Three sequential replays of captured update 157 verified exact arrays, inner
+return iterations and RNG states against the archived paths:
+
+| Current selection | Archived reference | Result |
+|---|---|---|
+| Optimized arithmetic, numerical default | Explicitly enabled optimized path | Exact |
+| Legacy arithmetic, numerical default | Explicitly enabled legacy path | Exact; corrected fit returns at index 11 |
+| Legacy arithmetic, explicit numerical opt-out | Historical legacy path | Exact; corrected fit returns at index 12 |
+
+[Comparison receipt](evidence/default_promotion_comparison.json.gz) and
+individual compressed promotion receipts record source and replay-script hashes.
+No numerical helper changes or new 500-update runs were needed for default
+promotion. The full-run measurements below remain the evidence for the
+selected stopping calculation, with their original single-seed limitations.
+
+Replays use the analysis project's trusted captured fixture and
+`scripts/validate_inner_rhat_update.py`, with whole scope, the indicated
+backend, and explicit disable for the opt-out case. The independent comparison
+is rerunnable with `scripts/compare_default_rhat_replays.py`; it checks both
+prepared inputs and sampler outputs, plus all recorded RNG/stopping fields.
+
 ## Tests and localized causal check
 
 391 numerical/feature/CLI tests plus four subtests and 46 existing inner-cache
