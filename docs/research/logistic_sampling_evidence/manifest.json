@@ -1,0 +1,62 @@
+[
+  {
+    "source": "results/methods_aligned_sampling_20261013/reference/results.json.gz",
+    "copy": "reference--results.json.gz",
+    "sha256": "d71f06a68e2dc337658d45f84967f076d18c3cfddae7393c7e95fd04a89ec74d"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/competing/results.json.gz",
+    "copy": "competing--results.json.gz",
+    "sha256": "9fa65e9226d7332dde4b1e75162e3aae494546ada783e7703a6533be4f16bd9b"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/competing_time_control/results.json.gz",
+    "copy": "competing_time_control--results.json.gz",
+    "sha256": "179efad32d25504a582ffb4e02194f6d460982e834e904cfdff5e11020cf1c9e"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/T2D_legacy_21/screen.json.gz",
+    "copy": "T2D_legacy_21--screen.json.gz",
+    "sha256": "507a1a10601063a1707641ae9cc9402780048f8be24cb41f03aaeb2a87fa45e9"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/T2D_collapsed_swap_21/screen.json.gz",
+    "copy": "T2D_collapsed_swap_21--screen.json.gz",
+    "sha256": "660f6b73849e304904aab0318e5c18f804e537f180235da12cd9777ab6695a9b"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/T2D_comparison_final/comparison.json.gz",
+    "copy": "T2D_comparison_final--comparison.json.gz",
+    "sha256": "d2ddda89b188793d0725b22067cfb0991841e1e7ed6334de3d115d24f6e8657d"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/T2D_comparison_final/fixed_panel_rhat.tsv.gz",
+    "copy": "T2D_comparison_final--fixed_panel_rhat.tsv.gz",
+    "sha256": "c8eec4ba9edb42a72dbe5bfd9baf3afcd5726c94cde45226dcdf4cc8b303d632"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/NAFLD_legacy_21/screen.json.gz",
+    "copy": "NAFLD_legacy_21--screen.json.gz",
+    "sha256": "aef86126d5c22c80c9fbbd9b2ad344351001112c5aa1c84f7c1ae18bba1b9eae"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/NAFLD_collapsed_swap_21/screen.json.gz",
+    "copy": "NAFLD_collapsed_swap_21--screen.json.gz",
+    "sha256": "94d8455c60b848eb77dfca20ccab3b9a6e61042215b19c3ae5062b78356055bc"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/NAFLD_comparison/comparison.json.gz",
+    "copy": "NAFLD_comparison--comparison.json.gz",
+    "sha256": "8ec7f15a0f038eb225b833a40a28de0c2e8e0c81614c54588d744e2eaf46a5ae"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/NAFLD_active_legacy_21/screen.json.gz",
+    "copy": "NAFLD_active_legacy_21--screen.json.gz",
+    "sha256": "e55e45c13f0ce22c2ce6a5bdcf2b8876405101521ac043516a344c9d48b4cf56"
+  },
+  {
+    "source": "results/methods_aligned_sampling_20261013/validation.txt.gz",
+    "copy": "validation.txt.gz",
+    "sha256": "6e101c1af80a8557592721b1ee6c963ee2444a26298b7cd108fe9e888f24f109"
+  }
+]
