@@ -91,3 +91,37 @@ def test_optional_swaps_match_original_logistic_target(collapse):
     ref=t.quadrature(96);d=sample(t,sweeps=7000,burn=1000,collapse=collapse,swaps=1)
     assert np.max(abs((d!=0).mean(axis=(0,1))-ref['inclusion']))<.02
     assert np.max(abs(d.mean(axis=(0,1))-ref['mean']))<.03
+
+
+def test_duplicate_adaptive_oracle_matches_tensor_integral():
+    X=np.tile(np.array([-1.,0.,1.,2.])[:,None],(1,2))
+    t=LogisticTarget(X,np.array([0,1,0,1]),np.full(4,-.7),np.array([.1,.3]),np.array([.7,1.2]))
+    a=t.quadrature(128);b=t.duplicate_reference()
+    for key in ('weights','mean','covariance'):
+        np.testing.assert_allclose(a[key],b[key],atol=1e-9)
+
+
+def test_implemented_swap_transition_matches_symmetric_mh_kernel():
+    from itertools import product
+    from scipy.special import softmax
+    from logistic_sampling.collapse import support_logmass
+    from logistic_sampling.swaps import support_swaps
+    Q=np.array([[2.,.7,.2],[.7,3.,.1],[.2,.1,1.]])
+    h=np.array([1.,.4,-.2]);pi=np.array([.1,.3,.6]);tau=np.array([.7,1.2,.4])
+    states=np.array(list(product((False,True),repeat=3)))
+    logs=np.array([support_logmass(Q,h,pi,tau,s) for s in states]);weights=softmax(logs)
+    T=np.zeros((8,8));rng=np.random.default_rng(30);trials=16000
+    for a,s in enumerate(states):
+        expected=np.zeros(8)
+        for j in range(3):
+            for k in range(j+1,3):
+                if s[j]==s[k]:continue
+                t=s.copy();t[j]=not t[j];t[k]=not t[k]
+                b=int(t@np.array([4,2,1]))
+                expected[b]=(.5/3)*min(1.,np.exp(logs[b]-logs[a]))
+        expected[a]=1-expected.sum()
+        for _ in range(trials):
+            t=support_swaps(Q,h,pi,tau,s,rng,1)
+            T[a,int(t@np.array([4,2,1]))]+=1/trials
+        np.testing.assert_allclose(T[a],expected,atol=.012)
+    np.testing.assert_allclose(weights@T,weights,atol=.003)

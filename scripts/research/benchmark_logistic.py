@@ -51,7 +51,12 @@ def main():
         # For sharply concentrated cases refine further, never silently pass.
         if err>1e-7:
             a=ref;ref=target.quadrature(256);err=float(np.max(abs(a['weights']-ref['weights'])))
-        row=dict(reference=ref,refinement_error=err,reference_seconds=time.perf_counter()-start,runs=[])
+        oracle='tensor_gauss_hermite'
+        if name=='competing':
+            a=target.duplicate_reference(1e-9);ref=target.duplicate_reference(1e-11)
+            err=float(np.max(abs(a['weights']-ref['weights'])))
+            oracle='adaptive_duplicate_sum'
+        row=dict(reference=ref,oracle=oracle,refinement_error=err,reference_seconds=time.perf_counter()-start,runs=[])
         results['cases'][name]=row
         if err>1e-7:
             row['status']='REFERENCE_REFINEMENT_FAILED'
