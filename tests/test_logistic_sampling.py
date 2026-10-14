@@ -56,3 +56,20 @@ def test_coordinate_sampler_matches_nonaugmented_reference():
 def test_invalid_inputs_fail():
     with pytest.raises(ValueError): draw_pg(np.array([np.nan]),np.random.default_rng(0))
     with pytest.raises(ValueError): sample(target(),sweeps=1,burn=1)
+
+
+def test_augmented_support_integral_matches_independent_quadrature():
+    from logistic_sampling.collapse import support_logmass
+    Q=np.array([[2.]]);h=np.array([1.3]);pi=np.array([.2]);tau=np.array([.8])
+    mass=quad(lambda x:np.exp(1.3*x-x*x)*norm.pdf(x,scale=np.sqrt(.8)),-np.inf,np.inf)[0]
+    score=support_logmass(Q,h,pi,tau,np.array([True]))
+    np.testing.assert_allclose(np.exp(score),.2*mass,rtol=1e-10)
+    np.testing.assert_allclose(np.exp(support_logmass(Q,h,pi,tau,np.array([False]))),.8)
+
+
+def test_collapsed_sampler_matches_logistic_reference():
+    t=LogisticTarget(np.array([[-1.,-.3],[-.7,-.9],[0.,.2],[.2,.7],[.8,.4],[1.,1.]]),
+                     np.array([0,1,0,0,1,1]),np.full(6,-.7),np.full(2,.2),np.full(2,.8))
+    ref=t.quadrature(96);d=sample(t,sweeps=7000,burn=1000,collapse=True)
+    assert np.max(abs((d!=0).mean(axis=(0,1))-ref['inclusion']))<.02
+    assert np.max(abs(d.mean(axis=(0,1))-ref['mean']))<.03

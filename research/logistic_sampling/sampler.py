@@ -2,6 +2,7 @@
 import numpy as np
 from numba import njit
 from .pg import draw_pg
+from .collapse import collapsed_sweep, draw_coefficients
 
 
 @njit(cache=True)
@@ -15,7 +16,7 @@ def _coordinate(Q,h,pi,tau,beta,rng):
     return beta
 
 
-def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None):
+def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None,collapse=False):
     if not 0<=burn<sweeps or chains<2: raise ValueError('Invalid sampling budget')
     n,p=target.X.shape
     if p>64: raise ValueError('Research implementation capped at 64 annotations')
@@ -28,6 +29,10 @@ def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None):
             omega=draw_pg(target.offset+target.X@beta[c],rng)
             Q=target.X.T@(omega[:,None]*target.X)
             h=target.X.T@(target.y-.5-omega*target.offset)
-            beta[c]=_coordinate(Q,h,target.inclusion,target.variance,beta[c],rng)
+            if collapse:
+                support=collapsed_sweep(Q,h,target.inclusion,target.variance,beta[c]!=0,rng)
+                beta[c]=draw_coefficients(Q,h,target.variance,support,rng)
+            else:
+                beta[c]=_coordinate(Q,h,target.inclusion,target.variance,beta[c],rng)
         if it>=burn: draws[it-burn]=beta
     return draws
