@@ -55,13 +55,13 @@ class PigeanCliTest(unittest.TestCase):
 
     def test_gibbs_feature_lists_and_repeated_flags(self) -> None:
         from pegs_shared.gibbs_features import FEATURES, resolve_features
-        suffix = "inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation"
+        suffix = "inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation,compiled-moments"
         proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
                          "--gibbs-enable", suffix, "--gibbs-enable", "inner-matmul",
                          "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         options = json.loads(proc.stdout)["options"]
-        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES) - {"compiled-moments"})
+        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES))
         proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
                          "--gibbs-enable", "inner-matmul", "--gibbs-enable", "inner-fused",
                          "--gibbs-disable", "annotation-cache,compiled-covariance",

@@ -3,10 +3,10 @@
 Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix is enabled by default with every engine. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
 
 ```sh
---gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation
+--gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation,compiled-moments
 ```
 
-The full configuration requires the optional `compiled` dependency extra (Numba). The preset enables the first eight features below; the comma-separated list adds the seven later extensions. These change arithmetic, allocation and reuse, preserving the intended inner/outer Gibbs procedure. Floating-point reduction order can change sampled trajectories. They are performance options, not convergence fixes.
+The full configuration requires the optional `compiled` dependency extra (Numba). The preset enables the first eight features below; the comma-separated list adds the eight later extensions. These change arithmetic, allocation and reuse, preserving the intended inner/outer Gibbs procedure. Floating-point reduction order can change sampled trajectories. They are performance options, not convergence fixes.
 
 ## Selecting features
 
@@ -31,8 +31,9 @@ Omit an arithmetic extension's enabling flag to leave it off. Remove a preset fe
 | `inner-cache64` | Raise the inner slice cache from 16 to 64 MiB | `cached-inner` |
 | `huge-prior-softmax` | Normalize signal prior odds directly | Preserves regional and covariate adjustments |
 | `static-correlation` | Reuse fixed full annotation correlations | Unwhitened float64 CSC; 256 MiB cap; content-validated |
+| `compiled-moments` | Combine five grouped moment sums into one traversal | `grouped-regression`; optional Numba |
 
-Guarded optimizations use fallback arithmetic for unsupported inputs. Missing Numba raises an import error when a compiled path is used; to run without it, omit `inner-fused`, `inner-batching` and `compiled-prefilter`, and add `--gibbs-disable compiled-covariance` to the preset. Cache payload limits do not bound total process memory. HuGE normalization must be reconciled separately if future fPS changes touch the same calculation.
+Guarded optimizations use fallback arithmetic for unsupported inputs. Missing Numba raises an import error when a compiled path is used; to run without it, omit `inner-fused`, `inner-batching`, `compiled-prefilter` and `compiled-moments`, and add `--gibbs-disable compiled-covariance` to the preset. Cache payload limits do not bound total process memory. HuGE normalization must be reconciled separately if future fPS changes touch the same calculation.
 
 ## Measured performance and limits
 
@@ -80,7 +81,7 @@ Enabled versus control prior r/slope was .9842/.9973 and corrected beta
 no general mixing or speedup claim is made. The default change reproduces the
 previously validated enabled path; the opt-out preserves the historical path.
 
-## Additional grouped-moment candidate
+## Additional grouped-moment optimization
 
 `--gibbs-enable compiled-moments` optionally combines the five grouped-regression
 moment reductions into one compiled traversal. It requires `grouped-regression`
@@ -89,7 +90,12 @@ Probability calculations and each output's multiplication/addition order are
 preserved. Five output vectors remain, while intermediate full-group weight
 arrays are avoided. This changes computation only, not sampling or inference.
 
-Initial checks establish exact kernel and complete grouped-regression agreement.
-Whole-sampler performance, memory and scaling evidence is required before this
-option joins the recommended suffix. A bounded synthetic scaling benchmark is
-available in `scripts/experiments/benchmark_compiled_moments.py`.
+Matched 500-update replays preserve exported priors, corrected/uncorrected beta,
+log BF, recorded numeric trajectories and every recorded support selection
+exactly. Profiled inference improves 1.071x for T2D and 1.121x for NAFLD
+(1.053x against its earlier control). Peak RSS changes -10.24% and -0.98%
+in the selected pairs; process peaks vary and are not an isolated memory-saving
+guarantee. This option joins the recommended suffix while remaining off by
+default and independently removable. See the [evidence and limits](experiments/compiled-moments/README.md).
+A bounded synthetic benchmark is available in
+`scripts/experiments/benchmark_compiled_moments.py`.
