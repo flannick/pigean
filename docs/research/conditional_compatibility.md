@@ -33,3 +33,24 @@ Run `scripts/research/audit_frozen_inner.py` with a trusted captured conditional
 and a compressed output path. It validates the capture checksum before reading
 and leaves the captured arrays untouched. Source capture and audit provenance
 are retained in its output. No new inference flags or defaults are introduced.
+
+## Current production captures
+
+Source `fee4eab` has production code identical to main `8069e42`; only the
+research audit/tests/docs differ. Captures use seed 0, corrected inner fitting
+at outer update 25, all recommended arithmetic options and default stable
+stopping. Each trusted capture checksum and source revision is recorded in the
+compressed audit receipts under `evidence/`.
+
+| Trait | Chains failing symmetry | Coefficients in worst subset | Max asymmetry / max precision | Witness reciprocal precision entries |
+|---|---|---|---|---|
+| NAFLD | 10/10 | 5 | 0.052476 | 199.147 / 0.111225 |
+| T2D | 10/10 | 128 | 0.119415 | 327.333 / 937.133 |
+
+Both traits fail the necessary condition. Stop the production mixture and
+support-swap proposals at this gate; a compatible target would require a model
+change, while approximating the existing transition algorithm's stationary law
+would require a separately specified approximation. The previously rejected
+quadratic-score target is not reintroduced. HuGE refresh and strongest-signal
+aggregation remain untouched. The retained diagnostic is independent of any
+future inference implementation and adds no production flag.
