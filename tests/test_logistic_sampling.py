@@ -73,3 +73,21 @@ def test_collapsed_sampler_matches_logistic_reference():
     ref=t.quadrature(96);d=sample(t,sweeps=7000,burn=1000,collapse=True)
     assert np.max(abs((d!=0).mean(axis=(0,1))-ref['inclusion']))<.02
     assert np.max(abs(d.mean(axis=(0,1))-ref['mean']))<.03
+
+
+def test_swap_detailed_balance_for_unequal_prior_and_variance():
+    from logistic_sampling.collapse import support_logmass
+    Q=np.array([[2.,.7],[.7,3.]])
+    h=np.array([1.,.4]);pi=np.array([.1,.3]);tau=np.array([.7,1.2])
+    a=support_logmass(Q,h,pi,tau,np.array([True,False]))
+    b=support_logmass(Q,h,pi,tau,np.array([False,True]))
+    np.testing.assert_allclose(np.exp(a)*.5*min(1.,np.exp(b-a)),np.exp(b)*.5*min(1.,np.exp(a-b)),rtol=1e-14)
+
+
+@pytest.mark.parametrize('collapse',[False,True])
+def test_optional_swaps_match_original_logistic_target(collapse):
+    t=LogisticTarget(np.array([[-1.,-.3],[-.7,-.9],[0.,.2],[.2,.7],[.8,.4],[1.,1.]]),
+                     np.array([0,1,0,0,1,1]),np.full(6,-.7),np.array([.1,.3]),np.array([.7,1.2]))
+    ref=t.quadrature(96);d=sample(t,sweeps=7000,burn=1000,collapse=collapse,swaps=1)
+    assert np.max(abs((d!=0).mean(axis=(0,1))-ref['inclusion']))<.02
+    assert np.max(abs(d.mean(axis=(0,1))-ref['mean']))<.03

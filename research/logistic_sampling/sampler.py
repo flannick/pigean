@@ -3,6 +3,7 @@ import numpy as np
 from numba import njit
 from .pg import draw_pg
 from .collapse import collapsed_sweep, draw_coefficients
+from .swaps import support_swaps
 
 
 @njit(cache=True)
@@ -16,8 +17,9 @@ def _coordinate(Q,h,pi,tau,beta,rng):
     return beta
 
 
-def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None,collapse=False):
+def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None,collapse=False,swaps=0):
     if not 0<=burn<sweeps or chains<2: raise ValueError('Invalid sampling budget')
+    if swaps<0 or int(swaps)!=swaps: raise ValueError('Swaps must be a nonnegative integer')
     n,p=target.X.shape
     if p>64: raise ValueError('Research implementation capped at 64 annotations')
     rng=np.random.default_rng(seed)
@@ -31,8 +33,13 @@ def sample(target,*,sweeps=4000,burn=1000,chains=4,seed=117,initial=None,collaps
             h=target.X.T@(target.y-.5-omega*target.offset)
             if collapse:
                 support=collapsed_sweep(Q,h,target.inclusion,target.variance,beta[c]!=0,rng)
-                beta[c]=draw_coefficients(Q,h,target.variance,support,rng)
             else:
                 beta[c]=_coordinate(Q,h,target.inclusion,target.variance,beta[c],rng)
+                support=beta[c]!=0
+            if swaps:
+                support=support_swaps(Q,h,target.inclusion,target.variance,support,rng,swaps)
+            if collapse or swaps:
+                # Mandatory restoration after integrating out coefficients.
+                beta[c]=draw_coefficients(Q,h,target.variance,support,rng)
         if it>=burn: draws[it-burn]=beta
     return draws
