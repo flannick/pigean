@@ -84,6 +84,24 @@ class PigeanCliTest(unittest.TestCase):
                 self.assertNotEqual(proc.returncode, 0)
                 self.assertIn(message, proc.stdout + proc.stderr)
 
+    def test_inner_rhat_stability_is_selectable_with_legacy_arithmetic(self) -> None:
+        from pegs_shared.gibbs_features import resolve_features
+        proc = self._run("gibbs", "--gibbs-enable", "inner-rhat-stable",
+                         "--print-effective-config")
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        options = json.loads(proc.stdout)["options"]
+        self.assertEqual(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"],
+                         ["inner-rhat-stable"])
+
+    def test_numerical_default_and_opt_out_are_reported(self) -> None:
+        for flags, expected in [((), ["inner-rhat-stable"]),
+                                (("--gibbs-disable", "inner-rhat-stable"), [])]:
+            with self.subTest(flags=flags):
+                proc = self._run("gibbs", *flags, "--print-effective-config")
+                self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+                payload = json.loads(proc.stdout)
+                self.assertEqual(payload["gibbs_features"]["active"], expected)
+
     def test_inverse_variance_filter_defaults_to_half_winsorized_mean_and_zero_disables(self) -> None:
         default_proc = self._run("gibbs", "--print-effective-config")
         self.assertEqual(default_proc.returncode, 0, msg=default_proc.stderr)
