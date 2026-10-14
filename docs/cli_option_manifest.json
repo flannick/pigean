@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-disable"
       ],
-      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "help": "disable Gibbs optimizations from the engine preset; use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "primary_flag": "--gibbs-disable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 496,
-      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "summary": "disable Gibbs optimizations from the engine preset; use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 12
+      "usage_references": 8
     },
     {
       "action": "append",
@@ -3590,15 +3590,15 @@
       "flags": [
         "--gibbs-enable"
       ],
-      "help": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
+      "help": "enable Gibbs optimizations in addition to the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "primary_flag": "--gibbs-enable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 495,
-      "summary": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
+      "summary": "enable Gibbs optimizations in addition to the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "type": null,
-      "usage_references": 15
+      "usage_references": 13
     },
     {
       "action": null,
@@ -6495,7 +6495,7 @@
       "source_line": 326,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 126
+      "usage_references": 124
     },
     {
       "action": null,

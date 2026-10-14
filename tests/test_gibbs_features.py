@@ -8,7 +8,7 @@ import pytest
 from scipy import sparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from pegs_shared.gibbs_features import FEATURES, PRESETS, ACTIVE, DEFAULT_FEATURES, resolve_features
+from pegs_shared.gibbs_features import FEATURES, PRESETS, ACTIVE, resolve_features
 from pegs_shared.sparse_regression import marginal_backend, annotation_structure_cache
 from pegs_shared.regression import compute_logistic_beta_tildes
 
@@ -20,18 +20,18 @@ def subsets():
 
 def test_original_presets_and_overrides():
     for name, expected in PRESETS.items():
-        assert set(resolve_features(name)['active']) == expected | DEFAULT_FEATURES
+        assert set(resolve_features(name)['active']) == expected
         with marginal_backend(name):
-            assert ACTIVE.get() == expected | DEFAULT_FEATURES
-        assert ACTIVE.get() == DEFAULT_FEATURES
+            assert ACTIVE.get() == expected
+        assert not ACTIVE.get()
     with marginal_backend('parallel-prefilter', disable=['annotation-cache']):
         assert annotation_structure_cache() is None
         assert 'compiled-covariance' in ACTIVE.get()
     with marginal_backend('legacy', enable=['cached-inner']):
-        assert ACTIVE.get() == {'cached-inner'} | DEFAULT_FEATURES
+        assert ACTIVE.get() == {'cached-inner'}
         with marginal_backend('legacy'):
-            assert ACTIVE.get() == DEFAULT_FEATURES
-        assert ACTIVE.get() == {'cached-inner'} | DEFAULT_FEATURES
+            assert not ACTIVE.get()
+        assert ACTIVE.get() == {'cached-inner'}
 
 
 def test_fail_closed_and_inactive_prerequisites():
@@ -40,9 +40,9 @@ def test_fail_closed_and_inactive_prerequisites():
     with pytest.raises(ValueError, match='both'):
         resolve_features(enable=['cached-inner'], disable=['cached-inner'])
     selected = resolve_features('parallel-prefilter', disable=['grouped-regression'])
-    assert set(selected['active']) == {'sparse-regression', 'cached-inner', 'parallel-prefilter'} | DEFAULT_FEATURES
+    assert set(selected['active']) == {'sparse-regression', 'cached-inner', 'parallel-prefilter'}
     assert set(selected['inactive']) == {'annotation-cache', 'compact-covariance', 'lean-regression', 'compiled-covariance'}
-    assert ACTIVE.get() == DEFAULT_FEATURES
+    assert not ACTIVE.get()
 
 
 def test_comma_lists_repetition_whitespace_and_duplicates():
@@ -58,8 +58,8 @@ def test_comma_lists_repetition_whitespace_and_duplicates():
                           disable=['annotation-cache,compiled-covariance']):
         assert ACTIVE.get() == set(expected['active'])
         assert annotation_structure_cache() is None
-    assert ACTIVE.get() == DEFAULT_FEATURES
-    assert resolve_features(enable='inner-matmul,inner-fused')['active'] == ['inner-fused', 'inner-matmul', 'inner-rhat-stable']
+    assert not ACTIVE.get()
+    assert resolve_features(enable='inner-matmul,inner-fused')['active'] == ['inner-fused', 'inner-matmul']
 
 
 @pytest.mark.parametrize('value', ['', ' ', ',', 'inner-matmul,', ',inner-matmul', 'inner-matmul,,inner-fused'])
@@ -75,7 +75,7 @@ def test_comma_lists_preserve_validation_and_prerequisites():
     with pytest.raises(ValueError, match='Cannot both enable and disable: inner-fused'):
         resolve_features(enable=['inner-matmul,inner-fused'], disable=['inner-fused,cached-inner'])
     result = resolve_features('parallel-prefilter', disable=['grouped-regression,cached-inner'])
-    assert set(result['active']) == {'sparse-regression', 'parallel-prefilter'} | DEFAULT_FEATURES
+    assert set(result['active']) == {'sparse-regression', 'parallel-prefilter'}
     assert set(result['inactive']) == {'annotation-cache', 'compact-covariance', 'lean-regression', 'compiled-covariance'}
 
 
@@ -103,7 +103,7 @@ def test_every_original_subset_runs_and_preserves_estimates(features):
             assert a is b
         else:
             np.testing.assert_allclose(a, b, rtol=1e-10, atol=1e-11, equal_nan=True)
-    assert ACTIVE.get() == DEFAULT_FEATURES
+    assert not ACTIVE.get()
 
 
 def test_new_switches_are_independent_and_presets_unchanged():
@@ -111,7 +111,7 @@ def test_new_switches_are_independent_and_presets_unchanged():
     for n in range(len(new)+1):
         for subset in combinations(new,n):
             selected = resolve_features('parallel-prefilter',enable=subset)
-            assert set(selected['active']) == set(FEATURES[:8]) | set(subset) | DEFAULT_FEATURES
+            assert set(selected['active']) == set(FEATURES[:8]) | set(subset)
             for item in subset:
                 without = resolve_features('parallel-prefilter',enable=set(subset)-{item},disable=[item])
                 assert set(without['active']) == set(selected['active'])-{item}
@@ -129,10 +129,10 @@ def test_pipeline_scopes_features_without_changing_sampler_arguments(monkeypatch
     monkeypatch.setattr(pipeline, 'build_main_gibbs_stage_config', lambda options: config)
     def sample(**passed):
         assert passed == kwargs
-        assert ACTIVE.get() == expected | DEFAULT_FEATURES
+        assert ACTIVE.get() == expected
     state = SimpleNamespace(run_gibbs=Mock(side_effect=sample))
     options = SimpleNamespace(gibbs_engine='legacy', gibbs_enable=enable, gibbs_disable=None)
     result = pipeline.run_main_gibbs_stage(Mock(), state, options, {'run_gibbs': True})
     state.run_gibbs.assert_called_once_with(**kwargs)
     assert result.ran
-    assert ACTIVE.get() == DEFAULT_FEATURES
+    assert not ACTIVE.get()

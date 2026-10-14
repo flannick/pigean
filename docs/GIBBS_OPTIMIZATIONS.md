@@ -1,6 +1,6 @@
 # Gibbs arithmetic optimizations
 
-Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix is enabled by default with every engine. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
+Legacy arithmetic remains the default. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
 
 ```sh
 --gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation
@@ -12,7 +12,7 @@ The full configuration requires the optional `compiled` dependency extra (Numba)
 
 Both `--gibbs-enable` and `--gibbs-disable` accept comma-separated names, repeated flags, or a mixture. For example, `--gibbs-enable inner-matmul,inner-fused` is equivalent to `--gibbs-enable inner-matmul --gibbs-enable inner-fused`. Whitespace within a quoted list is trimmed; duplicates are ignored. Empty names, unknown names, and enabling and disabling the same feature are errors.
 
-Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--gibbs-engine legacy --gibbs-disable inner-rhat-stable` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
+Omit an extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--gibbs-engine legacy` without enabling flags. Existing engine presets retain their definitions.
 
 | Feature | Change | Prerequisite or limit |
 |---|---|---|
@@ -41,41 +41,3 @@ The [milestone evidence](https://github.com/flannick/pigean/tree/optimization-mi
 NAFLD's full comparison excluded `static-correlation` and measured an additional 1.415x speedup, with peak RSS +4.88%. Outputs differed substantially and chains remained non-converged; an unchanged-code alternate seed showed comparable sensitivity. These measurements do not establish convergence or general finite-run output equivalence. Grouped arithmetic can also differ from legacy standard errors for constant annotations because of cancellation.
 
 Earlier inner stopping, conditional-mean inference, and incremental residual caching were rejected and are not included in these controls. Independent fPS, variance-threshold, and abandoned debug branches are not part of this optimization configuration.
-
-## Default inner stopping stability
-
-`inner-rhat-stable` is **on by default**, independently of the arithmetic engine.
-No extra enabling flag is needed with the recommended suffix above or with
-legacy arithmetic. To restore the historical stopping rule, append:
-
-```sh
---gibbs-disable inner-rhat-stable
-```
-
-The opt-out covers preliminary fitting and the main Gibbs stage. Direct Python
-sampling also uses the numerical default; a `marginal_backend` context with
-`disable=['inner-rhat-stable']` restores the old rule. Effective configuration
-and Gibbs feature logs report the selected numerical default. Explicit enabling
-remains supported, including comma lists.
-
-The existing inner mean-R-hat rule averages only entries >=1. A value rounded
-just below one is excluded, while exactly one is included, potentially changing
-the denominator enough to trigger an additional Gibbs sweep. This feature maps
-finite float64 R-hat values within 16 spacings at one (about 3.55e-15) to exactly
-one **only for that mean**. Raw R-hat outputs, outlier detection and max-based
-stopping remain unchanged. Material deviations from one are not rounded away.
-
-This is a numerical stopping change, not a posterior approximation or a
-demonstrated mixing improvement. It can change sweep counts, random-number
-consumption and finite-run results. It does not guarantee identical trajectories
-across arithmetic backends. Promotion is supported by the captured numerical defect and the bounded
-full-run validation below; the arithmetic recommendations remain independent.
-
-The [bounded T2D validation](experiments/inner-rhat-stability/README.md) passed:
-the disabled path reproduced historical optimized outputs exactly; the enabled
-path removed the captured numerical split. In one full pair, active-panel
-R-hat q90 improved 1.841 -> 1.216 with inference time +0.73% and peak RSS +0.65%.
-Enabled versus control prior r/slope was .9842/.9973 and corrected beta
-.8374/.8848. These finite-run shifts and the single-seed scope still limit interpretation:
-no general mixing or speedup claim is made. The default change reproduces the
-previously validated enabled path; the opt-out preserves the historical path.

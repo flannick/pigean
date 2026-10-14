@@ -492,8 +492,8 @@ parser.add_option("","--max-num-iter",type=int,default=500) #legacy per-epoch to
 parser.add_option("","--total-num-iter-gibbs",type=int,default=None) #total outer Gibbs iteration cap across all epochs; by default follows --max-num-iter (500)
 parser.add_option("","--r-threshold-burn-in",type=float,default=1.10) #R-hat threshold for outer Gibbs burn-in
 parser.add_option("--gibbs-engine", type="choice", choices=["legacy", "sparse-regression", "grouped-regression", "cached-grouped-regression", "compact-covariance", "lean-regression", "cached-inner", "compiled-covariance", "parallel-prefilter"], default="legacy", help="inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks")
-parser.add_option("--gibbs-enable", action="append", default=None, help="enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md")
-parser.add_option("--gibbs-disable", action="append", default=None, help="disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent")
+parser.add_option("--gibbs-enable", action="append", default=None, help="enable Gibbs optimizations in addition to the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md")
+parser.add_option("--gibbs-disable", action="append", default=None, help="disable Gibbs optimizations from the engine preset; use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent")
 parser.add_option("","--gauss-seidel",action="store_true") #run gauss seidel for gibbs sampling
 parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true") #use a sample of the betas returned from the inner beta sampling within the gibbs samples; by default uses mean value which is smoother (more stable but more prone to not exploring full space)
 parser.add_option("","--warm-start",action="store_true",dest="warm_start",default=True) #within gibbs, initialize corrected beta sampling from previous iteration values (default on)
@@ -1855,15 +1855,10 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
 
 
 def _build_effective_config_payload(_mode, _options):
-    from pegs_shared.gibbs_features import resolve_features
     return {
         "mode": _mode,
         "config": _options.config,
         "options": _json_safe(vars(_options)),
-        "gibbs_features": resolve_features(
-            getattr(_options, 'gibbs_engine', 'legacy'),
-            getattr(_options, 'gibbs_enable', None),
-            getattr(_options, 'gibbs_disable', None)),
     }
 
 

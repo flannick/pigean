@@ -266,8 +266,9 @@ def run_main_gibbs_stage(services, state, options, mode_state):
     enable = getattr(options, 'gibbs_enable', None)
     disable = getattr(options, 'gibbs_disable', None)
     selection = resolve_features(engine, enable, disable)
-    services.log('Gibbs active features: %s; inactive prerequisites: %s' % (
-        ', '.join(selection['active']) or 'none', selection['inactive']))
+    if enable or disable:
+        services.log('Gibbs active features: %s; inactive prerequisites: %s' % (
+            ', '.join(selection['active']) or 'none', selection['inactive']))
     with marginal_backend(engine, enable=enable, disable=disable):
         state.run_gibbs(**gibbs_config.run_kwargs)
     return GibbsStageResult(
