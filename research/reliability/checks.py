@@ -26,6 +26,20 @@ def gaussian_scan_stationary(beta_tilde, se, V, tau, order):
                 invariance_error=float(np.max(np.abs(cov-A@cov@A.T-noise))))
 
 
+
+def gaussian_parallel_stationary(beta_tilde,se,V,tau):
+    """Exact all-slab simultaneous update law; compare to sequential target."""
+    shrink=tau/(tau+se**2)
+    A=-shrink[:,None]*V.T;np.fill_diagonal(A,0.)
+    radius=float(np.max(np.abs(np.linalg.eigvals(A))))
+    if radius>=1:raise ValueError('Unstable Gaussian parallel update')
+    noise=np.diag(shrink*se**2)
+    mean=np.linalg.solve(np.eye(len(se))-A,shrink*beta_tilde)
+    cov=solve_discrete_lyapunov(A,noise)
+    return dict(mean=mean,covariance=cov,spectral_radius=radius,
+                invariance_error=float(np.max(np.abs(cov-A@cov@A.T-noise))))
+
+
 def split_rhat(values):
     """Classical split R-hat; independent truth errors are reported alongside it."""
     n=values.shape[0]//2
@@ -89,11 +103,14 @@ def production_draws(beta_tilde,se,V,pi,tau,*,sweeps=10000,burn=2000,chains=8,se
     return np.asarray(out),[np.flatnonzero(m).tolist() for m in masks]
 
 
-def support_transition(weights,*,swap=False):
+def support_transition(weights,*,swap=False,swap_probability=.5):
     """Random-site collapsed heat bath, optionally followed by a MH support swap.
 
     Full exact integration of Gaussian coefficients; no approximate weights.
+    Propose the swap with probability one half to avoid near-deterministic
+    alternation between symmetric modes.
     """
+    if not 0<=swap_probability<=1:raise ValueError('Invalid swap proposal probability')
     n=len(weights); p=int(np.log2(n));T=np.zeros((n,n))
     for a in range(n):
         for j in range(p):
@@ -103,7 +120,7 @@ def support_transition(weights,*,swap=False):
         if p!=2:raise ValueError('Bounded swap reference only supports two coefficients')
         S=np.eye(n)
         for a,b in ((1,2),(2,1)):
-            acc=min(1.,weights[b]/weights[a]);S[a,a]=1-acc;S[a,b]=acc
+            acc=swap_probability*min(1.,weights[b]/weights[a]);S[a,a]=1-acc;S[a,b]=acc
         T=T@S
     return T
 
@@ -115,8 +132,8 @@ def transition_metrics(T,weights):
                 worst_start_tv_500=float(np.max(np.sum(np.abs(np.linalg.matrix_power(T,500)-weights),axis=1)/2)))
 
 
-def collapsed_draws(target,*,sweeps=10000,burn=2000,chains=8,seed=117,swap=True):
-    ref=enumerate_posterior(target);T=support_transition(ref['weights'],swap=swap)
+def collapsed_draws(target,*,sweeps=10000,burn=2000,chains=8,seed=117,swap=True,swap_probability=.5):
+    ref=enumerate_posterior(target);T=support_transition(ref['weights'],swap=swap,swap_probability=swap_probability)
     rng=np.random.default_rng(seed);states=np.array([1]*(chains//2)+[2]*(chains-chains//2))
     mus=[];chols=[]
     for support in ref['supports']:

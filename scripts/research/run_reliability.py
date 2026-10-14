@@ -20,7 +20,7 @@ from conditional_compatibility import audit_slab_precision
 from reliability.quadratic import QuadraticTarget,enumerate_posterior
 from reliability.observed_logistic import ObservedLogisticTarget
 from reliability.fixed_evidence import FixedEvidenceTarget
-from reliability.checks import (gaussian_scan_stationary,production_draws,summarize_draws,
+from reliability.checks import (gaussian_scan_stationary,gaussian_parallel_stationary,production_draws,summarize_draws,
     collapsed_draws,support_transition,transition_metrics,finite_outer_reference,
     finite_outer_metrics,mean_feedback_metrics,production_huge_conditionals)
 
@@ -73,6 +73,7 @@ def audit(capture_root):
         del k,V
     args=(np.array([.3,.4]),np.array([.2,.8]),np.array([[1.,.8],[.8,1.]]),np.ones(2))
     forward=gaussian_scan_stationary(*args,[0,1]);reverse=gaussian_scan_stationary(*args,[1,0])
+    out['simultaneous_gaussian_counterexample']=dict(sequential=gaussian_scan_stationary(np.array([.4,.6]),np.full(2,.5),np.array([[1.,.2],[.2,1.]]),np.ones(2),[0,1]),parallel=gaussian_parallel_stationary(np.array([.4,.6]),np.full(2,.5),np.array([[1.,.2],[.2,1.]]),np.ones(2)))
     out['incompatible_but_stationary']=dict(forward=forward,reverse=reverse,
         covariance_order_difference=float(np.max(np.abs(forward['covariance']-reverse['covariance']))))
     return out
@@ -106,7 +107,7 @@ def mixing(a,out):
             results[label]=dict(**summarize_draws(draws,truth),seconds=time.perf_counter()-start,batches=masks)
             np.savez_compressed(out/(name+'_'+label+'.npz'),draws=draws)
         if name=='competing':
-            start=time.perf_counter();draws,metrics=collapsed_draws(target,sweeps=a.sweeps,burn=a.burn,chains=8)
+            start=time.perf_counter();draws,metrics=collapsed_draws(target,sweeps=a.sweeps,burn=a.burn,chains=8,swap_probability=a.swap_probability)
             results['collapsed_with_swap']=dict(**summarize_draws(draws,truth),seconds=time.perf_counter()-start,transition=metrics)
             results['collapsed_without_swap_transition']=transition_metrics(support_transition(truth['weights']),truth['weights'])
             np.savez_compressed(out/'competing_collapsed_with_swap.npz',draws=draws)
@@ -134,8 +135,10 @@ def main():
     p.add_argument('--stage',choices=['audit','reference','mixing','outer','all'],default='all')
     p.add_argument('--capture-root',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
     p.add_argument('--sweeps',type=int,default=10000);p.add_argument('--burn',type=int,default=2000)
+    p.add_argument('--swap-probability',type=float,default=.5)
     a=p.parse_args()
     if not 0<=a.burn<a.sweeps:raise ValueError('Require 0 <= burn < sweeps')
+    if not 0<=a.swap_probability<=1:raise ValueError('Require swap probability between zero and one')
     if subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip():raise ValueError('Require clean source')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     a.out.mkdir(parents=True,exist_ok=False)

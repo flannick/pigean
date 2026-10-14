@@ -69,7 +69,7 @@ and inclusion split R-hat <=1.05, alongside exact transition invariance and
 independent truth. An easy case and one correlated competing-support case are
 predeclared. Competing supports are initialized separately across chains.
 Collapsed support moves use exact Gaussian integration; the optional symmetric
-swap has a valid Metropolis probability. Both target and chain diagnostics are
+swap is proposed with probability one half and has a valid Metropolis probability. Both target and chain diagnostics are
 checked. There is no claim that a two-annotation solution scales to full traits.
 
 Two-variable continuous logistic references use Gaussian quadrature at 48 and
@@ -99,8 +99,15 @@ MPLBACKEND=Agg MPLCONFIGDIR="$HOME/codex-workspace/.cache/matplotlib" \
   --out results/inference_reliability_20261013
 ```
 
-Stages `audit`, `reference`, `mixing`, and `outer` can be selected separately;
+Use `--swap-probability 0`, `0.5` (default), or `1` to select no swaps, lazy
+swaps, or the initial always-proposed reference. Stages `audit`, `reference`,
+`mixing`, and `outer` can be selected separately;
 outputs refuse overwrite and include source revision and run settings. Existing
 trait captures are checksum-verified. No full trait run is justified unless the
 reference and outer-target gates support a concrete candidate. Final results
 and the reliability judgment will be recorded alongside this derivation.
+
+An initial always-proposed swap preserved the target but produced near-alternating
+modes and did not improve worst-start mixing in the exact transition check.
+The explicit half-probability proposal removes that periodicity concern. Initial
+results are retained separately; the refinement is a new research commit.

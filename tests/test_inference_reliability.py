@@ -6,7 +6,7 @@ from scipy.integrate import quad
 from scipy.stats import norm
 from reliability.quadratic import QuadraticTarget,enumerate_posterior
 from reliability.observed_logistic import ObservedLogisticTarget
-from reliability.checks import (gaussian_scan_stationary,support_transition,transition_metrics,
+from reliability.checks import (gaussian_scan_stationary,gaussian_parallel_stationary,support_transition,transition_metrics,
     finite_outer_reference,finite_outer_metrics,mean_feedback_metrics,production_huge_conditionals,
     conditional_cycle_error,production_draws)
 
@@ -59,7 +59,7 @@ def test_collapsed_support_transitions_preserve_exact_target():
         np.testing.assert_allclose(T.sum(axis=1),1,atol=1e-14)
         assert np.all(T>=0)
         assert transition_metrics(T,w)['stationarity_error']<1e-14
-    assert transition_metrics(support_transition(w,swap=True),w)['spectral_gap']>transition_metrics(support_transition(w),w)['spectral_gap']
+    assert transition_metrics(support_transition(w,swap=True),w)['spectral_gap']>10*transition_metrics(support_transition(w),w)['spectral_gap']
 
 
 def outer():
@@ -91,3 +91,24 @@ def test_production_adapter_shapes_and_seed_reproducibility():
     a,m=production_draws(*args,sweeps=12,burn=2,chains=4)
     b,_=production_draws(*args,sweeps=12,burn=2,chains=4)
     assert a.shape==(10,4,2);np.testing.assert_array_equal(a,b)
+
+
+def test_correlated_simultaneous_updates_change_gaussian_joint():
+    V=np.array([[1.,.2],[.2,1.]]);se=np.full(2,.5);tau=np.ones(2);b=np.array([.4,.6])
+    serial=gaussian_scan_stationary(b,se,V,tau,[0,1])
+    parallel=gaussian_parallel_stationary(b,se,V,tau)
+    np.testing.assert_allclose(serial['mean'],parallel['mean'],atol=1e-14)
+    assert np.max(np.abs(serial['covariance']-parallel['covariance']))>.03
+    assert parallel['invariance_error']<1e-14
+
+
+def test_correlated_two_dimensional_gaussian_mass_matches_adaptive_integral():
+    from scipy.integrate import dblquad
+    Q=np.array([[2.,.6],[.6,1.5]]);h=np.array([.7,-.2]);tau=np.array([.8,1.2]);pi=np.array([.2,.3])
+    target=QuadraticTarget(Q,h,pi,tau)
+    def density(y,x):
+        b=np.array([x,y])
+        return np.exp(h@b-.5*b@Q@b)*norm.pdf(x,scale=np.sqrt(tau[0]))*norm.pdf(y,scale=np.sqrt(tau[1]))
+    mass,error=dblquad(density,-10,10,lambda _: -10,lambda _:10,epsabs=1e-10,epsrel=1e-10)
+    weight,_,_=target.support_moments(np.ones(2,bool))
+    np.testing.assert_allclose(np.exp(weight)/np.prod(pi),mass,rtol=1e-9,atol=1e-10)
