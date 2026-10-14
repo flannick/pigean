@@ -96,7 +96,7 @@ From the analysis project, with the isolated worktree committed and clean:
 MPLBACKEND=Agg MPLCONFIGDIR="$HOME/codex-workspace/.cache/matplotlib" \
 ../.venv/bin/python worktrees/inference-reliability/scripts/research/run_reliability.py \
   --stage all --capture-root results/post_stability_20261014 \
-  --out results/inference_reliability_20261013
+  --out results/inference_reliability_20261013_lazy
 ```
 
 Use `--swap-probability 0`, `0.5` (default), or `1` to select no swaps, lazy
@@ -104,8 +104,7 @@ swaps, or the initial always-proposed reference. Stages `audit`, `reference`,
 `mixing`, and `outer` can be selected separately;
 outputs refuse overwrite and include source revision and run settings. Existing
 trait captures are checksum-verified. No full trait run is justified unless the
-reference and outer-target gates support a concrete candidate. Final results
-and the reliability judgment will be recorded alongside this derivation.
+reference and outer-target gates support a concrete candidate. The [final results and reliability judgment](results.md) accompany this derivation.
 
 An initial always-proposed swap preserved the target but produced near-alternating
 modes and did not improve worst-start mixing in the exact transition check.
