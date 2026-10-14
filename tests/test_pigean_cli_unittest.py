@@ -61,7 +61,7 @@ class PigeanCliTest(unittest.TestCase):
                          "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         options = json.loads(proc.stdout)["options"]
-        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES))
+        self.assertEqual(set(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"]), set(FEATURES) - {"compiled-moments"})
         proc = self._run("gibbs", "--gibbs-engine", "parallel-prefilter",
                          "--gibbs-enable", "inner-matmul", "--gibbs-enable", "inner-fused",
                          "--gibbs-disable", "annotation-cache,compiled-covariance",

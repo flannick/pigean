@@ -2,6 +2,7 @@
 import numpy as np
 from scipy import sparse
 from scipy.special import expit
+from .gibbs_features import enabled
 from .sparse_regression import annotation_structure_cache, use_compact_covariance, covariance_statistics
 
 
@@ -59,6 +60,9 @@ class GroupedDesign:
         ex = np.exp(np.minimum(values*beta[local]+alpha[local], 100))
         p = np.minimum(ex/(1+ex), max_probability)
         v = p*(1-p)
+        if enabled('compiled-moments'):
+            from .compiled_moments import grouped_moment_sums
+            return tuple(grouped_moment_sums(local, values, counts, p, v, len(beta)))
         return tuple(np.bincount(local, weights=counts*w, minlength=len(beta))
                      for w in (p, v, values*p, values*v, values*values*v))
 

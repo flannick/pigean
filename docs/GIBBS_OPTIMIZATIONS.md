@@ -79,3 +79,17 @@ Enabled versus control prior r/slope was .9842/.9973 and corrected beta
 .8374/.8848. These finite-run shifts and the single-seed scope still limit interpretation:
 no general mixing or speedup claim is made. The default change reproduces the
 previously validated enabled path; the opt-out preserves the historical path.
+
+## Additional grouped-moment candidate
+
+`--gibbs-enable compiled-moments` optionally combines the five grouped-regression
+moment reductions into one compiled traversal. It requires `grouped-regression`
+and the optional Numba dependency; it is off by default and absent from presets.
+Probability calculations and each output's multiplication/addition order are
+preserved. Five output vectors remain, while intermediate full-group weight
+arrays are avoided. This changes computation only, not sampling or inference.
+
+Initial checks establish exact kernel and complete grouped-regression agreement.
+Whole-sampler performance, memory and scaling evidence is required before this
+option joins the recommended suffix. A bounded synthetic scaling benchmark is
+available in `scripts/experiments/benchmark_compiled_moments.py`.
