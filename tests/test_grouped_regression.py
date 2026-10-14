@@ -96,6 +96,6 @@ def test_pipeline_selects_grouped_backend(monkeypatch):
     values=[]
     state = SimpleNamespace(run_gibbs=lambda: values.append(use_grouped_backend()))
     for engine in ['grouped-regression', 'sparse-regression', 'legacy']:
-        pipeline.run_main_gibbs_stage(None,state,SimpleNamespace(gibbs_engine=engine),{'run_gibbs':True})
+        pipeline.run_main_gibbs_stage(SimpleNamespace(log=lambda *args: None),state,SimpleNamespace(gibbs_engine=engine),{'run_gibbs':True})
     assert values == [True, False, False]
     assert not use_grouped_backend()

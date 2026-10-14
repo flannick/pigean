@@ -12,6 +12,7 @@ FEATURES = (
     'huge-prior-softmax',
     'static-correlation',
     'inner-rhat-stable',
+    'compiled-moments',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
@@ -21,6 +22,7 @@ PRESETS = dict(zip(
 ALIASES = {'sparse-regression': 'sparse', 'grouped-regression': 'grouped',
            'cached-grouped-regression': 'grouped-cached'}
 REQUIRES = {
+    'compiled-moments': {'grouped-regression'},
     'inner-cache64': {'cached-inner'},
     'compiled-prefilter': {'sparse-regression'},
     'annotation-cache': {'grouped-regression'},

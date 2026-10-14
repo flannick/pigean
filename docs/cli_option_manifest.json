@@ -3578,7 +3578,7 @@
       "source_line": 496,
       "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": "append",
@@ -3598,7 +3598,7 @@
       "source_line": 495,
       "summary": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "type": null,
-      "usage_references": 15
+      "usage_references": 17
     },
     {
       "action": null,
