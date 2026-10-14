@@ -125,3 +125,27 @@ def test_implemented_swap_transition_matches_symmetric_mh_kernel():
             T[a,int(t@np.array([4,2,1]))]+=1/trials
         np.testing.assert_allclose(T[a],expected,atol=.012)
     np.testing.assert_allclose(weights@T,weights,atol=.003)
+
+
+def test_outer_adapter_restores_production_functions_after_error():
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+    import pigean.state as sm
+    from logistic_sampling.outer_adapter import outer_backend
+    a=sm._prepare_gibbs_iteration_inputs;b=sm._run_gibbs_corrected_betas_step
+    with pytest.raises(RuntimeError):
+        with outer_backend():
+            assert sm._prepare_gibbs_iteration_inputs is not a
+            raise RuntimeError('intentional')
+    assert sm._prepare_gibbs_iteration_inputs is a
+    assert sm._run_gibbs_corrected_betas_step is b
+
+
+def test_adapter_uses_production_slab_scaling_and_coefficient_units():
+    from types import SimpleNamespace
+    from logistic_sampling.outer_adapter import conditional_prior
+    s=SimpleNamespace(sigma_power=-2.,sigma_threshold_k=None,sigma_threshold_xo=None,sigma2=.01,
+        get_scaled_sigma2=lambda scale,var,power,k,xo:var*scale**power)
+    it=dict(full_scale_factors_m=np.array([[.2,.4]]),full_ps_m=np.array([[.1,.2]]),
+        full_sigma2s_m=np.array([[.01,.02]]),full_is_dense_gene_set_m=np.array([[False,False]]))
+    pi,tau=conditional_prior(s,it,0)
+    np.testing.assert_allclose(pi,[.1,.2]);np.testing.assert_allclose(tau,[2.5,.625])
