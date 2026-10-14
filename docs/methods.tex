@@ -1161,6 +1161,128 @@ the model more stable and also more computationally efficient.
 
 \end{itemize}
 
+\subsection{Performance optimizations}
+\label{sec:performance-optimizations}
+
+We further reduced the computational cost of the nested Gibbs loops by
+reusing fixed annotation information and changing how the existing
+regression and sampling calculations are evaluated. These optimizations
+retain the marginal regression estimator, standard error corrections,
+annotation selection rules, and inner and outer sampling formulas. They
+are independently selectable, allowing comparisons against the original
+arithmetic. Because some matrix products and sums are evaluated in a
+different order, floating-point differences can change subsequent sampled
+trajectories even when the underlying formulas are unchanged.
+
+First, we exploit sparsity throughout the marginal regression calculation,
+rather than only in storage of the annotation matrix $X$. We compute
+regression moments using the nonzero entries of each annotation and
+account separately for genes with zero annotation values. For annotations
+with repeated values, we evaluate the fitted probability and its variance
+once per distinct value and weight its contribution by the number of
+genes with that value. Grouping uses exact annotation values, without
+rounding or discretization. The probabilities, pseudocounts, probability
+caps, and regression stopping criteria are unchanged. A compiled
+implementation accumulates the five grouped moment sums in one traversal,
+avoiding intermediate arrays for each weighted sum. We also avoid
+replicating annotation arrays and masks that are not needed by the grouped
+calculation.
+
+Second, we reduce the cost of the covariance corrections used in
+regression. For a given annotation, covariance entries joining the same
+pair of annotation-value groups can be accumulated before computing the
+response-dependent weights. The grouped covariance information is shared
+across chains within a regression call; weights are recomputed when the
+response changes. We compile the sparse covariance traversal and evaluate
+the linear regression prefilter's quadratic forms directly, avoiding
+intermediate sparse matrix products. Independent prefilter annotation
+blocks can be evaluated by two worker threads and returned in their
+original order. Signed sums, absolute-sum checks for numerical
+cancellation, and the existing fallback calculations are retained.
+
+Third, we cache quantities that remain fixed over repeated updates. Exact
+annotation-value groups can be reused across outer iterations. Within an
+inner fit, correlation slices and batch masks can be reused while the
+coefficient-dependent residuals are recomputed. For supported annotation
+matrices, we additionally construct the full annotation correlation matrix
+once and select the required submatrices at subsequent outer iterations.
+Content checks invalidate this cache if its inputs change. Cache sizes
+are bounded, and unsupported or oversized inputs use the previous
+calculation. These caches trade retained memory for less repeated work;
+they do not store changing gene probabilities or HuGER weights.
+
+Fourth, we accelerate the inner coefficient updates. Shared dense
+correlation products are expressed as two-dimensional matrix
+multiplications across chains, and the subsequent conditional
+probabilities, means, and sampled values are computed in a compiled
+routine using the existing random inputs. Construction of the existing
+greedy gene annotation batches is also compiled, preserving the selected
+batches and their update order. Compiled arithmetic uses double precision
+without relaxed floating-point reassociation. These changes retain both
+the inner coefficient loop and the outer gene-relevance loop.
+
+Finally, we simplify the normalization of gene priors within each GWAS
+signal. Let $C_s$ be the candidate genes at signal $s$, and let $p_i$ be
+the current clipped prior probability for gene $i$. The normalized weight
+assigned to gene $i$ is
+\[
+ w_{is}=\frac{p_i\prod_{k\in C_s\setminus\{i\}}(1-p_k)}
+ {\sum_{j\in C_s}p_j\prod_{k\in C_s\setminus\{j\}}(1-p_k)}
+ =\frac{p_i/(1-p_i)}{\sum_{j\in C_s}p_j/(1-p_j)}.
+\]
+We evaluate the right hand side using a numerically stable softmax of
+log prior odds. This removes common absence factors and intermediate
+sparse matrices while preserving competition among genes. The weights
+are refreshed when the gene priors change. Signal probabilities, the
+strongest-signal rule, and subsequent regional and covariate corrections
+are unchanged.
+
+We evaluated performance using saved-input replays of 500 outer updates
+with ten outer and four inner chains, excluding upstream GWAS processing.
+For T2D, the optimized configuration preceding the single-pass grouped
+moment extension required 309.42 seconds of inference, compared with
+6201.42 seconds for the historical original implementation (20.04-fold)
+and 852.63 seconds for a contemporaneous first optimization milestone
+(2.76-fold). Peak process memory was 1.486 GiB, compared with 2.479 GiB
+for the historical original implementation. In separate matched,
+profiled comparisons, the single-pass grouped moment extension reduced
+T2D inference time from 339.14 to 316.65 seconds (1.071-fold) and NAFLD
+inference time from 126.24 to 112.58 seconds (1.121-fold), with identical
+exported priors, corrected and uncorrected coefficients, log Bayes
+factors, and recorded support selections. These incremental comparisons
+use different controls and are not multiplied into the historical
+speedup. Peak process memory varies across runs and includes compiler,
+cache, and temporary storage. Completing 500 updates does not establish
+convergence; these measurements quantify computation at a fixed budget,
+not time to a validated posterior estimate.
+
+Separately from these performance options, we stabilized the inner
+mean-$\hat R$ stopping calculation at its numerical boundary of one.
+Values within 16 double-precision spacings of one are set to one only
+when calculating the mean used for stopping, avoiding changes in which
+entries contribute due to rounding at that boundary. Raw diagnostics,
+outlier detection, and maximum-based stopping are unchanged. This repair
+can change iteration counts and finite-run outputs; it is not evidence
+of a general improvement in mixing.
+
+\subsection{Sampling improvements}
+\label{sec:sampling-improvements}
+
+\emph{Placeholder pending validation.} We are evaluating two separable
+changes to the coefficient sampler: collapsed updates of the annotation
+support, and optional proposals that exchange an included annotation for
+an excluded annotation. Here, support denotes the set of annotations
+with nonzero coefficients. Collapsed updates integrate over coefficient
+values when comparing supports; exchange proposals are intended to move
+between competing explanations provided by correlated annotations.
+Neither change is included in the performance measurements above.
+Evidence from small reference models does not yet establish that these
+methods improve inference for the full PIGEAN procedure. A completed
+description will specify the logistic target, support probabilities,
+coefficient draws, proposal acceptance rules, and treatment of the
+existing filtering and correction heuristics, together with validation
+of convergence, computational cost, and biological output comparisons.
+
 \subsection{Confounder correction within HuGER scores}
 
 By their nature, HuGER scores are biased towards genes that have many
