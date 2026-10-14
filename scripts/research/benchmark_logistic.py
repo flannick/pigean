@@ -35,6 +35,7 @@ def main():
     p.add_argument('--out',required=True);p.add_argument('--sweeps',type=int,default=6000)
     p.add_argument('--burn',type=int,default=1000);p.add_argument('--seeds',type=int,nargs='+',default=[117,118])
     p.add_argument('--case',choices=list(cases()),nargs='+',default=list(cases()))
+    p.add_argument('--methods',choices=['coordinate','collapsed','collapsed_swap'],nargs='+',default=['coordinate','collapsed','collapsed_swap'])
     args=p.parse_args();out=Path(args.out);out.mkdir(parents=True,exist_ok=False)
     commit=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
     # Tracked draft documentation may coexist; record exactly what is dirty.
@@ -65,6 +66,7 @@ def main():
         if name=='competing':initial[:2,0]=4.;initial[2:,1]=4.
         for seed in args.seeds:
             for collapse,swaps,label in ((False,0,'coordinate'),(True,0,'collapsed'),(True,1,'collapsed_swap')):
+                if label not in args.methods:continue
                 start=time.perf_counter()
                 draws=sample(target,sweeps=args.sweeps,burn=args.burn,chains=4,seed=seed,
                              initial=initial,collapse=collapse,swaps=swaps)

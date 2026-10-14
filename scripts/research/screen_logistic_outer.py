@@ -28,6 +28,7 @@ def main():
     p.add_argument('--fixture',required=True);p.add_argument('--out',required=True)
     p.add_argument('--method',choices=['legacy','coordinate','collapsed'],default='legacy')
     p.add_argument('--swaps',type=int,default=0);p.add_argument('--panel',type=int,default=12)
+    p.add_argument('--panel-table',help='Existing baseline gene-set export to rank the fixed panel; hash recorded')
     p.add_argument('--iterations',type=int,default=21);p.add_argument('--outer-chains',type=int,default=4)
     p.add_argument('--sweeps',type=int,default=120);p.add_argument('--burn',type=int,default=40)
     p.add_argument('--seed',type=int,default=117);p.add_argument('--seconds',type=int,default=240)
@@ -48,8 +49,16 @@ def main():
     with gzip.open(fixture,'rb') as f:data=pickle.load(f)
     state=data['state']
     ids=np.argsort(-np.abs(state.betas),kind='stable')[:args.panel]
+    if args.panel_table:
+        import pandas as pd
+        table_path=Path(args.panel_table)
+        table=pd.read_csv(table_path,sep='\t',compression='infer')
+        names=table.assign(rank_value=table['beta'].abs()).sort_values('rank_value',ascending=False,kind='stable')['Gene_Set']
+        mapping={name:i for i,name in enumerate(state.gene_sets)}
+        ids=np.array([mapping[name] for name in names if name in mapping][:args.panel])
+        receipt['panel_table_sha256']=hashlib.sha256(table_path.read_bytes()).hexdigest()
     mask=np.zeros(len(state.gene_sets),bool);mask[ids]=True
-    receipt['panel_selection']='largest absolute initial baseline beta; original order retained'
+    receipt['panel_selection']='largest absolute baseline beta; original order retained; table' if args.panel_table else 'largest absolute initial baseline beta; original order retained'
     receipt['gene_sets']=[g for j,g in enumerate(state.gene_sets) if mask[j]]
     state.subset_gene_sets(mask,keep_missing=False,skip_V=True)
     receipt['shape']=state.X_orig.shape
@@ -90,6 +99,7 @@ def main():
     profiler=cProfile.Profile() if args.profile else None
     sm._compute_gibbs_iteration_betas_and_priors=progress;sm._log_gibbs_post_burn_diagnostics=diagnostics
     t0=time.perf_counter()
+    signal_before=hashlib.sha256(pickle.dumps(state.huge_signal_posteriors_for_regression,protocol=5)).hexdigest()
     try:
         from pegs_shared.sparse_regression import marginal_backend
         features=['inner-matmul','inner-fused','inner-batching','compiled-prefilter','inner-cache64','huge-prior-softmax','static-correlation','compiled-moments']
@@ -99,8 +109,12 @@ def main():
             state.run_gibbs(**kwargs)
         receipt['status']='COMPLETE_REDUCED_SCREEN'
         receipt['inference_seconds']=time.perf_counter()-t0
+        receipt['signal_probabilities_unchanged']=signal_before==hashlib.sha256(pickle.dumps(state.huge_signal_posteriors_for_regression,protocol=5)).hexdigest()
+        if not receipt['signal_probabilities_unchanged']:raise ValueError('Signal probabilities mutated')
         state.write_gene_statistics(str(out/'gene_stats.out.gz'),output_detail='full')
         state.write_gene_set_statistics(str(out/'gene_set_stats.out.gz'),output_detail='full')
+        if subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()!=commit or subprocess.check_output(['git','-C',str(ROOT),'status','--porcelain'],text=True).strip():
+            raise ValueError('Source changed during screen')
     except TimeoutError as e:receipt.update(status='TIME_LIMIT',error=str(e))
     except BaseException as e:
         receipt.update(status='ERROR',error=repr(e));raise

@@ -16,6 +16,8 @@ from .diagnostics import summarize
 
 def conditional_prior(state,iteration,c):
     scales=iteration['full_scale_factors_m'][c]
+    if np.any(scales<=0) or iteration['full_ps_m'] is None or iteration['full_sigma2s_m'] is None:
+        raise ValueError('Research adapter requires positive scales and explicit per-annotation prior arrays')
     pi=iteration['full_ps_m'][c]
     original=iteration['full_sigma2s_m'][c]
     if state.sigma_power is not None:
