@@ -3388,20 +3388,20 @@ class EagglState(object):
 
                         if anchors is None:
                             if self.betas is not None:
-                                line = "%s\t%.3g" % (line, self.betas[orig_i])
+                                line = "%s\t%.3g" % (line, self.betas[orig_i] / self.scale_factors[orig_i])
                             if self.betas_uncorrected is not None:
-                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i])
+                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i] / self.scale_factors[orig_i])
 
                         else:
                             if self.X_phewas_beta is not None and pheno_anchors:
                                 line = "%s\t%.3g" % (line, self.X_phewas_beta[anchor_inds[j],orig_i])
                             elif self.betas is not None:
-                                line = "%s\t%.3g" % (line, self.betas[orig_i])
+                                line = "%s\t%.3g" % (line, self.betas[orig_i] / self.scale_factors[orig_i])
                                 
                             if self.X_phewas_beta_uncorrected is not None and pheno_anchors:
                                 line = "%s\t%.3g" % (line, self.X_phewas_beta_uncorrected[anchor_inds[j],orig_i])
                             elif self.betas_uncorrected is not None:
-                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i])
+                                line = "%s\t%.3g" % (line, self.betas_uncorrected[orig_i] / self.scale_factors[orig_i])
 
                             
                             line = "%s\t%.3g" % (line, self.gene_set_prob_factor_vector[i,j])

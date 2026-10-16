@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,7 @@ if str(SRC_ROOT) not in sys.path:
 sys.argv = ["eaggl.py", "factor"]
 import eaggl.main_support as eaggl  # noqa: E402
 import eaggl.workflows as eaggl_workflows  # noqa: E402
+from pegs_utils import apply_parsed_gene_set_statistics_to_runtime  # noqa: E402
 
 
 def _options(**overrides):
@@ -628,6 +630,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         runtime.exp_pheno_factors = None
         runtime.betas = None
         runtime.betas_uncorrected = np.array([0.1, 0.9])
+        runtime.scale_factors = np.ones(2)
         runtime.gene_set_in_discovery_mask = None
         runtime.factor_labels = ["label1", "label2"]
         runtime.gene_sets = ["gs1", "gs2"]
@@ -643,6 +646,80 @@ class FactorStageHelpersTest(unittest.TestCase):
         lines = content.strip().splitlines()
         self.assertGreaterEqual(len(lines), 3)
         self.assertTrue(lines[1].startswith("gs2\t0.9"))
+
+    def test_write_clusters_restores_imported_gene_set_beta_units(self) -> None:
+        external_betas = np.array([0.979, -0.4])
+        external_uncorrected = np.array([1.574, 0.6])
+        scale_factors = np.array([0.1461, 0.3])
+        loadings = np.array([[1.0, 0.2], [0.3, 0.9]])
+        gene_sets = ["mp_enlarged_liver", "gs2"]
+
+        for anchor_mode in ("none", "gene", "phenotype_fallback", "phenotype_betas"):
+            with self.subTest(anchor_mode=anchor_mode):
+                runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
+                runtime.gene_sets = gene_sets.copy()
+                runtime.gene_set_to_ind = {name: i for i, name in enumerate(gene_sets)}
+                runtime.scale_factors = scale_factors.copy()
+                parsed_stats = SimpleNamespace(
+                    need_to_take_log=True,
+                    has_beta_tilde=False,
+                    has_p_or_se=False,
+                    has_beta=True,
+                    has_beta_uncorrected=True,
+                    records={
+                        name: (None, None, None, None, external_betas[i], external_uncorrected[i])
+                        for i, name in enumerate(gene_sets)
+                    },
+                )
+                with mock.patch.object(runtime, "subset_gene_sets"):
+                    apply_parsed_gene_set_statistics_to_runtime(runtime, parsed_stats)
+                np.testing.assert_allclose(runtime.betas, external_betas * scale_factors)
+                np.testing.assert_allclose(runtime.betas_uncorrected, external_uncorrected * scale_factors)
+                internal_betas = runtime.betas.copy()
+                internal_uncorrected = runtime.betas_uncorrected.copy()
+                runtime.exp_lambdak = [1.0, 1.0]
+                runtime.exp_gene_set_factors = loadings.copy()
+                runtime.exp_gene_factors = None
+                runtime.exp_pheno_factors = None
+                runtime.gene_set_in_discovery_mask = None
+                runtime.factor_labels = ["label1", "label2"]
+                runtime.anchor_pheno_mask = None
+                runtime.anchor_gene_mask = None
+                runtime.gene_set_prob_factor_vector = np.array([[0.8], [0.6]])
+                expected_betas = external_betas
+                expected_uncorrected = external_uncorrected
+                if anchor_mode == "gene":
+                    runtime.genes = ["anchor_gene"]
+                    runtime.anchor_gene_mask = np.array([True])
+                elif anchor_mode.startswith("phenotype"):
+                    runtime.phenos = ["anchor_trait"]
+                    runtime.anchor_pheno_mask = np.array([True])
+                    if anchor_mode == "phenotype_betas":
+                        expected_betas = np.array([0.42, 0.84])
+                        expected_uncorrected = np.array([0.33, 0.66])
+                        runtime.X_phewas_beta = expected_betas[np.newaxis, :]
+                        runtime.X_phewas_beta_uncorrected = expected_uncorrected[np.newaxis, :]
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    out_path = Path(tmpdir) / "gene_set_clusters.tsv"
+                    runtime.write_clusters(
+                        gene_set_clusters_output_file=str(out_path),
+                        write_anchor_specific=anchor_mode != "none",
+                    )
+                    with out_path.open() as stream:
+                        rows = {row["Gene_Set"]: row for row in csv.DictReader(stream, delimiter="\t")}
+
+                for i, gene_set in enumerate(gene_sets):
+                    row = rows[gene_set]
+                    self.assertAlmostEqual(float(row["beta"]), expected_betas[i], places=3)
+                    self.assertAlmostEqual(float(row["beta_uncorrected"]), float("%.3g" % expected_uncorrected[i]))
+                    multiplier = 1.0 if anchor_mode == "none" else runtime.gene_set_prob_factor_vector[i, 0]
+                    np.testing.assert_allclose(
+                        [float(row["Factor1"]), float(row["Factor2"])], loadings[i] * multiplier,
+                    )
+                np.testing.assert_array_equal(runtime.betas, internal_betas)
+                np.testing.assert_array_equal(runtime.betas_uncorrected, internal_uncorrected)
+                np.testing.assert_array_equal(runtime.exp_gene_set_factors, loadings)
 
     def test_write_clusters_skips_gene_and_gene_set_rows_below_loading_threshold(self) -> None:
         runtime = eaggl.EagglState(background_prior=0.05, batch_size=10)
@@ -664,6 +741,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         runtime.exp_pheno_factors = None
         runtime.betas = None
         runtime.betas_uncorrected = np.array([0.1, 0.2])
+        runtime.scale_factors = np.ones(2)
         runtime.combined_prior_Ys = np.array([1.0, 2.0])
         runtime.gene_set_in_discovery_mask = None
         runtime.gene_in_discovery_mask = None
@@ -1557,6 +1635,7 @@ class FactorStageHelpersTest(unittest.TestCase):
         runtime.gene_sets = ["gene_set_row"]
         runtime.combined_prior_Ys = np.array([1.0])
         runtime.betas_uncorrected = np.array([1.0])
+        runtime.scale_factors = np.ones(1)
         runtime.gene_in_discovery_mask = None
         runtime.gene_set_in_discovery_mask = None
         runtime.anchor_pheno_mask = None
