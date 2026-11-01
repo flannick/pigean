@@ -69,10 +69,10 @@ def test_snap_scope_input_immutability_and_nonfinite_values():
 def test_feature_independent_on_by_default_and_context_restored():
     assert all('inner-rhat-stable' not in v for v in PRESETS.values())
     assert all('inner-rhat-stable' in resolve_features(p)['active'] for p in PRESETS)
-    assert resolve_features('legacy', enable=['inner-rhat-stable'])['active'] == ['inner-rhat-stable']
-    assert resolve_features('legacy', disable=['inner-rhat-stable'])['active'] == []
+    assert resolve_features('legacy', enable=['inner-rhat-stable'])['active'] == sorted(DEFAULT_FEATURES)
+    assert resolve_features('legacy', disable=['inner-rhat-stable'])['active'] == sorted(DEFAULT_FEATURES - {'inner-rhat-stable'})
     with marginal_backend('legacy', enable=['inner-rhat-stable,inner-matmul']):
-        assert ACTIVE.get() == {'inner-rhat-stable', 'inner-matmul'}
+        assert ACTIVE.get() == DEFAULT_FEATURES | {'inner-matmul'}
     assert ACTIVE.get() == DEFAULT_FEATURES
 
 
@@ -82,10 +82,10 @@ def test_direct_python_default_uses_stable_boundary(monkeypatch):
 
 def test_explicit_disable_nested_context_and_exception_restore():
     with marginal_backend('legacy', disable=['inner-rhat-stable']):
-        assert not ACTIVE.get()
+        assert ACTIVE.get() == DEFAULT_FEATURES - {'inner-rhat-stable'}
         with pytest.raises(RuntimeError):
             with marginal_backend('legacy'):
                 assert ACTIVE.get() == DEFAULT_FEATURES
                 raise RuntimeError('test restoration')
-        assert not ACTIVE.get()
+        assert ACTIVE.get() == DEFAULT_FEATURES - {'inner-rhat-stable'}
     assert ACTIVE.get() == DEFAULT_FEATURES

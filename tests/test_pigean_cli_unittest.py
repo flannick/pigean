@@ -91,11 +91,14 @@ class PigeanCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         options = json.loads(proc.stdout)["options"]
         self.assertEqual(resolve_features(options["gibbs_engine"], options["gibbs_enable"])["active"],
-                         ["inner-rhat-stable"])
+                         ["inner-rhat-stable", "warm-start-layout"])
 
     def test_numerical_default_and_opt_out_are_reported(self) -> None:
-        for flags, expected in [((), ["inner-rhat-stable"]),
-                                (("--gibbs-disable", "inner-rhat-stable"), [])]:
+        for flags, expected in [((), ["inner-rhat-stable", "warm-start-layout"]),
+                                (("--gibbs-disable", "inner-rhat-stable"), ["warm-start-layout"]),
+                                (("--gibbs-disable", "warm-start-layout"), ["inner-rhat-stable"]),
+                                (("--gibbs-enable", "warm-start-layout"), ["inner-rhat-stable", "warm-start-layout"]),
+                                (("--gibbs-disable", "inner-rhat-stable,warm-start-layout"), [])]:
             with self.subTest(flags=flags):
                 proc = self._run("gibbs", *flags, "--print-effective-config")
                 self.assertEqual(proc.returncode, 0, msg=proc.stderr)
