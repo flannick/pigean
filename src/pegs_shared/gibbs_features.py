@@ -13,7 +13,6 @@ FEATURES = (
     'static-correlation',
     'inner-rhat-stable',
     'compiled-moments',
-    'warm-start-layout',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
@@ -32,7 +31,7 @@ REQUIRES = {
     'compiled-covariance': {'compact-covariance'},
     'parallel-prefilter': {'sparse-regression'},
 }
-DEFAULT_FEATURES = frozenset({'inner-rhat-stable', 'warm-start-layout'})
+DEFAULT_FEATURES = frozenset({'inner-rhat-stable'})
 ACTIVE = ContextVar('gibbs_active_features', default=DEFAULT_FEATURES)
 
 

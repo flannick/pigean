@@ -8,15 +8,14 @@ from pegs_shared.sparse_regression import marginal_backend
 from pigean import dispatch, pipeline
 
 
-@pytest.mark.parametrize('feature', ['inner-rhat-stable', 'warm-start-layout'])
 @pytest.mark.parametrize('disabled', [False, True])
 @pytest.mark.parametrize('fail', [False, True])
-def test_dispatch_scopes_preprocessing_and_gibbs_then_restores(monkeypatch, disabled, fail, feature):
+def test_dispatch_scopes_preprocessing_and_gibbs_then_restores(monkeypatch, disabled, fail):
     options = SimpleNamespace(
         gibbs_engine='legacy', gibbs_enable=['inner-matmul'],
-        gibbs_disable=[feature] if disabled else None,
+        gibbs_disable=['inner-rhat-stable'] if disabled else None,
         hide_opts=True, multi_y_in=None, run_phewas=False)
-    numerical = DEFAULT_FEATURES - {feature} if disabled else DEFAULT_FEATURES
+    numerical = set() if disabled else DEFAULT_FEATURES
     calls = []
 
     def build_state(opts):
@@ -50,7 +49,7 @@ def test_dispatch_scopes_preprocessing_and_gibbs_then_restores(monkeypatch, disa
     else:
         dispatch.run_main_pipeline(options, 'gibbs', SimpleNamespace(log=logs.append))
     assert calls == ['preprocessing', 'gibbs']
-    assert (feature in logs[0]) == (not disabled)
+    assert ('inner-rhat-stable' in logs[0]) == (not disabled)
     assert ACTIVE.get() == DEFAULT_FEATURES
 
 
@@ -58,6 +57,6 @@ def test_numerical_scope_preserves_callers_arithmetic_context():
     from pegs_shared.gibbs_features import default_feature_scope
     with marginal_backend('legacy', enable=['inner-matmul']):
         with default_feature_scope(disable=['inner-rhat-stable']):
-            assert ACTIVE.get() == (DEFAULT_FEATURES - {'inner-rhat-stable'}) | {'inner-matmul'}
+            assert ACTIVE.get() == {'inner-matmul'}
         assert ACTIVE.get() == DEFAULT_FEATURES | {'inner-matmul'}
     assert ACTIVE.get() == DEFAULT_FEATURES

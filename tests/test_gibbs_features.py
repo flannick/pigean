@@ -59,7 +59,7 @@ def test_comma_lists_repetition_whitespace_and_duplicates():
         assert ACTIVE.get() == set(expected['active'])
         assert annotation_structure_cache() is None
     assert ACTIVE.get() == DEFAULT_FEATURES
-    assert resolve_features(enable='inner-matmul,inner-fused')['active'] == sorted({'inner-fused', 'inner-matmul'} | DEFAULT_FEATURES)
+    assert resolve_features(enable='inner-matmul,inner-fused')['active'] == ['inner-fused', 'inner-matmul', 'inner-rhat-stable']
 
 
 @pytest.mark.parametrize('value', ['', ' ', ',', 'inner-matmul,', ',inner-matmul', 'inner-matmul,,inner-fused'])

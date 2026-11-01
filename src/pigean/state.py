@@ -5545,11 +5545,7 @@ class PigeanState(object):
                 if values.shape[0] != num_gene_sets:
                     bail("%s must have length num_gene_sets=%d; got %d" % (name, num_gene_sets, values.shape[0]))
                 values_m = np.tile(values, num_parallel).reshape((num_parallel, num_gene_sets))
-                if gibbs_feature_enabled('warm-start-layout'):
-                    # Each inner chain must receive the same outer/problem rows.
-                    values_t = np.broadcast_to(values_m, chain_parallel_gene_set_shape).copy()
-                else:
-                    values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
+                values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
             elif values.ndim == 2:
                 if values.shape[1] != num_gene_sets:
                     bail("%s must have num_gene_sets=%d columns; got %d" % (name, num_gene_sets, values.shape[1]))
@@ -5559,11 +5555,7 @@ class PigeanState(object):
                     values_m = np.tile(values, num_parallel).reshape((num_parallel, num_gene_sets))
                 else:
                     bail("%s must have num_parallel=%d rows; got %d" % (name, num_parallel, values.shape[0]))
-                if gibbs_feature_enabled('warm-start-layout'):
-                    # Each inner chain must receive the same outer/problem rows.
-                    values_t = np.broadcast_to(values_m, chain_parallel_gene_set_shape).copy()
-                else:
-                    values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
+                values_t = np.tile(values_m, num_chains).reshape(chain_parallel_gene_set_shape)
             elif values.ndim == 3:
                 if values.shape != chain_parallel_gene_set_shape:
                     bail("%s must have shape %s; got %s" % (name, str(chain_parallel_gene_set_shape), str(values.shape)))
