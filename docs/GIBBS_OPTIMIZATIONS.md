@@ -1,6 +1,6 @@
 # Gibbs arithmetic optimizations
 
-Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix is enabled by default with every engine. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
+Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix and `warm-start-layout` row-mapping correction are enabled by default with every engine. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
 
 ```sh
 --gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation,compiled-moments
@@ -12,7 +12,7 @@ The full configuration requires the optional `compiled` dependency extra (Numba)
 
 Both `--gibbs-enable` and `--gibbs-disable` accept comma-separated names, repeated flags, or a mixture. For example, `--gibbs-enable inner-matmul,inner-fused` is equivalent to `--gibbs-enable inner-matmul --gibbs-enable inner-fused`. Whitespace within a quoted list is trimmed; duplicates are ignored. Empty names, unknown names, and enabling and disabling the same feature are errors.
 
-Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--gibbs-engine legacy --gibbs-disable inner-rhat-stable` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
+Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--gibbs-engine legacy --gibbs-disable inner-rhat-stable,warm-start-layout` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
 
 | Feature | Change | Prerequisite or limit |
 |---|---|---|
@@ -99,3 +99,37 @@ guarantee. This option joins the recommended suffix while remaining off by
 default and independently removable. See the [evidence and limits](experiments/compiled-moments/README.md).
 A bounded synthetic benchmark is available in
 `scripts/experiments/benchmark_compiled_moments.py`.
+
+## Default warm-start row mapping
+
+`warm-start-layout` is **on by default**, independently of the arithmetic engine.
+When inner sampling receives a separate warm-start row for each outer problem,
+the corrected broadcast copies each row to that problem in every inner chain.
+The previous tile/reshape could instead place a different problem's row there.
+Both coefficient and inclusion-probability initializers use the corrected mapping;
+input validation, sanitization, clipping and subsequent sampling are unchanged.
+One-dimensional, single-row and already-expanded inputs keep their behavior.
+
+To reproduce the previous mapping, append:
+
+```sh
+--gibbs-disable warm-start-layout
+```
+
+Explicit `--gibbs-enable warm-start-layout` is also accepted. The opt-out covers
+preliminary fitting and the main Gibbs stage; direct Python callers can use
+`marginal_backend(..., disable=['warm-start-layout'])`. Effective configuration
+and feature logs report the setting. Arithmetic presets are unchanged.
+`--no-warm-start` disables warm starts altogether, which is different from
+retaining them with the historical row mapping.
+
+This fixes the initialization contract; it is not a demonstrated mixing or speed
+improvement. Finite inner runs can change trajectories and annotation weights.
+In two 500-update T2D research histories, prior correlations were .9895/.9862,
+while beta correlations were .8198/.8911; all ten prespecified gene controls
+retained support. Gene-prior R-hat q90 changed 1.335 to 1.375 and 1.519 to 1.388:
+mixing did not improve consistently. An earlier NAFLD continuation also showed
+mixed output changes, including four gene-preservation flags. These limited
+comparisons do not establish biological equivalence or posterior convergence.
+Only the row-mapping correction is promoted here; no research sampler,
+calibration, stopping policy or inference approximation is included.

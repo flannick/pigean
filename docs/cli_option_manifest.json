@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-disable"
       ],
-      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "primary_flag": "--gibbs-disable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 496,
-      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable is on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 13
+      "usage_references": 16
     },
     {
       "action": "append",
@@ -3598,7 +3598,7 @@
       "source_line": 495,
       "summary": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "type": null,
-      "usage_references": 17
+      "usage_references": 19
     },
     {
       "action": null,
@@ -5886,7 +5886,7 @@
       "source_line": 500,
       "summary": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
       "type": null,
-      "usage_references": 4
+      "usage_references": 5
     },
     {
       "action": null,
