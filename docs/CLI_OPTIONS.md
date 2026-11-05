@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `372`
+- Total options: `373`
 - `method_required`: `20`
-- `method_optional`: `202`
+- `method_optional`: `203`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `328`
+- visibility `expert`: `329`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -240,7 +240,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
-| `--use-sampled-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | - |
+| `--use-mean-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget |
+| `--use-sampled-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs) |
 | `--use-sampling-for-betas` | `expert` | `yes` | `expert_help` | `use_sampling_for_betas` | `None` | - |
 | `--warm-start` | `normal` | `yes` | `core_help` | `warm_start` | `True` | reuse previous-iteration beta state when warm-starting outer Gibbs updates |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |

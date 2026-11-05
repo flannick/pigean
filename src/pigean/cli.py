@@ -495,7 +495,8 @@ parser.add_option("--gibbs-engine", type="choice", choices=["legacy", "sparse-re
 parser.add_option("--gibbs-enable", action="append", default=None, help="enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md")
 parser.add_option("--gibbs-disable", action="append", default=None, help="disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent")
 parser.add_option("","--gauss-seidel",action="store_true") #run gauss seidel for gibbs sampling
-parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true") #use a sample of the betas returned from the inner beta sampling within the gibbs samples; by default uses mean value which is smoother (more stable but more prone to not exploring full space)
+parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true",help="feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs)")
+parser.add_option("","--use-mean-betas-in-gibbs",action="store_false",dest="use_sampled_betas_in_gibbs",help="feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget")
 parser.add_option("","--warm-start",action="store_true",dest="warm_start",default=True) #within gibbs, initialize corrected beta sampling from previous iteration values (default on)
 parser.add_option("","--no-warm-start",action="store_false",dest="warm_start") #disable warm-starting in outer gibbs
 
@@ -1708,6 +1709,10 @@ def _gene_universe_required_message(selected_mode):
 
 
 def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests):
+    # Other input workflows and non-Gibbs commands retain existing behavior.
+    # An explicit False from the CLI or a config always wins.
+    if _mode == "gibbs" and (_options.gwas_in is not None or _options.huge_statistics_in is not None):
+        _set_default_option(_options, "use_sampled_betas_in_gibbs", True)
     # Mode-dependent defaults.
     if _mode in ("pops", "naive_pops"):
         _set_default_option(_options, "correct_betas_mean", False)
