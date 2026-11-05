@@ -481,6 +481,7 @@ parser.add_option("","--sim-log-bf-noise-sigma-mult",type=float,default=0) #nois
 parser.add_option("","--sim-only-positive",action="store_true") #only simulate positive betas
 
 #gibbs sampling parameters
+parser.add_option("--gibbs-schedule", type="choice", choices=["auto", "legacy", "retained"], default="auto", help="auto uses 250 discarded + 1000 retained updates for GWAS/cached-HuGE Gibbs unless budget/controller settings are explicit; legacy preserves previous budget resolution; retained selects the fixed qualified schedule; independent of beta feedback; see docs/GIBBS_SAMPLING_DEFAULTS.md")
 parser.add_option("","--num-mad",type=int,default=10) #number of median absolute devs above which to treat chains as outliers
 parser.add_option("","--gibbs-summary-mode",type="string",default="raw_common_mask") #primary Gibbs summary mode: raw_common_mask or global_filtered
 parser.add_option("","--write-gibbs-global-filtered-summaries",action="store_true",default=False) #append globally filtered sensitivity summaries to gene-set outputs
@@ -1768,6 +1769,8 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
         _options.update_hyper = "none"
 
     # Gibbs stopping defaults.
+    from pigean.gibbs_defaults import apply_sampling_schedule
+    apply_sampling_schedule(_options, _mode, set(_cli_dests or ()) | set(_config_dests or ()), bail)
     if _options.gibbs_reruns is None or _options.gibbs_reruns < 1:
         bail("Option --gibbs-reruns must be >= 1")
     if _options.gibbs_reruns > 1 and not _options.disable_stall_detection:

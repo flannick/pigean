@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `373`
+- Total options: `374`
 - `method_required`: `20`
-- `method_optional`: `203`
+- `method_optional`: `204`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `329`
+- visibility `expert`: `330`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -111,6 +111,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gibbs-disable` | `expert` | `yes` | `expert_help` | `gibbs_disable` | `None` | disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent |
 | `--gibbs-enable` | `expert` | `yes` | `expert_help` | `gibbs_enable` | `None` | enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md |
 | `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks |
+| `--gibbs-schedule` | `expert` | `yes` | `expert_help` | `gibbs_schedule` | `auto` | auto uses 250 discarded + 1000 retained updates for GWAS/cached-HuGE Gibbs unless budget/controller settings are explicit; legacy preserves previous budget resolution; retained selects the fixed qualified schedule; independent of beta feedback; see docs/GIBBS_SAMPLING_DEFAULTS.md |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |
