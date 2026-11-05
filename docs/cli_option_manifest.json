@@ -3701,7 +3701,7 @@
       "source_line": 484,
       "summary": "auto uses 250 discarded + 1000 retained updates for GWAS/cached-HuGE Gibbs unless budget/controller settings are explicit; legacy preserves previous budget resolution; retained selects the fixed qualified schedule; independent of beta feedback; see docs/GIBBS_SAMPLING_DEFAULTS.md",
       "type": "choice",
-      "usage_references": 14
+      "usage_references": 21
     },
     {
       "action": null,
@@ -7691,7 +7691,7 @@
       "source_line": 500,
       "summary": "feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget",
       "type": null,
-      "usage_references": 8
+      "usage_references": 10
     },
     {
       "action": "store_true",
