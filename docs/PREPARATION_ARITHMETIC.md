@@ -1,10 +1,12 @@
 # Optional preparation arithmetic
 
-**Opt-in; qualification remains incomplete for NAFLD.** Add this flag to an existing PIGEAN command:
+**Opt-in; standalone NAFLD qualification failed, while the paired centered-variance configuration below passes the tested history.** Add this flag to an existing PIGEAN command:
 
 ```sh
 --preparation-engine grouped-regression
 ```
+
+The subsequent [stable inner variance qualification](INNER_CENTERED_VARIANCE.md) resolves the observed NAFLD preparation discrepancy when both arms additionally use `--gibbs-enable inner-centered-variance`. That feature is independently selectable and off by default. With it, all 1,250 RNG states and every exported value match exactly between preparation modes. It changes results relative to the original variance calculation, and has not yet been qualified across traits or independent seeds. The original preparation-only measurements and failure below remain preserved.
 
 This reuses existing sparse/grouped marginal-regression arithmetic during annotation ingestion and initial marginal fitting. Repeated annotation values share exact sufficient statistics; values are not discretized. The default remains `legacy`; use `--preparation-engine legacy` to restore original preparation. The intermediate `sparse-regression` choice is also available, but the full-trait qualification below concerns `grouped-regression`.
 
@@ -46,7 +48,7 @@ Maximum prior difference is 0.52. PNPLA3 prior 2.170→2.280 and TM6SF2 prior 2.
 
 An unchanged four-update replay reproduced both native log prefixes. RNG states match through outer updates 1–3 and on entry to update 4. At inner sweep 11 of update 4, slot 0's thresholded mean R-hat is 1.0069455 versus 1.0137769, crossing the 1.01 stopping threshold. One coefficient's raw R-hat is 1.022702 versus 1.063690 because the sum-of-squares variance calculation subtracts quantities near 0.364, leaving residuals around 1e-16. Estimated within-chain variance changes from 1.804e-17 to 1.110e-17; one candidate chain's centered sum is negative from cancellation. Mean effects differ only at the last bits. The additional inner sweep changes subsequent RNG consumption and trajectories.
 
-This is a numerical sensitivity in the existing inner stopping calculation, not an added model or sampling method. The existing near-one membership stabilization does not address this variance cancellation. A separately qualified stable centered-variance accumulation is a concrete follow-up; this feature does not alter the stopping rule, widen tolerances or claim to fix convergence. Keep the PR in draft and legacy default until the NAFLD qualification limitation is resolved or explicitly accepted.
+This is a numerical sensitivity in the existing inner stopping calculation, not an added model or sampling method. The existing near-one membership stabilization does not address this variance cancellation. The separately selectable centered-variance implementation now resolves this discrepancy in the tested full NAFLD pair; neither feature widens tolerances or claims to fix statistical convergence. Keep legacy default and the PR in draft while reviewing the paired configuration and its changed trajectory relative to original variance. Do not treat the paired pass as a pass for grouped preparation with centered variance disabled.
 
 ## Reproducibility and deferred work
 
