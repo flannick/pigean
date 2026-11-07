@@ -42,7 +42,9 @@ def test_default_native_counts_and_explicit_recipe_parity(tmp_path):
     receipt = run_native(implicit, [], observed=True)
     assert receipt['updates'] == 1250
     assert receipt['retained'] == list(range(251, 1251))
-    run_native(explicit, ['--gibbs-schedule', 'legacy', '--use-sampled-betas-in-gibbs',
+    run_native(explicit, ['--preparation-engine', 'grouped-regression',
+                         '--gibbs-enable', 'inner-centered-variance',
+                         '--gibbs-schedule', 'legacy', '--use-sampled-betas-in-gibbs',
                          '--min-num-burn-in', '251', '--max-num-burn-in', '251',
                          '--min-num-post-burn-in', '1000', '--max-num-post-burn-in', '1000',
                          '--max-num-iter', '1251', '--total-num-iter-gibbs', '1251',

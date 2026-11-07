@@ -4,6 +4,8 @@ For `pigean gibbs` with `--gwas-in` or `--huge-statistics-in`, the defaults use 
 
 The spike-and-slab prior, marginal regression, standard-error corrections, local HuGE refresh, numerical diagnostics and arithmetic engine are unchanged. Gene-list inputs and other commands retain their previous automatic defaults. Calling the Python inference functions directly also retains their existing defaults; this change is in CLI configuration selection.
 
+Grouped preparation and stable inner variance are separate defaults for these genetic-input commands. Restore their previous behavior with `--preparation-engine legacy --gibbs-disable inner-centered-variance`; this does not change feedback or the iteration schedule. The evidence below concerns the earlier feedback/schedule change; [variance qualification](INNER_CENTERED_VARIANCE.md) records its subsequent independent effects.
+
 ## Independent controls and compatibility
 
 | Choice | Flags to add to an existing command |

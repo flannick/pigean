@@ -1,6 +1,6 @@
 # Gibbs arithmetic optimizations
 
-Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix and `warm-start-layout` row-mapping correction are enabled by default with every engine. To enable all recommended optimizations, append this complete suffix to your existing `pigean gibbs` command:
+Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix and `warm-start-layout` row-mapping correction are enabled by default with every engine. For CLI genetic-input Gibbs, grouped preparation and the `inner-centered-variance` numerical correction are also enabled by default; the latter applies only during Gibbs. See [preparation](PREPARATION_ARITHMETIC.md) and [variance qualification](INNER_CENTERED_VARIANCE.md). To enable all recommended Gibbs arithmetic optimizations, append this complete suffix to your existing `pigean gibbs` command:
 
 ```sh
 --gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation,compiled-moments
@@ -12,7 +12,7 @@ The full configuration requires the optional `compiled` dependency extra (Numba)
 
 Both `--gibbs-enable` and `--gibbs-disable` accept comma-separated names, repeated flags, or a mixture. For example, `--gibbs-enable inner-matmul,inner-fused` is equivalent to `--gibbs-enable inner-matmul --gibbs-enable inner-fused`. Whitespace within a quoted list is trimmed; duplicates are ignored. Empty names, unknown names, and enabling and disabling the same feature are errors.
 
-Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--gibbs-engine legacy --gibbs-disable inner-rhat-stable,warm-start-layout` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
+Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--preparation-engine legacy --gibbs-engine legacy --gibbs-disable inner-rhat-stable,warm-start-layout,inner-centered-variance` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
 
 | Feature | Change | Prerequisite or limit |
 |---|---|---|
