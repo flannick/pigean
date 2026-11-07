@@ -90,6 +90,6 @@ def test_cli_dispatch_enables_only_requested_backend(monkeypatch):
     seen = []
     state = SimpleNamespace(run_gibbs=lambda **kwargs: seen.append((use_sparse_backend(), kwargs)))
     for engine in ('sparse-regression', 'legacy'):
-        pipeline.run_main_gibbs_stage(None, state, SimpleNamespace(gibbs_engine=engine), {'run_gibbs': True})
+        pipeline.run_main_gibbs_stage(SimpleNamespace(log=lambda *_: None), state, SimpleNamespace(gibbs_engine=engine), {'run_gibbs': True})
         assert not use_sparse_backend()
     assert seen == [(True, {'sentinel': 4}), (False, {'sentinel': 4})]

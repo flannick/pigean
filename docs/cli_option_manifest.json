@@ -4,12 +4,12 @@
     "debug_only": 8,
     "engineering": 121,
     "experimental": 2,
-    "method_optional": 204,
+    "method_optional": 205,
     "method_required": 20
   },
   "entrypoint": "src/pigean/cli.py",
   "module": "pigean.cli",
-  "num_options": 374,
+  "num_options": 375,
   "options": [
     {
       "action": null,
@@ -195,7 +195,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 526,
+      "source_line": 527,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -216,7 +216,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 525,
+      "source_line": 526,
       "summary": null,
       "type": "int",
       "usage_references": 4
@@ -405,7 +405,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 529,
+      "source_line": 530,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -447,7 +447,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 522,
+      "source_line": 523,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -468,7 +468,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 521,
+      "source_line": 522,
       "summary": null,
       "type": "float",
       "usage_references": 5
@@ -489,7 +489,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 524,
+      "source_line": 525,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -510,7 +510,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 523,
+      "source_line": 524,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -1371,7 +1371,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 557,
+      "source_line": 558,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1413,7 +1413,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 552,
+      "source_line": 553,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1434,7 +1434,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 551,
+      "source_line": 552,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1455,7 +1455,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 558,
+      "source_line": 559,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1476,7 +1476,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 555,
+      "source_line": 556,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1497,7 +1497,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 554,
+      "source_line": 555,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1518,7 +1518,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 553,
+      "source_line": 554,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -1539,7 +1539,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 556,
+      "source_line": 557,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -1581,7 +1581,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 538,
+      "source_line": 539,
       "summary": "number of outer iterations between convergence and precision diagnostics",
       "type": "int",
       "usage_references": 5
@@ -1602,7 +1602,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 536,
+      "source_line": 537,
       "summary": "disable stall-triggered Gibbs epoch exits and restarts (the default)",
       "type": null,
       "usage_references": 7
@@ -1644,7 +1644,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 537,
+      "source_line": 538,
       "summary": "opt in to stall-triggered Gibbs epoch exits and restarts",
       "type": null,
       "usage_references": 16
@@ -2148,7 +2148,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 498,
+      "source_line": 499,
       "summary": null,
       "type": null,
       "usage_references": 5
@@ -2169,7 +2169,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 545,
+      "source_line": 546,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -3575,10 +3575,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 497,
+      "source_line": 498,
       "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 16
+      "usage_references": 17
     },
     {
       "action": "append",
@@ -3595,10 +3595,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 496,
+      "source_line": 497,
       "summary": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "type": null,
-      "usage_references": 20
+      "usage_references": 22
     },
     {
       "action": null,
@@ -3615,10 +3615,10 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 495,
+      "source_line": 496,
       "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks",
       "type": "choice",
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -3678,7 +3678,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "no",
-      "source_line": 510,
+      "source_line": 511,
       "summary": "run this many independent fixed-controller Gibbs chain batches sequentially and aggregate all effective chains",
       "type": "int",
       "usage_references": 23
@@ -3974,7 +3974,7 @@
       "source_line": 143,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 89
+      "usage_references": 91
     },
     {
       "action": null,
@@ -4538,7 +4538,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 505,
+      "source_line": 506,
       "summary": "stop Gibbs once monitored gene-probability MCSE is below this absolute threshold",
       "type": "float",
       "usage_references": 7
@@ -4664,7 +4664,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 546,
+      "source_line": 547,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -4937,7 +4937,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 542,
+      "source_line": 543,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -4979,7 +4979,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 511,
+      "source_line": 512,
       "summary": "maximum additional Gibbs epochs allowed after stall-triggered exits",
       "type": "int",
       "usage_references": 15
@@ -5000,7 +5000,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 507,
+      "source_line": 508,
       "summary": "require the monitored post-burn beta R-hat quantile to fall below this threshold before Gibbs can stop",
       "type": "float",
       "usage_references": 6
@@ -5063,7 +5063,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 506,
+      "source_line": 507,
       "summary": "stop Gibbs once active beta MCSE is below this relative threshold",
       "type": "float",
       "usage_references": 7
@@ -5084,7 +5084,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 508,
+      "source_line": 509,
       "summary": "require final summarized priors to stay close to the priors implied by summarized corrected betas before Gibbs can stop",
       "type": "float",
       "usage_references": 6
@@ -5273,7 +5273,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 541,
+      "source_line": 542,
       "summary": null,
       "type": "int",
       "usage_references": 10
@@ -5903,7 +5903,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 502,
+      "source_line": 503,
       "summary": "disable warm-starting and restart outer Gibbs updates from default initialization each iteration",
       "type": null,
       "usage_references": 5
@@ -5924,7 +5924,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 509,
+      "source_line": 510,
       "summary": "number of parallel outer Gibbs chains to run",
       "type": "int",
       "usage_references": 26
@@ -5945,7 +5945,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 543,
+      "source_line": 544,
       "summary": null,
       "type": "int",
       "usage_references": 12
@@ -6497,6 +6497,26 @@
       "usage_references": 6
     },
     {
+      "action": null,
+      "category": "method_optional",
+      "default": "legacy",
+      "deprecation_timeline": null,
+      "dest": "preparation_engine",
+      "documentation_target": "expert_help",
+      "flags": [
+        "--preparation-engine"
+      ],
+      "help": "arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)",
+      "primary_flag": "--preparation-engine",
+      "public_visibility": "expert",
+      "replacement": null,
+      "scientific_semantic_impact": "yes",
+      "source_line": 495,
+      "summary": "arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)",
+      "type": "choice",
+      "usage_references": 4
+    },
+    {
       "action": "store_true",
       "category": "engineering",
       "default": "False",
@@ -6515,7 +6535,7 @@
       "source_line": 326,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 129
+      "usage_references": 130
     },
     {
       "action": null,
@@ -6617,7 +6637,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 544,
+      "source_line": 545,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7205,7 +7225,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 533,
+      "source_line": 534,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7226,7 +7246,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 532,
+      "source_line": 533,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7247,7 +7267,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 531,
+      "source_line": 532,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7268,7 +7288,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 514,
+      "source_line": 515,
       "summary": null,
       "type": "int",
       "usage_references": 7
@@ -7289,7 +7309,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 535,
+      "source_line": 536,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7310,7 +7330,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 534,
+      "source_line": 535,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7331,7 +7351,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 530,
+      "source_line": 531,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7352,7 +7372,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 515,
+      "source_line": 516,
       "summary": "quantile across monitored effects and genes used for precision stopping",
       "type": "float",
       "usage_references": 4
@@ -7373,7 +7393,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 528,
+      "source_line": 529,
       "summary": null,
       "type": "float",
       "usage_references": 3
@@ -7394,7 +7414,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 516,
+      "source_line": 517,
       "summary": "number of consecutive passing precision checks required to stop",
       "type": "int",
       "usage_references": 7
@@ -7415,7 +7435,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 527,
+      "source_line": 528,
       "summary": null,
       "type": "int",
       "usage_references": 3
@@ -7436,7 +7456,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 519,
+      "source_line": 520,
       "summary": "tighten Gibbs stopping thresholds relative to the default lenient preset",
       "type": null,
       "usage_references": 9
@@ -7646,7 +7666,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 520,
+      "source_line": 521,
       "summary": null,
       "type": null,
       "usage_references": 7
@@ -7667,7 +7687,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 547,
+      "source_line": 548,
       "summary": null,
       "type": null,
       "usage_references": 3
@@ -7688,7 +7708,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 500,
+      "source_line": 501,
       "summary": "feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget",
       "type": null,
       "usage_references": 10
@@ -7709,7 +7729,7 @@
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 499,
+      "source_line": 500,
       "summary": "feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs)",
       "type": null,
       "usage_references": 9
@@ -7751,7 +7771,7 @@
       "public_visibility": "normal",
       "replacement": null,
       "scientific_semantic_impact": "yes",
-      "source_line": 501,
+      "source_line": 502,
       "summary": "reuse previous-iteration beta state when warm-starting outer Gibbs updates",
       "type": null,
       "usage_references": 4
@@ -7863,7 +7883,7 @@
     }
   ],
   "visibilities": {
-    "expert": 330,
+    "expert": 331,
     "hidden": 9,
     "normal": 35
   }

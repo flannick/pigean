@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `374`
+- Total options: `375`
 - `method_required`: `20`
-- `method_optional`: `204`
+- `method_optional`: `205`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `330`
+- visibility `expert`: `331`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -195,6 +195,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--phewas-comparison-set` | `expert` | `yes` | `advanced_workflows` | `phewas_comparison_set` | `matched` | deprecated expert gene-level PheWAS output surface: matched or diagnostic |
 | `--pigean-params-in` | `expert` | `yes` | `expert_help` | `pigean_params_in` | `None` | replay beta-stage hyperparameters and settings from a previous PIGEAN params.out file |
 | `--pigean-rerun-bundle-in` | `expert` | `yes` | `expert_help` | `pigean_rerun_bundle_in` | `None` | load bundled fixed-Y PIGEAN inputs and beta-stage defaults for betas-mode reruns |
+| `--preparation-engine` | `expert` | `yes` | `expert_help` | `preparation_engine` | `legacy` | arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in) |
 | `--prune-deterministically` | `expert` | `yes` | `expert_help` | `prune_deterministically` | `-` | - |
 | `--prune-gene-sets` | `expert` | `yes` | `expert_help` | `prune_gene_sets` | `None` | - |
 | `--r-threshold-burn-in` | `expert` | `yes` | `expert_help` | `r_threshold_burn_in` | `1.1` | - |

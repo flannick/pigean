@@ -5606,6 +5606,10 @@ class PigeanState(object):
         #these are the posterior betas averaged across iterations
         summed_posterior_beta_mean_t = np.zeros(chain_parallel_gene_set_shape)
         summed_posterior_beta_mean_sq_t = np.zeros(chain_parallel_gene_set_shape)
+        centered_moments = None
+        if gibbs_feature_enabled('inner-centered-variance') and not assume_independent and not gauss_seidel:
+            from .inner_diagnostics import CenteredChainMoments
+            centered_moments = CenteredChainMoments(chain_parallel_gene_set_shape)
 
         # Setting up constants
         #hyperparameters
@@ -5796,6 +5800,8 @@ class PigeanState(object):
             sample_postp_m = posterior_nonzero_prob_t[int(random.random() * posterior_nonzero_prob_t.shape[0]),:,:]
             summed_posterior_beta_mean_t[:,compute_mask_v,:] = summed_posterior_beta_mean_t[:,compute_mask_v,:] + posterior_beta_mean_t[:,compute_mask_v,:]
             summed_posterior_beta_mean_sq_t[:,compute_mask_v,:] = summed_posterior_beta_mean_sq_t[:,compute_mask_v,:] + np.square(posterior_beta_mean_t[:,compute_mask_v,:])
+            if centered_moments is not None:
+                centered_moments.update(posterior_beta_mean_t, compute_mask_v)
 
             # 3b) Update convergence diagnostics and stopping conditions.
             #now calculate the convergence metrics
@@ -5829,6 +5835,7 @@ class PigeanState(object):
                     burn_in_phase_v=burn_in_phase_v,
                     r_threshold_burn_in=r_threshold_burn_in,
                     num_parallel=num_parallel,
+                    centered_moments=centered_moments,
                 )
 
             # Burn-in either converged or hit cap: collect samples/summaries.
@@ -9393,10 +9400,20 @@ def _update_inner_beta_rhat_and_outliers(
     burn_in_phase_v,
     r_threshold_burn_in,
     num_parallel,
+    centered_moments=None,
 ):
     # These matrices have convergence statistics in format (num_parallel, num_gene_sets).
     # WARNING: only results for compute_mask_v are valid.
     (B_m, W_m, R_m, avg_W_m, mean_t) = _calculate_r_tensor_from_chain_sums(summed_posterior_beta_mean_t, summed_posterior_beta_mean_sq_t, iteration_num)
+    if centered_moments is not None:
+        stable_B, stable_W, stable_R, stable_avg_W, stable_mean = centered_moments.statistics()
+        # Only active slots have valid current diagnostics. Preserve historical
+        # inactive-slot handling, including its outlier checks, in this option.
+        B_m[compute_mask_v] = stable_B[compute_mask_v]
+        W_m[compute_mask_v] = stable_W[compute_mask_v]
+        R_m[compute_mask_v] = stable_R[compute_mask_v]
+        avg_W_m[:, compute_mask_v] = stable_avg_W[:, compute_mask_v]
+        mean_t[:, compute_mask_v] = stable_mean[:, compute_mask_v]
 
     beta_weights_m = np.zeros((summed_posterior_beta_mean_t.shape[1], summed_posterior_beta_mean_t.shape[2]))
     summed_posterior_beta_mean_t_mean = np.mean(summed_posterior_beta_mean_t)
@@ -9496,6 +9513,10 @@ def _update_inner_beta_rhat_and_outliers(
                     for tensor in [sampled_beta_t, posterior_nonzero_prob_t, posterior_beta_mean_t, summed_posterior_beta_mean_t, summed_posterior_beta_mean_sq_t]:
                         tensor[outlier_mask_m[:, outlier_parallel], outlier_parallel, :] = copy.copy(
                             tensor[replacement_chains, outlier_parallel, :]
+                        )
+                    if centered_moments is not None:
+                        centered_moments.replace_chains(
+                            outlier_mask_m[:, outlier_parallel], outlier_parallel, replacement_chains
                         )
                 else:
                     log("Every chain was an outlier so doing nothing", TRACE)
