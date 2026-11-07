@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `372`
+- Total options: `374`
 - `method_required`: `20`
-- `method_optional`: `202`
+- `method_optional`: `204`
 - `engineering`: `121`
 - `experimental`: `2`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `328`
+- visibility `expert`: `330`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -111,6 +111,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--gibbs-disable` | `expert` | `yes` | `expert_help` | `gibbs_disable` | `None` | disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent |
 | `--gibbs-enable` | `expert` | `yes` | `expert_help` | `gibbs_enable` | `None` | enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md |
 | `--gibbs-engine` | `expert` | `yes` | `expert_help` | `gibbs_engine` | `legacy` | inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks |
+| `--gibbs-schedule` | `expert` | `yes` | `expert_help` | `gibbs_schedule` | `auto` | auto uses 250 discarded + 1000 retained updates for GWAS/cached-HuGE Gibbs unless budget/controller settings are explicit; legacy preserves previous budget resolution; retained selects the fixed qualified schedule; independent of beta feedback; see docs/GIBBS_SAMPLING_DEFAULTS.md |
 | `--gwas-detect-high-power` | `expert` | `yes` | `expert_help` | `gwas_detect_high_power` | `100` | - |
 | `--gwas-detect-low-power` | `expert` | `yes` | `expert_help` | `gwas_detect_low_power` | `10` | - |
 | `--gwas-detect-no-adjust-huge` | `expert` | `yes` | `expert_help` | `gwas_detect_adjust_huge` | `True` | - |
@@ -240,7 +241,8 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 | `--use-beta-uncorrected-for-gene-gene-set-write-filter` | `expert` | `yes` | `expert_help` | `use_beta_uncorrected_for_gene_gene_set_write_filter` | `False` | - |
 | `--use-max-r-for-convergence` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence` | `-` | - |
 | `--use-max-r-for-convergence-betas` | `expert` | `yes` | `expert_help` | `use_max_r_for_convergence_betas` | `-` | - |
-| `--use-sampled-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | - |
+| `--use-mean-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget |
+| `--use-sampled-betas-in-gibbs` | `expert` | `yes` | `expert_help` | `use_sampled_betas_in_gibbs` | `-` | feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs) |
 | `--use-sampling-for-betas` | `expert` | `yes` | `expert_help` | `use_sampling_for_betas` | `None` | - |
 | `--warm-start` | `normal` | `yes` | `core_help` | `warm_start` | `True` | reuse previous-iteration beta state when warm-starting outer Gibbs updates |
 | `--weighted-prune-gene-sets` | `expert` | `yes` | `expert_help` | `weighted_prune_gene_sets` | `None` | - |

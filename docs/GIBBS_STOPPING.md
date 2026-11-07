@@ -6,18 +6,21 @@ PIGEAN treats iteration budget, precision stopping, and stall handling as three 
 2. Precision stopping says when estimates are already stable enough to stop early.
 3. Stall detection is an optional recovery strategy that can end an epoch and start a new one when diagnostics stop improving.
 
-The default is one uninterrupted epoch capped at 500 outer iterations. Precision-based early stopping remains enabled. Stall-triggered exits and restarts are off unless requested.
+For GWAS or cached-HuGE `gibbs` inputs without explicit controller settings, the default is one epoch with 250 discarded and 1,000 retained actual updates. Sampled-beta feedback is also the default for those inputs. See [sampling defaults](GIBBS_SAMPLING_DEFAULTS.md) for qualification, limitations and independent compatibility controls.
+
+Other inputs, or `--gibbs-schedule legacy`, retain the previous one-epoch controller capped at 500 outer iterations with precision-based early stopping. Explicit budget/controller settings under the automatic schedule retain this legacy/custom resolution. Stall-triggered exits and restarts are off unless requested.
 
 Independent reruns are a fourth, explicit control. They run several fixed-controller chain batches sequentially and summarize all of their chains together, reducing peak working width when many chains are wanted.
 
-## Default behavior
+## Legacy and custom controller behavior
 
 ```bash
 PYTHONPATH=src python -m pigean gibbs \
+  --gibbs-schedule legacy \
   ...input and output options...
 ```
 
-This resolves to the following controller behavior:
+Without other budget overrides, this resolves to the following controller behavior. It does not select mean feedback; add `--use-mean-betas-in-gibbs` to restore that independently.
 
 - `--max-num-iter 500`: at most 500 outer iterations in the epoch.
 - `--total-num-iter-gibbs 500`: at most 500 outer iterations over the complete run.
@@ -44,7 +47,7 @@ The implementation retains chain sums, squared sums, and sample counts in memory
 
 Precision stopping remains active within each batch. Reaching precision ends that batch but does not cancel later explicitly requested reruns. The default total iteration capacity becomes `--max-num-iter` multiplied by `--gibbs-reruns`; an explicitly supplied `--total-num-iter-gibbs` must provide at least that capacity.
 
-Version 1 supports independent reruns only with the default fixed controller. `--gibbs-reruns` above 1 cannot be combined with `--enable-stall-detection` or a nonzero `--max-num-restarts`. Intermediate reruns are not checkpointed: native outputs are written after the combined summary is complete.
+Version 1 supports independent reruns only with the fixed controller. Explicit reruns select legacy/custom budget resolution under the automatic schedule. `--gibbs-reruns` above 1 cannot be combined with `--gibbs-schedule retained`, `--enable-stall-detection` or a nonzero `--max-num-restarts`. Intermediate reruns are not checkpointed: native outputs are written after the combined summary is complete.
 
 The mental model is a set of chain shards. Increasing `--num-chains` makes one shard wider and can have superlinear runtime costs; increasing `--gibbs-reruns` adds shards sequentially, so peak memory and per-batch matrix width stay near the selected `--num-chains`. More shards improve Monte Carlo precision but do not guarantee convergence; inspect the combined R-hat alongside MCSE.
 
@@ -52,7 +55,8 @@ The mental model is a set of chain shards. Increasing `--num-chains` makes one s
 
 | Flag | Role |
 |---|---|
-| `--max-num-iter N` | Maximum outer iterations in one epoch. It is 500 by default and also supplies the default total budget when stalls are disabled. |
+| `--gibbs-schedule auto\|legacy\|retained` | Automatic genetic-input retained schedule, previous/custom budget resolution, or explicitly fixed 250-discarded/1,000-retained schedule. |
+| `--max-num-iter N` | Maximum outer iterations in one epoch. Legacy fallback is 500; the retained schedule sets the native inclusive cap to 1251. Supplies the default total budget when stalls are disabled. |
 | `--gibbs-reruns N` | Number of independent fixed-controller chain batches. The default is 1. |
 | `--total-num-iter-gibbs N` | Maximum outer iterations summed across all epochs. An explicit value overrides the default derived from `--max-num-iter`. |
 | `--min-num-burn-in N` | Minimum burn-in draws in each epoch before burn-in may end. |
@@ -61,7 +65,7 @@ The mental model is a set of chain shards. Increasing `--num-chains` makes one s
 | `--max-num-post-burn-in N` | Optional retained post-burn cap within each epoch. |
 | `--diag-every N` | Evaluate burn-in, precision, and enabled stall diagnostics every N outer iterations. |
 
-For the default uninterrupted controller, increasing only `--total-num-iter-gibbs` does not increase the one-epoch cap. Increase `--max-num-iter` as well when more than 500 iterations are wanted in one epoch.
+For a custom uninterrupted controller, increasing only `--total-num-iter-gibbs` does not increase the one-epoch cap. Increase `--max-num-iter` as well when more than 500 iterations are wanted in one custom epoch. Explicit custom bounds opt out of automatic retained-schedule selection; they conflict with an explicitly selected `retained` schedule unless they match its fixed bounds.
 
 Example: one uninterrupted trajectory capped at 800 iterations:
 
@@ -101,7 +105,7 @@ Precision is evaluated across the parallel outer chains after burn-in. A diagnos
 - post-burn R-hat for active gene-set effects;
 - consistency between directly summarized priors and priors implied by summarized corrected effects.
 
-The pass must repeat for `--stop-patience` consecutive diagnostic checkpoints, and the epoch must have at least `--min-num-post-burn-in` retained draws. This path is independent of stall detection and remains active under the default 500-iteration controller.
+The pass must repeat for `--stop-patience` consecutive diagnostic checkpoints, and the epoch must have at least `--min-num-post-burn-in` retained draws. This path is independent of stall detection. The retained schedule's minimum is 1,000, so it cannot stop before that count merely because precision checks pass.
 
 Precision stopping is also blocked while the active-effect diagnostic panel is saturated at `--active-beta-top-k`. Sampling continues until the panel becomes unsaturated or the iteration budget is exhausted.
 
@@ -166,18 +170,20 @@ PYTHONPATH=src python -m pigean gibbs \
   ...input and output options...
 ```
 
-Default controller with stricter early stopping:
+Legacy controller with stricter early stopping:
 
 ```bash
 PYTHONPATH=src python -m pigean gibbs \
+  --gibbs-schedule legacy \
   --strict-stopping \
   ...input and output options...
 ```
 
-Custom precision target under the default 500-iteration cap:
+Custom precision target under the legacy 500-iteration cap:
 
 ```bash
 PYTHONPATH=src python -m pigean gibbs \
+  --gibbs-schedule legacy \
   --max-rel-mcse-beta 0.10 \
   --max-abs-mcse-d 0.05 \
   --max-post-beta-rhat 1.15 \

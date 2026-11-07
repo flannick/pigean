@@ -130,7 +130,7 @@ PYTHONPATH=src python -m pigean priors \
 
 ### Outer-Gibbs stopping
 
-The default `gibbs` controller runs one uninterrupted epoch for at most 500 outer iterations. It can still stop earlier when the across-chain precision checks pass. Stall-triggered epoch exits and restarts are disabled by default and are available with `--enable-stall-detection`.
+For GWAS or cached-HuGE inputs, `gibbs` defaults to sampled-beta feedback and 250 discarded plus 1,000 retained actual updates, unless budget/controller settings are explicit. Other inputs retain the previous controller capped at 500 iterations with precision-based early stopping. Use `--use-mean-betas-in-gibbs --gibbs-schedule legacy` for previous feedback and budget behavior. The two controls are independent; explicit custom budgets keep their existing meaning. See [sampling defaults and qualification](GIBBS_SAMPLING_DEFAULTS.md), including the remaining NAFLD convergence limitation. Stall-triggered exits and restarts remain disabled unless requested with `--enable-stall-detection`.
 
 The practical controls are summarized in `docs/GIBBS_STOPPING.md`. Use `--max-num-iter` to change the default one-epoch cap, the MCSE/R-hat flags to define acceptable precision, and `--strict-stopping` for the stricter bundled precision preset.
 
