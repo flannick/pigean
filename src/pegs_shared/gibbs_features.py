@@ -14,6 +14,7 @@ FEATURES = (
     'inner-rhat-stable',
     'compiled-moments',
     'warm-start-layout',
+    'inner-centered-variance',
 )
 PRESETS = dict(zip(
     ('legacy', 'sparse', 'grouped', 'grouped-cached', 'compact-covariance',
