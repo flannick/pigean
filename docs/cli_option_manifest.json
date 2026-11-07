@@ -6514,7 +6514,7 @@
       "source_line": 495,
       "summary": "arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)",
       "type": "choice",
-      "usage_references": 5
+      "usage_references": 4
     },
     {
       "action": "store_true",
