@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from contextlib import contextmanager
 
 from . import main_support as pigean_main_support
 from . import phewas as pigean_phewas
@@ -277,11 +278,29 @@ def run_main_gibbs_stage(services, state, options, mode_state):
     )
 
 
+@contextmanager
+def preparation_backend(options):
+    """Scope initial marginal arithmetic independently of Gibbs and inner fits."""
+    engine = getattr(options, "preparation_engine", "legacy")
+    if engine == "legacy":
+        yield
+        return
+    if engine not in ("sparse-regression", "grouped-regression"):
+        raise ValueError("Unsupported preparation engine: %s" % engine)
+    from pegs_shared.gibbs_features import ACTIVE, DEFAULT_FEATURES
+    from pegs_shared.sparse_regression import marginal_backend
+    # Respect existing numerical-default opt-outs; do not activate Gibbs-only flags.
+    disabled_defaults = DEFAULT_FEATURES - ACTIVE.get()
+    with marginal_backend(engine, disable=disabled_defaults):
+        yield
+
+
 def run_main_non_huge_pipeline(services, state, options, mode_state, sigma2_cond, y_not_loaded):
     stage_result = NonHugePipelineResult()
 
     if options.X_in is not None or options.X_list is not None or options.Xd_in is not None or options.Xd_list is not None:
-        pigean_main_support.run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
+        with preparation_backend(options):
+            pigean_main_support.run_main_adaptive_read_x(state, options, mode_state, sigma2_cond)
     elif options.p_noninf is not None:
         if len(options.p_noninf) == 1:
             state.set_p(options.p_noninf[0])
@@ -312,7 +331,8 @@ def run_main_non_huge_pipeline(services, state, options, mode_state, sigma2_cond
             only_positive=options.sim_only_positive,
         )
 
-    stage_result.beta_tilde = run_main_beta_tilde_stage(services, state, options, mode_state)
+    with preparation_backend(options):
+        stage_result.beta_tilde = run_main_beta_tilde_stage(services, state, options, mode_state)
     stage_result.beta = run_main_beta_stage(services, state, options, mode_state)
     stage_result.priors = run_main_priors_stage(services, state, options, mode_state)
     stage_result.gibbs = run_main_gibbs_stage(services, state, options, mode_state)
