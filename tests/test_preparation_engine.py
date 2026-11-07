@@ -21,8 +21,55 @@ def test_cli_independent(engine):
     assert o['use_sampled_betas_in_gibbs']
     assert o['gibbs_schedule_resolved']=='retained'
 
-def test_default_unchanged():
-    assert effective('gibbs','--gwas-in','input')['preparation_engine']=='legacy'
+@pytest.mark.parametrize('input_flag',['--gwas-in','--huge-statistics-in'])
+def test_genetic_gibbs_defaults(input_flag):
+    o=effective('gibbs',input_flag,'input')
+    assert o['preparation_engine']=='grouped-regression'
+    assert 'inner-centered-variance' in o['gibbs_enable']
+
+@pytest.mark.parametrize('args',[
+    ('gibbs','--gene-list','GCK,HNF1A','--gene-universe-from-x'), ('betas','--gwas-in','input'),
+    ('huge','--gwas-in','input')])
+def test_other_workflows_unchanged(args):
+    o=effective(*args)
+    assert o['preparation_engine']=='legacy'
+    assert 'inner-centered-variance' not in (o['gibbs_enable'] or [])
+
+@pytest.mark.parametrize('legacy',[False,True])
+@pytest.mark.parametrize('disable',[False,True])
+def test_independent_default_optouts(legacy,disable):
+    args=['gibbs','--gwas-in','input']
+    if legacy:args+=['--preparation-engine','legacy']
+    if disable:args+=['--gibbs-disable','inner-centered-variance']
+    o=effective(*args)
+    assert o['preparation_engine']==('legacy' if legacy else 'grouped-regression')
+    assert ('inner-centered-variance' in o['gibbs_enable'])== (not disable)
+    assert o['use_sampled_betas_in_gibbs']
+    assert o['gibbs_schedule_resolved']=='retained'
+
+def test_default_variance_stays_out_of_preparation():
+    o=effective('gibbs','--gwas-in','input')
+    with default_feature_scope(enable=o['gibbs_enable'],disable=o['gibbs_disable']):
+        assert 'inner-centered-variance' not in ACTIVE.get()
+        with pipeline.preparation_backend(SimpleNamespace(**o)):
+            assert 'grouped-regression' in ACTIVE.get()
+            assert 'inner-centered-variance' not in ACTIVE.get()
+        assert 'inner-centered-variance' not in ACTIVE.get()
+        with marginal_backend(o['gibbs_engine'],enable=o['gibbs_enable'],disable=o['gibbs_disable']):
+            assert 'inner-centered-variance' in ACTIVE.get()
+        assert 'inner-centered-variance' not in ACTIVE.get()
+
+def test_config_optouts_and_cli_override(tmp_path):
+    config=tmp_path/'legacy.json'
+    config.write_text(json.dumps({'preparation_engine':'legacy',
+                                  'gibbs_disable':['inner-centered-variance']}))
+    o=effective('gibbs','--gwas-in','input','--config',str(config))
+    assert o['preparation_engine']=='legacy'
+    assert 'inner-centered-variance' not in o['gibbs_enable']
+    o=effective('gibbs','--gwas-in','input','--config',str(config),
+                '--preparation-engine','grouped-regression')
+    assert o['preparation_engine']=='grouped-regression'
+    assert 'inner-centered-variance' not in o['gibbs_enable']
 
 @pytest.mark.parametrize('engine',['sparse-regression','grouped-regression'])
 def test_context_restored_and_optouts_respected(engine):

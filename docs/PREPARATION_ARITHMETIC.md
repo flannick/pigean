@@ -1,14 +1,16 @@
-# Optional preparation arithmetic
+# Preparation arithmetic
 
-**Opt-in; standalone NAFLD qualification failed, while the paired centered-variance configuration below passes the tested history.** Add this flag to an existing PIGEAN command:
+**Default for CLI genetic-input Gibbs; independently selectable otherwise.** `pigean gibbs --gwas-in ...` and `--huge-statistics-in ...` now select grouped preparation and the [stable inner variance correction](INNER_CENTERED_VARIANCE.md). Other workflows retain legacy preparation unless explicitly selected.
 
 ```sh
 --preparation-engine grouped-regression
 ```
 
-The subsequent [stable inner variance qualification](INNER_CENTERED_VARIANCE.md) resolves the observed NAFLD preparation discrepancy when both arms additionally use `--gibbs-enable inner-centered-variance`. That feature is independently selectable and off by default. With it, all 1,250 RNG states and every exported value match exactly between preparation modes. A further five-job validation preserves all exported fields for T2D/CAD/Asthma; two NAFLD histories retain lipid support but show changed trajectories and mixed diagnostics, without a demonstrated mixing benefit. The numerical component remains opt-in. The original preparation-only measurements and failure below remain preserved.
+Use `--preparation-engine legacy` to restore original preparation. Use `--gibbs-disable inner-centered-variance` independently to restore the original inner variance calculation. Disabling only centered variance retains the known standalone grouped-preparation NAFLD sensitivity documented below.
 
-This reuses existing sparse/grouped marginal-regression arithmetic during annotation ingestion and initial marginal fitting. Repeated annotation values share exact sufficient statistics; values are not discretized. The default remains `legacy`; use `--preparation-engine legacy` to restore original preparation. The intermediate `sparse-regression` choice is also available, but the full-trait qualification below concerns `grouped-regression`.
+With centered variance enabled, all1250 RNG states and every exported value match exactly between preparation modes in the tested full NAFLD history. T2D/CAD/Asthma exported values also match exactly. The correction changes NAFLD trajectories relative to original variance, with mixed diagnostics. A matched two-history EAGGL review retains broad biological structure and finds no clear overall old/new winner; old has some more cohesive groups. The numerical fix is defaulted for accuracy, not a demonstrated mixing improvement. Its initial-preparation fitting scope is unchanged.
+
+This reuses existing sparse/grouped marginal-regression arithmetic during annotation ingestion and initial marginal fitting. Repeated annotation values share exact sufficient statistics; values are not discretized. The resolved default is `grouped-regression` for genetic-input Gibbs and `legacy` otherwise; explicit CLI/config choices take precedence. The intermediate `sparse-regression` choice is also available, but the full-trait qualification below concerns `grouped-regression`.
 
 Preparation selection is independent of `--gibbs-engine` and [Gibbs arithmetic features](GIBBS_OPTIMIZATIONS.md). It does not select feedback or an iteration budget. Initial inner coefficient fitting, priors and Gibbs retain their separately selected behavior; numerical-default opt-outs remain respected. Corrections and filtering formulas are unchanged. Floating-point differences can nevertheless alter threshold decisions and subsequent sampling trajectories, as the NAFLD qualification demonstrates.
 
@@ -48,7 +50,7 @@ Maximum prior difference is 0.52. PNPLA3 prior 2.170→2.280 and TM6SF2 prior 2.
 
 An unchanged four-update replay reproduced both native log prefixes. RNG states match through outer updates 1–3 and on entry to update 4. At inner sweep 11 of update 4, slot 0's thresholded mean R-hat is 1.0069455 versus 1.0137769, crossing the 1.01 stopping threshold. One coefficient's raw R-hat is 1.022702 versus 1.063690 because the sum-of-squares variance calculation subtracts quantities near 0.364, leaving residuals around 1e-16. Estimated within-chain variance changes from 1.804e-17 to 1.110e-17; one candidate chain's centered sum is negative from cancellation. Mean effects differ only at the last bits. The additional inner sweep changes subsequent RNG consumption and trajectories.
 
-This is a numerical sensitivity in the existing inner stopping calculation, not an added model or sampling method. The existing near-one membership stabilization does not address this variance cancellation. The separately selectable centered-variance implementation now resolves this discrepancy in the tested full NAFLD pair; neither feature widens tolerances or claims to fix statistical convergence. Keep legacy default and the PR in draft while reviewing the paired configuration and its changed trajectory relative to original variance. Do not treat the paired pass as a pass for grouped preparation with centered variance disabled.
+This is a numerical sensitivity in the existing inner stopping calculation, not an added model or sampling method. The existing near-one membership stabilization does not address this variance cancellation. The separately selectable centered-variance implementation now resolves this discrepancy in the tested full NAFLD pair; neither feature widens tolerances or claims to fix statistical convergence. The subsequent bounded review supports defaulting the paired configuration with opt-outs, while preserving the changed-trajectory and biological limitations above. Do not treat the paired pass as a pass for grouped preparation with centered variance disabled.
 
 ## Reproducibility and deferred work
 

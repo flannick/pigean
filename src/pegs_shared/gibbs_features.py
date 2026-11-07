@@ -34,6 +34,9 @@ REQUIRES = {
     'parallel-prefilter': {'sparse-regression'},
 }
 DEFAULT_FEATURES = frozenset({'inner-rhat-stable', 'warm-start-layout'})
+# CLI genetic-input Gibbs defaults; deliberately excluded from preprocessing and
+# direct Python contexts. The CLI passes these as ordinary stage enable flags.
+GIBBS_STAGE_DEFAULT_FEATURES = frozenset({'inner-centered-variance'})
 ACTIVE = ContextVar('gibbs_active_features', default=DEFAULT_FEATURES)
 
 
@@ -70,6 +73,12 @@ def resolve_features(preset='legacy', enable=(), disable=()):
         active = reduced
     return {'preset': preset, 'requested': sorted(requested), 'active': sorted(active),
             'inactive': {f: sorted(REQUIRES[f] - active) for f in sorted(requested-active)}}
+
+
+def enable_gibbs_stage_defaults(enable=(), disable=()):
+    """Add CLI stage defaults while retaining explicit opt-outs and conflicts."""
+    return sorted(_feature_names(enable) |
+                  (GIBBS_STAGE_DEFAULT_FEATURES - _feature_names(disable)))
 
 
 def enabled(feature):

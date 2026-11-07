@@ -492,10 +492,10 @@ parser.add_option("","--max-num-post-burn-in",type=int,dest="max_num_post_burn_i
 parser.add_option("","--max-num-iter",type=int,default=500) #legacy per-epoch total outer Gibbs cap (post+burn); used as fallback if phase-specific bounds are not set
 parser.add_option("","--total-num-iter-gibbs",type=int,default=None) #total outer Gibbs iteration cap across all epochs; by default follows --max-num-iter (500)
 parser.add_option("","--r-threshold-burn-in",type=float,default=1.10) #R-hat threshold for outer Gibbs burn-in
-parser.add_option("--preparation-engine", type="choice", choices=["legacy", "sparse-regression", "grouped-regression"], default="legacy", help="arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)")
+parser.add_option("--preparation-engine", type="choice", choices=["legacy", "sparse-regression", "grouped-regression"], default=None, help="arithmetic for annotation ingestion and initial marginal regressions only; defaults to grouped-regression for genetic-input Gibbs and legacy otherwise; use legacy to opt out; corrections and the Gibbs engine are unchanged")
 parser.add_option("--gibbs-engine", type="choice", choices=["legacy", "sparse-regression", "grouped-regression", "cached-grouped-regression", "compact-covariance", "lean-regression", "cached-inner", "compiled-covariance", "parallel-prefilter"], default="legacy", help="inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks")
 parser.add_option("--gibbs-enable", action="append", default=None, help="enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md")
-parser.add_option("--gibbs-disable", action="append", default=None, help="disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent")
+parser.add_option("--gibbs-disable", action="append", default=None, help="disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent")
 parser.add_option("","--gauss-seidel",action="store_true") #run gauss seidel for gibbs sampling
 parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true",help="feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs)")
 parser.add_option("","--use-mean-betas-in-gibbs",action="store_false",dest="use_sampled_betas_in_gibbs",help="feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget")
@@ -1715,6 +1715,13 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
     # An explicit False from the CLI or a config always wins.
     if _mode == "gibbs" and (_options.gwas_in is not None or _options.huge_statistics_in is not None):
         _set_default_option(_options, "use_sampled_betas_in_gibbs", True)
+        _set_default_option(_options, "preparation_engine", "grouped-regression")
+        # Keep stable variance inside Gibbs, not initial coefficient fitting.
+        # Explicit disable flags/configuration remain authoritative.
+        from pegs_shared.gibbs_features import enable_gibbs_stage_defaults
+        _options.gibbs_enable = enable_gibbs_stage_defaults(
+            _options.gibbs_enable, _options.gibbs_disable)
+    _set_default_option(_options, "preparation_engine", "legacy")
     # Mode-dependent defaults.
     if _mode in ("pops", "naive_pops"):
         _set_default_option(_options, "correct_betas_mean", False)

@@ -744,7 +744,7 @@
       "source_line": 325,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 51
+      "usage_references": 53
     },
     {
       "action": null,
@@ -2340,7 +2340,7 @@
       "source_line": 193,
       "summary": "specify gene-list genes directly on the command line",
       "type": "string",
-      "usage_references": 183
+      "usage_references": 184
     },
     {
       "action": null,
@@ -3453,7 +3453,7 @@
       "source_line": 204,
       "summary": "use the union of genes across input gene sets as the analysis universe",
       "type": null,
-      "usage_references": 28
+      "usage_references": 29
     },
     {
       "action": "store_true",
@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-disable"
       ],
-      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "primary_flag": "--gibbs-disable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 498,
-      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout are on by default); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 17
+      "usage_references": 21
     },
     {
       "action": "append",
@@ -3974,7 +3974,7 @@
       "source_line": 143,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 91
+      "usage_references": 99
     },
     {
       "action": null,
@@ -4331,7 +4331,7 @@
       "source_line": 144,
       "summary": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
       "type": null,
-      "usage_references": 36
+      "usage_references": 39
     },
     {
       "action": null,
@@ -6499,22 +6499,22 @@
     {
       "action": null,
       "category": "method_optional",
-      "default": "legacy",
+      "default": "None",
       "deprecation_timeline": null,
       "dest": "preparation_engine",
       "documentation_target": "expert_help",
       "flags": [
         "--preparation-engine"
       ],
-      "help": "arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)",
+      "help": "arithmetic for annotation ingestion and initial marginal regressions only; defaults to grouped-regression for genetic-input Gibbs and legacy otherwise; use legacy to opt out; corrections and the Gibbs engine are unchanged",
       "primary_flag": "--preparation-engine",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 495,
-      "summary": "arithmetic for annotation ingestion and initial marginal regressions only; legacy preserves established preparation; sparse-regression and grouped-regression reuse optimized formulas without changing corrections or the Gibbs engine (opt-in)",
+      "summary": "arithmetic for annotation ingestion and initial marginal regressions only; defaults to grouped-regression for genetic-input Gibbs and legacy otherwise; use legacy to opt out; corrections and the Gibbs engine are unchanged",
       "type": "choice",
-      "usage_references": 4
+      "usage_references": 10
     },
     {
       "action": "store_true",

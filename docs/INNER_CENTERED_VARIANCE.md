@@ -1,6 +1,6 @@
-# Optional stable inner variance
+# Stable inner variance
 
-`--gibbs-enable inner-centered-variance` replaces cancellation-prone variance accumulation for active inner Gibbs convergence diagnostics with anchored Welford moments. It is off by default and independent of preparation arithmetic. Omit it or use `--gibbs-disable inner-centered-variance` for the existing calculation. The option applies within the outer Gibbs stage; initial preparation fitting retains its existing feature scope. Python callers may explicitly enable the feature through the existing backend context.
+`--gibbs-enable inner-centered-variance` replaces cancellation-prone variance accumulation for active inner Gibbs convergence diagnostics with anchored Welford moments. It is enabled by default for CLI genetic-input Gibbs (`--gwas-in` or `--huge-statistics-in`) and independent of preparation arithmetic. Use `--gibbs-disable inner-centered-variance` for the original calculation. Other CLI workflows and direct Python defaults are unchanged. The option applies within the outer Gibbs stage; initial preparation fitting retains its existing feature scope. Python callers may explicitly enable the feature through the existing backend context.
 
 The model, corrections, draws and 1.01 stopping threshold are unchanged. More accurate diagnostics can nevertheless change stopping, outlier decisions and subsequent random draws. This is a numerical correction, not a claim of improved statistical mixing or identical outputs to the original arithmetic. The existing `inner-rhat-stable` feature concerns membership near R-hat one and remains separately selectable.
 
@@ -33,7 +33,7 @@ The centered result differs from original variance under legacy preparation: pri
 
 On the fixed 200 highest original priors, exported native R-hat q90 changes 1.29→1.25 and the fraction above 1.25 changes 15.5%→9.0%. The corresponding beta fraction changes 1%→2%. These mixed, single-history diagnostics do not establish a mixing improvement and are not rank-normalized split-R-hat QC. The subsequent cross-trait and independent-history qualification is below.
 
-Analysis evidence is under `results/inner_variance_20261107/` in the optimization workspace. Implementation is separately committed as `8922754`. This feature remains opt-in; preparation defaults and the Gibbs model are unchanged. The original preparation-only NAFLD failure remains relevant when centered variance is disabled.
+Analysis evidence is under `results/inner_variance_20261107/` in the optimization workspace. Implementation is separately committed as `8922754`. These measurements used the opt-in implementation; the subsequent release decision below enables it by default for genetic-input Gibbs. The Gibbs model is unchanged. The original preparation-only NAFLD failure remains relevant when centered variance is disabled.
 
 ## Cross-trait and independent-history qualification
 
@@ -62,4 +62,20 @@ All-gene prior RMSE from the correction is 0.0444/0.0423, comparable to 0.0430 b
 
 No large runtime penalty is evident; small differences are not isolated feature effects. Asthma's 1.042 GB physical peak occurred during preparation before the feature is active. This is not a memory optimization. Full evidence, fixed-panel diagnostics, control changes, largest shifts and breadth tables are under `results/inner_variance_validation_20261107/comparison/` in the optimization workspace.
 
-**Disposition:** retain the verified numerical component opt-in; qualification is complete and no extra seed search is queued. Default promotion is a release decision about accurate stopping with changed NAFLD trajectories, not a demonstrated convergence improvement. Preserve the tested Gibbs-stage-only scope if defaulting later: placing this feature directly in the global default set would also activate it during initial preparation fitting, which these runs did not test. Main and defaults remain unchanged.
+## Release decision and EAGGL review
+
+The user approved default-on with independent opt-outs and merging if the actual NAFLD EAGGL comparison showed no clear overall biological advantage for old results. Four matched current gene-by-gene EAGGL fits on existing ordinary/centered histories12/14 completed in3.46min; all20 discovery restarts and24 projections pass. Factor counts change23→22 and23→21. Broad lipid, insulin-related, hepatic-transport and lipid-storage structure remains.
+
+There is no clear overall biological winner. Old retains a more cohesive ACLY/APOD/ACAT2/FDFT1 group in both histories; native gene support remains substantial and weighted annotation beta support is0.909×/0.993× (uncorrected0.926×/0.984×) in new. GCKR best factor rank improves6→2 and18→1; PNPLA3 changes38→48 and43→26, while TM6SF2 changes8→14 and10→10. The JUNB/JUND/JUN-rich factor disappears in history14 with an upstream support reduction; it was not reproduced in old history12. Independent-history median best gene-factor cosine is0.925 old versus0.912 new. This supports a release judgment with retained broad biology, not universal non-inferiority, uniformly better factors or improved mixing.
+
+Release defaults add the flag during CLI genetic-input Gibbs option resolution, preserving its tested Gibbs-stage-only scope. It is deliberately excluded from the global default-feature set, initial preparation fitting and direct Python defaults. Explicit disable flags/configuration win; the preparation option remains independently selectable. Other workflows can still enable this component explicitly.
+
+To restore the preparation and variance behavior preceding this PR, use:
+
+```sh
+--preparation-engine legacy --gibbs-disable inner-centered-variance
+```
+
+Sampled feedback and the250-discarded/1000-retained schedule remain independent defaults from PR23. Numerical/default tests and full result tables are retained in the optimization workspace under `results/NAFLD_eaggl_preparation_release_20261107/`. EAGGL source is unchanged. Earlier failed standalone-preparation and mixed-diagnostic records remain valid and are not replaced by this release decision.
+
+Release checks: 474 focused numerical, feature, scope, configuration, regression and CLI tests pass, plus the native default-versus-explicit recipe test (475 total). The native test verifies 1250 actual updates, exactly1000 retained, and byte-identical gene/annotation exports. A separate compact native comparison verifies both opt-outs reproduce the pre-default checkout byte-for-byte. Generated CLI manifest/help checks pass. No hosted CI result is inferred from these local tests.
