@@ -6,7 +6,7 @@
 --preparation-engine grouped-regression
 ```
 
-The subsequent [stable inner variance qualification](INNER_CENTERED_VARIANCE.md) resolves the observed NAFLD preparation discrepancy when both arms additionally use `--gibbs-enable inner-centered-variance`. That feature is independently selectable and off by default. With it, all 1,250 RNG states and every exported value match exactly between preparation modes. It changes results relative to the original variance calculation, and has not yet been qualified across traits or independent seeds. The original preparation-only measurements and failure below remain preserved.
+The subsequent [stable inner variance qualification](INNER_CENTERED_VARIANCE.md) resolves the observed NAFLD preparation discrepancy when both arms additionally use `--gibbs-enable inner-centered-variance`. That feature is independently selectable and off by default. With it, all 1,250 RNG states and every exported value match exactly between preparation modes. A further five-job validation preserves all exported fields for T2D/CAD/Asthma; two NAFLD histories retain lipid support but show changed trajectories and mixed diagnostics, without a demonstrated mixing benefit. The numerical component remains opt-in. The original preparation-only measurements and failure below remain preserved.
 
 This reuses existing sparse/grouped marginal-regression arithmetic during annotation ingestion and initial marginal fitting. Repeated annotation values share exact sufficient statistics; values are not discretized. The default remains `legacy`; use `--preparation-engine legacy` to restore original preparation. The intermediate `sparse-regression` choice is also available, but the full-trait qualification below concerns `grouped-regression`.
 
