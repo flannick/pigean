@@ -431,6 +431,8 @@ parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #du
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
 parser.add_option("","--factor-runs",default=1,type=int) #number of repeated random restarts for factorization
+parser.add_option("", "--consensus-matching", type="choice", choices=["reference", "pooled"], default="reference",
+                  help="Reference-centered matching or supported complete-link pooling across all restarts")
 parser.add_option("","--consensus-nmf",default=False,action="store_true") #aggregate repeated random restarts into a consensus factorization
 parser.add_option("","--consensus-min-factor-cosine",default=0.7,type=float) #minimum cosine similarity required to align factors across runs
 parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #minimum fraction of runs that must support a consensus factor
