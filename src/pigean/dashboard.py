@@ -1367,7 +1367,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--default-gene-loading-source",
         choices=("discovery", "full_direct", "full_via_gene_sets"),
-        default="full_via_gene_sets",
+        default="discovery",
         help="Initial EAGGL gene-loading source when multiple projections are available.",
     )
     parser.add_argument("--max-genes-per-run", type=int, default=5000)

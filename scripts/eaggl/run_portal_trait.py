@@ -27,8 +27,9 @@ def run(command, log, env):
 
 def validate_outputs(out):
     names = ('factors.out.gz', 'factor_metrics.out.gz', 'consensus_stats.out.gz',
-             'gene_clusters.out.gz', 'gene_set_clusters.out.gz',
-             'gene_clusters_full_via_gene_sets.out.gz')
+             'gene_clusters.out.gz', 'gene_set_clusters.out.gz')
+    if (out/'gene_clusters_full_via_gene_sets.out.gz').exists():
+        names += ('gene_clusters_full_via_gene_sets.out.gz',)
     for name in names:
         with gzip.open(out/name, 'rt') as stream:
             rows = list(csv.DictReader(stream, delimiter='\t'))
@@ -59,6 +60,8 @@ def publish_labels(out):
     for name in ('gene_clusters.out.gz', 'gene_set_clusters.out.gz',
                  'gene_clusters_full_via_gene_sets.out.gz'):
         source = out/name
+        if name == 'gene_clusters_full_via_gene_sets.out.gz' and not source.exists():
+            continue
         temporary = out/(name+'.labeling.tmp')
         try:
             with gzip.open(source, 'rt') as stream, gzip.open(temporary, 'wt') as target:
@@ -95,6 +98,8 @@ def main():
     parser.add_argument('--phenotype-profiles', type=Path)
     parser.add_argument('--phi', type=float, default=.01)
     parser.add_argument('--max-num-factors', type=int)
+    parser.add_argument('--full-gene-projection', action='store_true',
+                        help='Optional annotation-mediated full-gene output; outside discovery qualification')
     parser.add_argument('--mock-labels', action='store_true', help='Testing only; no biological labels')
     args = parser.parse_args()
     if not args.mock_labels and (not os.environ.get('EAGGL_LLM_MODEL') or not
@@ -139,20 +144,16 @@ def main():
         command = [sys.executable, '-m', 'eaggl', 'factor',
                    '--X-in', str(inputs/'mouse_2024.txt'), '--X-in', str(inputs/'msigdb_nohp.txt'),
                    '--gene-stats-in', str(inputs/'gs.out'), '--gene-set-stats-in', str(inputs/'gss.out'),
-                   '--discovery-model', 'gene_by_gene', '--deterministic', '--seed', '0',
-                   '--phi', str(args.phi), '--symnmf-update-method', 'projected_gradient',
-                   '--symnmf-stopping', 'adaptive', '--factor-max-iterations', '20000',
-                   '--factor-rel-tol', '1e-6', '--factor-runs', '5', '--consensus-nmf',
-                   '--consensus-aggregation', 'median', '--factor-output-scope', 'all',
-                   '--factor-top-loading-type', 'raw',
-                   '--cluster-row-min-max-loading', '0', '--fixed-basis-projection-method', 'verified_quadratic',
+                   '--deterministic', '--seed', '0', '--phi', str(args.phi),
                    '--numerical-diagnostics-out', str(out/'numerical_diagnostics.json')]
         for flag, name in (('factors-out', 'factors.out.gz'), ('factor-metrics-out', 'factor_metrics.out.gz'),
             ('gene-clusters-out', 'gene_clusters.out.gz'), ('gene-set-clusters-out', 'gene_set_clusters.out.gz'),
-            ('gene-clusters-full-via-gene-sets-out', 'gene_clusters_full_via_gene_sets.out.gz'),
             ('consensus-stats-out', 'consensus_stats.out.gz'), ('params-out', 'params.out'),
             ('warnings-file', 'warnings.txt')):
             command += ['--'+flag, str(out/name)]
+        if args.full_gene_projection:
+            command += ['--gene-clusters-full-via-gene-sets-out',
+                        str(out/'gene_clusters_full_via_gene_sets.out.gz')]
         if args.max_num_factors:
             command += ['--max-num-factors', str(args.max_num_factors)]
         if args.phenotype_profiles:

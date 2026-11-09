@@ -192,7 +192,7 @@ parser.add_option("", "--factor-gene-clusters-layout", type="choice", choices=["
 parser.add_option("","--gene-clusters-out",default=None)
 parser.add_option("","--gene-clusters-full-out",default=None)
 parser.add_option("","--gene-clusters-full-via-gene-sets-out",default=None) #write full-gene cluster table by projecting genes through factor gene-set loadings
-parser.add_option("","--full-gene-projection-method",type="choice",choices=["gene_set_loadings","direct_gene_gene","auto"],default="gene_set_loadings") #projection basis for --gene-clusters-full-out; gene_set_loadings is the recommended default
+parser.add_option("","--full-gene-projection-method",type="choice",choices=["gene_set_loadings","direct_gene_gene","auto"],default="gene_set_loadings") #projection basis for --gene-clusters-full-out; gene_set_loadings is the default for this optional full-gene route
 parser.add_option("", "--factor-max-iterations", dest="max_num_iterations", type="int", default=None,
                   help="Iteration ceiling (default: projected gradient 20000; legacy 100)")
 parser.add_option("", "--factor-rel-tol", dest="rel_tol", type="float", default=None,
@@ -201,8 +201,8 @@ parser.add_option("", "--symnmf-update-method", type="choice", choices=["auto", 
                   help="Auto selects optimized projected gradient for gene-by-gene discovery; legacy for annotation mode")
 parser.add_option("", "--symnmf-stopping", type="choice", choices=["adaptive", "fixed"], default="adaptive",
                   help="Projected gradient: confirmed adaptive stability or the full iteration budget")
-parser.add_option("", "--fixed-basis-projection-method", type="choice", choices=["legacy", "verified_quadratic"], default="legacy",
-                  help="Legacy update or opt-in quadratic projections with per-output stationarity checks")
+parser.add_option("", "--fixed-basis-projection-method", type="choice", choices=["legacy", "verified_quadratic"], default="verified_quadratic",
+                  help="Checked quadratic projections for recommended discovery; legacy update remains explicit")
 parser.add_option("", "--projection-max-cycles", type="int", default=2000)
 parser.add_option("", "--projection-stationarity-tol", type="float", default=1e-8)
 parser.add_option("", "--projection-context-out", default=None)
@@ -213,8 +213,8 @@ parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-ge
 parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
 parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair
 parser.add_option("","--gene-factor-annotation-contribs-top-n",default=10,type=int) #maximum annotation contribution rows per gene-factor-anchor combination
-parser.add_option("","--cluster-row-min-max-loading",default=0.01,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
-parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="primary") #which factor tiers to print in factors and cluster outputs
+parser.add_option("","--cluster-row-min-max-loading",default=0.0,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
+parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="all") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
 parser.add_option("","--trait-factor-links-output-detail",default="main") #column detail level for trait-factor linkage output: main, full, or debug
 parser.add_option("","--factor-phewas-stats-out",default=None)
@@ -356,12 +356,12 @@ parser.add_option("","--label-include-phenos",default=False,action="store_true")
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
 parser.add_option("","--gene-sets-for-labeling",action="append",default=None) #file of gene set identifiers to use as candidates for factor labels; may be repeated
 parser.add_option("","--gene-sets-for-labeling-id-col",default=None,type=str) #optional header column name for --gene-sets-for-labeling; defaults to first column for GMT compatibility
-parser.add_option("","--factor-top-loading-type",default="euclidean",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, cosine, or euclidean
-parser.add_option("", "--factor-retention", type="choice", choices=["legacy", "backend_scale"], default="legacy",
+parser.add_option("","--factor-top-loading-type",default="raw",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, cosine, or euclidean
+parser.add_option("", "--factor-retention", type="choice", choices=["legacy", "backend_scale"], default="backend_scale",
                   help="Factor retention: historical absolute lambda cut or symmetric solver ARD scale")
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
-parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
-parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
+parser.add_option("","--phi",default=0.01,type=float) #phi prior on factorization. Higher values yield fewer factors.
+parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_gene") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene
 parser.add_option("","--anchor-aggregation",type="choice",choices=["multi","any"],default="multi") #how to combine multiple anchor traits: shared multi-trait mode (multi, default) or noisy-OR union (any); one anchor reduces exactly to single-trait anchoring
 parser.add_option("","--gene-gene-beta-source",type="choice",choices=["beta"],default="beta") #gene-by-gene mode only: corrected beta values used to build pairwise evidence
 parser.add_option("","--gene-gene-pair-prior",default=None,type=float) #gene-by-gene mode only: direct pairwise same-mechanism prior
@@ -384,7 +384,7 @@ parser.add_option("","--learn-phi-min-stability",default=0.85,type=float) #minim
 parser.add_option("","--learn-phi-fit-loss-warning-frac","--learn-phi-max-fit-loss-frac",dest="learn_phi_fit_loss_warning_frac",default=0.05,type=float) #reconstruction-error warning threshold relative to the best phi-search candidate during phi selection
 parser.add_option("","--learn-phi-max-severe-fit-loss-frac",default=1.0,type=float) #hard severe-underfit threshold relative to the best phi-search candidate during phi selection
 parser.add_option("","--learn-phi-target-gene-mass",default=None,type=float) #optional with --learn-phi; target median gene mass among primary factors
-parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #required with --learn-phi; target median effective gene support among primary factors
+parser.add_option("","--learn-phi-target-gene-effective-support",default=None,type=float) #legacy selector option; also affects the pair prior unless explicitly overridden
 parser.add_option("","--learn-phi-size-tolerance-frac",default=0.25,type=float) #fractional tolerance around target primary-factor gene effective support
 parser.add_option("","--learn-phi-min-primary-factors",default=3,type=int) #minimum primary factor count required for a phi candidate
 parser.add_option("","--learn-phi-max-primary-gene-max-weight-q90",default=None,type=float) #optional maximum q90 of primary-factor max gene weight during phi search
@@ -430,10 +430,12 @@ parser.add_option("","--learn-phi-prune-gene-sets-num",default=1000,type=int) #d
 parser.add_option("","--learn-phi-max-num-iterations",default=None,type=int) #during phi search only, cap the NMF iteration budget used for each tested phi candidate
 parser.add_option("","--alpha0",default=10,type=float) #alpha prior on lambda k for factorization (larger makes more sparse)
 parser.add_option("","--beta0",default=1,type=float) #beta prior on lambda k for factorization
-parser.add_option("","--factor-runs",default=1,type=int) #number of repeated random restarts for factorization
-parser.add_option("", "--consensus-matching", type="choice", choices=["reference", "pooled"], default="reference",
+parser.add_option("","--factor-runs",default=5,type=int) #number of repeated random restarts for factorization
+parser.add_option("", "--consensus-matching", type="choice", choices=["reference", "pooled"], default="pooled",
                   help="Reference-centered matching or supported complete-link pooling across all restarts")
-parser.add_option("","--consensus-nmf",default=False,action="store_true") #aggregate repeated random restarts into a consensus factorization
+parser.add_option("", "--no-consensus-nmf", dest="consensus_nmf", default=True, action="store_false",
+                  help="Keep the best restart instead of pooling; --factor-runs 1 requests one fit")
+parser.add_option("","--consensus-nmf",default=True,action="store_true") #aggregate repeated random restarts into a consensus factorization
 parser.add_option("","--consensus-min-factor-cosine",default=0.7,type=float) #minimum cosine similarity required to align factors across runs
 parser.add_option("","--consensus-min-run-support",default=0.5,type=float) #minimum fraction of runs that must support a consensus factor
 parser.add_option("","--consensus-aggregation",default="median",type=str) #aggregation rule for matched factor loadings across runs
@@ -1537,6 +1539,14 @@ def _bootstrap_cli(argv=None):
 
     _normalize_optional_phewas_stage_options(parsed_options, warn)
 
+    try:
+        from .defaults import apply_factor_defaults
+    except ImportError:
+        from defaults import apply_factor_defaults
+    apply_factor_defaults(parsed_options, parsed_args[0] if parsed_args else None,
+                          parsed_cli_specified_dests | parsed_config_specified_dests)
+
+
     if parsed_options.discovery_model == "gene_by_gene":
         if "phi" not in parsed_cli_specified_dests and "phi" not in parsed_config_specified_dests:
             parsed_options.phi = float(_DEFAULT_GENE_BY_GENE_INITIAL_PHI)
@@ -1907,6 +1917,9 @@ def _bootstrap_cli(argv=None):
         )
     if parsed_options.anchor_aggregation not in {"multi", "any"}:
         bail("--anchor-aggregation must be one of: multi, any")
+    if parsed_options.discovery_model != "gene_by_gene":
+        if parsed_options.factor_retention == "backend_scale" or parsed_options.consensus_matching == "pooled":
+            bail("Backend-scale retention and pooled consensus require --discovery-model gene_by_gene")
     if parsed_options.discovery_model == "gene_by_gene":
         if parsed_options.factor_backend != "full":
             bail("--discovery-model gene_by_gene currently requires --factor-backend full")

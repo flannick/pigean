@@ -17,6 +17,13 @@ if str(SRC_ROOT) not in sys.path:
 from pigean import dashboard  # noqa: E402
 
 
+def test_default_display_uses_discovery_with_explicit_projection_opt_in():
+    parser = dashboard.build_parser()
+    base = ['--html-out', 'dashboard.html']
+    assert parser.parse_args(base).default_gene_loading_source == 'discovery'
+    assert parser.parse_args(base + ['--default-gene-loading-source', 'full_via_gene_sets']).default_gene_loading_source == 'full_via_gene_sets'
+
+
 def _write_gz(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8") as handle:

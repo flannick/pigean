@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 from tests.eaggl.test_eaggl_cli_unittest import EagglCliTest
+from tests.eaggl.test_recommended_defaults_unittest import RecommendedDefaultsTest
 
 
 class EagglCliReferenceTest(unittest.TestCase):
@@ -133,6 +134,7 @@ class EagglCliReferenceTest(unittest.TestCase):
 
         invalid_model = self._run(
             "factor",
+            "--discovery-model", "gene_by_annotation",
             "--gene-gene-profligate-correction",
             "linear",
             "--print-effective-config",
@@ -357,6 +359,7 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_factor_and_labeling_flags_round_trip(self) -> None:
         proc = self._run_ok(
             "factor",
+            "--discovery-model", "gene_by_annotation",
             "--max-num-factors",
             "12",
             "--phi",
@@ -632,6 +635,9 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
+            "--factor-retention": ["test_independent_controls_and_single_run"],
+            "--consensus-matching": ["test_independent_controls_and_single_run"],
+            "--no-consensus-nmf": ["test_independent_controls_and_single_run"],
             "--gene-set-projection-mode": ["test_supplied_factor_projection_flags_round_trip"],
             "--gene-set-clusters-marginal-out": ["test_supplied_factor_projection_flags_round_trip"],
             "--factor-gene-clusters-layout": ["test_supplied_factor_projection_flags_round_trip"],
@@ -805,7 +811,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         for flag, tests in flag_to_tests.items():
             for test_name in tests:
                 self.assertTrue(
-                    hasattr(self, test_name) or hasattr(EagglCliTest, test_name),
+                    hasattr(self, test_name) or hasattr(EagglCliTest, test_name) or hasattr(RecommendedDefaultsTest, test_name),
                     msg=f"Mapped test '{test_name}' for {flag} does not exist",
                 )
 

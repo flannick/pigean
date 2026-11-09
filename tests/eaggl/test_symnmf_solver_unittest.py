@@ -15,13 +15,13 @@ def test_numerical_defaults_are_mode_specific():
     options, _ = cli.parser.parse_args([])
     assert options.symnmf_update_method == 'auto'
     assert options.symnmf_stopping == 'adaptive'
-    assert options.fixed_basis_projection_method == 'legacy'
+    assert options.fixed_basis_projection_method == 'verified_quadratic'
     assert options.max_num_iterations is None
     assert options.rel_tol is None
     assert options.projection_context_in is None
     assert options.projection_context_out is None
-    assert options.factor_runs == 1
-    assert not options.consensus_nmf
+    assert options.factor_runs == 5
+    assert options.consensus_nmf
 
 
 def test_profiled_off_diagonal_gradient_and_stable_change():

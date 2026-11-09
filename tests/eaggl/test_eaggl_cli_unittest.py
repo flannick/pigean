@@ -299,7 +299,7 @@ class EagglCliTest(unittest.TestCase):
         self.assertEqual(payload["options"]["phi_selection_objective"], "composite")
         self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 100.0)
 
-        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "legacy")
+        proc = self._run("factor", "--discovery-model", "gene_by_annotation", "--learn-phi", "--phi-selection-objective", "legacy")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support", err)

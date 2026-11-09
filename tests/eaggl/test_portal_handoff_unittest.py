@@ -137,12 +137,15 @@ def test_live_label_path_with_mocked_http_is_fail_closed(tmp_path, monkeypatch, 
     assert 'TEST_SECRET_NOT_REAL' not in metadata
 
 
-def test_label_publication_preserves_all_numeric_columns_and_unassigned_rows(tmp_path):
+@pytest.mark.parametrize("full_gene", [False, True])
+def test_label_publication_preserves_all_numeric_columns_and_unassigned_rows(tmp_path, full_gene):
+    names = ("gene_clusters.out.gz", "gene_set_clusters.out.gz")
+    if full_gene:
+        names += ("gene_clusters_full_via_gene_sets.out.gz",)
     labels_dir = tmp_path/'labeling'
     labels_dir.mkdir()
     (labels_dir/'factor_labels.tsv').write_text('factor\tlabel\nFactor1\tNew label\n')
-    for name in ('gene_clusters.out.gz', 'gene_set_clusters.out.gz',
-                 'gene_clusters_full_via_gene_sets.out.gz'):
+    for name in names:
         with gzip.open(tmp_path/name, 'wt') as stream:
             stream.write('Gene\tcluster\tlabel\tFactor1\tCosine_Factor1\n'
                          'A\tFactor1\tOld\t.23456\t.8765\nB\tNA\tNA\t0\t0\n')
@@ -151,8 +154,7 @@ def test_label_publication_preserves_all_numeric_columns_and_unassigned_rows(tmp
     with gzip.open(labels_dir/'factors.labeled.out.gz', 'wt') as stream:
         stream.write('Factor\tlabel\tlambda\nFactor1\tNew label\t.1\n')
     module('run_portal_trait').publish_labels(tmp_path)
-    for name in ('gene_clusters.out.gz', 'gene_set_clusters.out.gz',
-                 'gene_clusters_full_via_gene_sets.out.gz'):
+    for name in names:
         with gzip.open(tmp_path/name, 'rt') as stream:
             rows = list(csv.DictReader(stream, delimiter='\t'))
         assert rows[0]['label'] == 'New label'
