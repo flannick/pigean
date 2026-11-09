@@ -17,6 +17,10 @@ Related docs:
 - `docs/eaggl/methods.tex`: theory and model formalization
 - `docs/eaggl/CLI_OPTIONS.md`: exhaustive generated inventory
 
+## Recommended defaults
+
+Fresh `factor` discovery follows [RECOMMENDED_DEFAULTS.md](RECOMMENDED_DEFAULTS.md). The commands below need only inputs and output paths; no extra algorithm flags are needed to obtain the recommendation. Explicit rectangular, supplied-factor and naive modes retain their previous defaults.
+
 ## Common Setup
 
 Use the local venv from the analysis workspace:
@@ -31,7 +35,6 @@ Useful common outputs:
 --factors-out results/factors.out \
 --gene-set-clusters-out results/gene_set_clusters.out \
 --gene-clusters-out results/gene_clusters.out \
---gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
 --trait-factor-links-out results/trait_factor_links.out \
 --params-out results/params.out
 ```
@@ -43,8 +46,8 @@ Discovery-stage note:
 3. Discovery-family diagnostics now include `discovery_family_mean_similarity` and `discovery_family_effective_size` alongside `discovery_family_size` and `discovery_weight`.
 4. The default discovery weighting is `effective_size`, which uses representative support multiplied by an effective family size instead of the removed family-average weighting.
 5. All retained gene sets are still projected and written after discovery, so adding correlated annotations mostly deepens annotation rather than redefining `W`.
-6. `--discovery-model gene_by_annotation` is the default retained-annotation workflow described above.
-7. `--discovery-model gene_by_gene` instead builds a retained-gene by retained-gene pairwise matrix from corrected annotation betas, fits a symmetric nonnegative factorization in gene space, and then projects retained gene sets onto the learned gene factors.
+6. `--discovery-model gene_by_annotation` explicitly selects the alternative rectangular retained-annotation workflow described above.
+7. The default `--discovery-model gene_by_gene` builds a retained-gene by retained-gene pairwise matrix from corrected annotation betas, fits a symmetric nonnegative factorization in gene space, and then projects retained gene sets onto the learned gene factors.
 8. In `gene_by_gene` mode, all retained gene sets contribute to pairwise evidence; discovery-family leader subsetting and redundancy weighting are ignored.
 9. In `gene_by_gene` mode, v1 currently requires `--factor-backend full`, `--learn-phi-backend sentinel_pruned`, and the default transposed factor matrix.
 10. In `gene_by_gene` mode, if `--phi` is not explicitly set, EAGGL starts factor learning and any `--learn-phi` search from `0.01` rather than `0.05`.
@@ -69,8 +72,8 @@ Core matrix/stat inputs (direct mode):
 
 Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
-Consensus cNMF is part of the normal factor workflow surface: add `--factor-runs N --consensus-nmf` to any of the factor workflows below when you want restart aggregation instead of a single fitted run.
-Automatic phi tuning is also part of the normal factor workflow surface: add `--learn-phi` to any factor workflow when you want EAGGL to search over candidate `phi` values before the final fit. The default `--phi-selection-objective composite` evaluates each candidate with a weighted score over factor size, non-overlap, entity concentration, high-priority gene/annotation coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. All component scores are scaled to `[0,1]`, unavailable components are skipped with weight renormalization, and the selected `phi` plus component diagnostics are written to `--params-out`. `--phi-selection-metrics-wide-out` and `--phi-selection-metrics-long-out` write explicit per-candidate audit tables. Use `--phi-selection-objective legacy --learn-phi-target-gene-effective-support S` when you want the previous target-size selector. Use `--learn-phi-values` with a comma-separated list when you want to evaluate a manual candidate grid while keeping the selected objective's scoring and tie-breakers.
+Fresh gene-by-gene discovery defaults to five restarts and pooled median consensus. Use `--factor-runs 1` for a single fit, `--no-consensus-nmf` for best-of-N selection, or `--consensus-matching reference` for the previous reference-centered matching. Rectangular discovery retains single-run defaults.
+Fixed phi 0.01 is recommended. Automatic phi tuning is an explicit alternative under investigation: add `--learn-phi` to any factor workflow when you want EAGGL to search over candidate `phi` values before the final fit. The default `--phi-selection-objective composite` evaluates each candidate with a weighted score over factor size, non-overlap, entity concentration, high-priority gene/annotation coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. All component scores are scaled to `[0,1]`, unavailable components are skipped with weight renormalization, and the selected `phi` plus component diagnostics are written to `--params-out`. `--phi-selection-metrics-wide-out` and `--phi-selection-metrics-long-out` write explicit per-candidate audit tables. Use `--phi-selection-objective legacy --learn-phi-target-gene-effective-support S` when you want the previous target-size selector. Use `--learn-phi-values` with a comma-separated list when you want to evaluate a manual candidate grid while keeping the selected objective's scoring and tie-breakers.
 
 EAGGL now exposes two scalable phi-search backends:
 
@@ -78,7 +81,7 @@ EAGGL now exposes two scalable phi-search backends:
    - the legacy shortcut
    - evaluates candidates on a correlation-pruned sentinel panel of up to `1000` genes and `1000` gene sets by default
 2. `--learn-phi-backend blockwise_global_w`
-   - the preferred scalable approximation to a full retained-panel search
+   - an alternative rectangular approximation to a full retained-panel search (requires `--discovery-model gene_by_annotation`)
    - keeps one shared global gene-factor basis and shared ARD state across block-local gene-set solves
    - evaluates all retained gene sets in blocks instead of replacing them with a single decorrelated sentinel panel
 
@@ -102,9 +105,9 @@ Use `--blockwise-gene-set-block-size`, `--blockwise-epochs`, `--blockwise-shuffl
 
 Factor output policy:
 
-1. `factors.out`, `gene_set_clusters.out`, and `gene_clusters.out` print only primary factors by default.
+1. Fresh gene-by-gene discovery prints all retained consensus factors by default, including their tier labels. Other modes retain primary-only output.
 2. Primary factors have `combined_mass_fraction >= 0.005`; secondary factors have `combined_mass_fraction >= 0.001`; smaller factors are treated as filtered tail factors.
-3. Use `--factor-output-scope primary_secondary` or `--factor-output-scope all` when you need to inspect the secondary or full ARD tail.
+3. Use `--factor-output-scope primary` or `primary_secondary` to restrict the displayed tiers; `all` does not override consensus support requirements.
 4. `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive diagnostics over all raw fitted factors.
 5. Factor identifiers are preserved rather than renumbered after filtering.
 
@@ -155,11 +158,11 @@ $PYTHON -m eaggl factor \
 Full-gene projection policy:
 
 1. When `--gene-clusters-full-out` is requested, the default projection basis is gene-set-routed (`gene_set_loadings`). This keeps full-gene display loadings tied to the retained gene-set factor representation.
-2. The explicit `--gene-clusters-full-via-gene-sets-out` output always uses gene-set-routed projection and is the recommended named output for user-facing runs.
+2. The explicit `--gene-clusters-full-via-gene-sets-out` output always uses gene-set-routed projection and is optional; it has not passed the discovery workflow biological-preservation qualification.
 3. Use `--full-gene-projection-method direct_gene_gene` with `--gene-clusters-full-out` only for a direct gene-gene diagnostic or comparison; `auto` preserves the legacy dispatch behavior.
-4. Dashboards and factor graphs prefer `gene_clusters_full_via_gene_sets.out.gz` when both full-gene outputs are present.
+4. Dashboards default to discovery gene loadings. Explicit full-gene sources remain selectable; factor graphs use the input table specified.
 
-Projection-only recommended full-gene output from gene-set factors:
+Optional projection-only full-gene output from gene-set factors:
 
 ```bash
 $PYTHON -m eaggl factor \
