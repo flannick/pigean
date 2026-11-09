@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `315`
+- Total options: `318`
 - `method_required`: `11`
-- `method_optional`: `199`
+- `method_optional`: `202`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `259`
+- visibility `expert`: `262`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -50,13 +50,14 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--blockwise-max-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_max_blocks` | `None` | optionally cap the number of processed blocks per epoch for debugging blockwise runs |
 | `--blockwise-shuffle-blocks` | `expert` | `yes` | `advanced_workflows` | `blockwise_shuffle_blocks` | `True` | shuffle block order between epochs in blockwise_global_w mode |
 | `--blockwise-warm-start` | `expert` | `yes` | `advanced_workflows` | `blockwise_warm_start` | `True` | warm-start neighboring phi candidates when using blockwise_global_w phi search |
-| `--cluster-row-min-max-loading` | `expert` | `yes` | `advanced_workflows` | `cluster_row_min_max_loading` | `0.01` | minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows |
+| `--cluster-row-min-max-loading` | `expert` | `yes` | `advanced_workflows` | `cluster_row_min_max_loading` | `0.0` | minimum row-wise maximum raw factor loading required to print gene/gene-set cluster rows |
 | `--consensus-aggregation` | `normal` | `yes` | `core_help` | `consensus_aggregation` | `median` | choose how matched factors are aggregated across restarts in consensus mode |
+| `--consensus-matching` | `expert` | `yes` | `expert_help` | `consensus_matching` | `pooled` | Reference-centered matching or supported complete-link pooling across all restarts |
 | `--consensus-min-factor-cosine` | `normal` | `yes` | `core_help` | `consensus_min_factor_cosine` | `0.7` | minimum cosine similarity needed to align a restart factor to the reference factor |
 | `--consensus-min-run-support` | `normal` | `yes` | `core_help` | `consensus_min_run_support` | `0.5` | minimum restart support fraction required to keep a consensus factor |
-| `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `False` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
+| `--consensus-nmf` | `normal` | `yes` | `core_help` | `consensus_nmf` | `True` | build a consensus factorization from multiple random restarts instead of keeping only the best run |
 | `--correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
-| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_annotation` | choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery |
+| `--discovery-model` | `normal` | `yes` | `core_help` | `discovery_model` | `gene_by_gene` | choose rectangular gene-by-annotation discovery or symmetric gene-by-gene discovery |
 | `--discovery-redundancy-weighting-mode` | `expert` | `yes` | `expert_help` | `discovery_redundancy_weighting_mode` | `effective_size` | - |
 | `--discovery-similarity-threshold` | `expert` | `yes` | `expert_help` | `discovery_similarity_threshold` | `0.35` | similarity threshold used to assign retained gene sets to discovery families |
 | `--factor-backend` | `normal` | `yes` | `core_help` | `factor_backend` | `full` | choose the final factorization backend: full or blockwise_global_w |
@@ -64,7 +65,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-gene-clusters-layout` | `expert` | `yes` | `expert_help` | `factor_gene_clusters_layout` | `genes-by-factors` | supplied gene-factor table layout: genes-by-factors (default) or factors-by-genes (Factor column followed by genes) |
 | `--factor-gene-set-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_gene_set_clusters_in` | `None` | load an existing gene_set_clusters.out(.gz) table for projection-only canonical trait linkage from the gene-set factor basis |
 | `--factor-max-iterations` | `expert` | `yes` | `expert_help` | `max_num_iterations` | `None` | Iteration ceiling (default: projected gradient 20000; legacy 100) |
-| `--factor-output-scope` | `normal` | `yes` | `core_help` | `factor_output_scope` | `primary` | choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all |
+| `--factor-output-scope` | `normal` | `yes` | `core_help` | `factor_output_scope` | `all` | choose which factor tiers are printed in factors and cluster outputs: primary, primary_secondary, or all |
 | `--factor-phewas-anchor-covariate` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_anchor_covariate` | `direct` | choose the anchor covariate for binary factor-phewas modes: direct, combined, or none |
 | `--factor-phewas-full-output` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_full_output` | `False` | expose the full expert factor-phewas surface, including combined and huber variants |
 | `--factor-phewas-gene-clusters-in` | `expert` | `yes` | `advanced_workflows` | `factor_phewas_gene_clusters_in` | `None` | compatibility alias for --factor-gene-clusters-in plus --run-factor-phewas |
@@ -80,11 +81,12 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--factor-prune-phenos-num` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_num` | `None` | - |
 | `--factor-prune-phenos-val` | `expert` | `yes` | `advanced_workflows` | `factor_prune_phenos_val` | `None` | - |
 | `--factor-rel-tol` | `expert` | `yes` | `expert_help` | `rel_tol` | `None` | Final factorization convergence tolerance |
-| `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `1` | run repeated random restarts for factorization; without consensus keep only the best run |
-| `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `euclidean` | choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw |
+| `--factor-retention` | `expert` | `yes` | `expert_help` | `factor_retention` | `backend_scale` | Factor retention: historical absolute lambda cut or symmetric solver ARD scale |
+| `--factor-runs` | `normal` | `yes` | `core_help` | `factor_runs` | `5` | run repeated random restarts for factorization; without consensus keep only the best run |
+| `--factor-top-loading-type` | `expert` | `yes` | `expert_help` | `factor_top_loading_type` | `raw` | choose top-loading metric for factor labels and factors.out summaries: euclidean (default), cosine, or raw |
 | `--filter-gene-set-p` | `expert` | `yes` | `expert_help` | `filter_gene_set_p` | `None` | - |
 | `--filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
-| `--fixed-basis-projection-method` | `expert` | `yes` | `expert_help` | `fixed_basis_projection_method` | `legacy` | Legacy update or opt-in quadratic projections with per-output stationarity checks |
+| `--fixed-basis-projection-method` | `expert` | `yes` | `expert_help` | `fixed_basis_projection_method` | `verified_quadratic` | Checked quadratic projections for recommended discovery; legacy update remains explicit |
 | `--full-gene-projection-method` | `expert` | `yes` | `advanced_workflows` | `full_gene_projection_method` | `gene_set_loadings` | choose the basis for --gene-clusters-full-out: gene_set_loadings (default, gene-set-routed), direct_gene_gene (diagnostic), or auto |
 | `--gauss-seidel-betas` | `expert` | `yes` | `expert_help` | `gauss_seidel_betas` | `-` | - |
 | `--gene-cor-file` | `expert` | `yes` | `expert_help` | `gene_cor_file` | `None` | - |
@@ -174,6 +176,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-blockwise-shuffle-blocks` | `expert` | `yes` | `expert_help` | `blockwise_shuffle_blocks` | `-` | - |
 | `--no-blockwise-warm-start` | `expert` | `yes` | `expert_help` | `blockwise_warm_start` | `-` | - |
 | `--no-cap-weights` | `expert` | `yes` | `expert_help` | `cap_weights` | `True` | - |
+| `--no-consensus-nmf` | `expert` | `yes` | `expert_help` | `consensus_nmf` | `True` | Keep the best restart instead of pooling; --factor-runs 1 requests one fit |
 | `--no-correct-betas-mean` | `expert` | `yes` | `expert_help` | `correct_betas_mean` | `None` | - |
 | `--no-discovery-redundancy-weighting` | `expert` | `yes` | `expert_help` | `no_discovery_redundancy_weighting` | `False` | - |
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
@@ -191,7 +194,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--permute-gene-sets` | `expert` | `yes` | `expert_help` | `permute_gene_sets` | `None` | - |
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | legacy trait-linkage threshold mode retained for compatibility; canonical fixed-W phenotype projection ignores it |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
-| `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.05` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
+| `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.01` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
 | `--phi-selection-annotation-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_frac` | `0.05` | - |
 | `--phi-selection-annotation-coverage-top-n` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_n` | `None` | - |
 | `--phi-selection-bridge-concentration-threshold` | `expert` | `yes` | `expert_help` | `phi_selection_bridge_concentration_threshold` | `0.6` | - |

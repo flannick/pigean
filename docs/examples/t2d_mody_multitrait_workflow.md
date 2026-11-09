@@ -4,13 +4,15 @@ This example runs a two-anchor T2D/MODY PIGEAN/EAGGL workflow:
 
 1. Run T2D PIGEAN from `dig-open-data` GWAS input.
 2. Run MODY PIGEAN from a MODY gene list.
-3. Run EAGGL `gene_by_gene` with both T2D and MODY as labeled anchors, using learn-phi and composite phi selection.
+3. Run EAGGL `gene_by_gene` with both T2D and MODY as labeled anchors, using the CLI defaults: fixed phi 0.01 and pooled five-restart consensus.
 4. Use EAGGL annotation bridge diagnostics to write one suggested annotation-exclude list for the two-anchor run.
 5. Re-run T2D and MODY PIGEAN with that exclude list.
 6. Re-run two-anchor EAGGL after exclusions.
 7. For both selected EAGGL runs, compute phenotype NNLS projection, export factors as a GMT, run PIGEAN multi-Y factor-trait enrichment, build factor graphs, and build one dashboard.
 
 The commands assume they are run from the `pigean/` repository root. They use only files in `bundles/model_large-2026.02.22/data/` plus the small MODY gene-list fixture in `tests/data/t2d_smoke/mody.gene.list`.
+
+The baseline below uses [recommended CLI defaults](../eaggl/RECOMMENDED_DEFAULTS.md). The four-trait qualification used single anchors; this multi-anchor/exclusion example remains a separate sensitivity analysis, not a claim of biological non-inferiority for exclusions. Optional `--learn-phi` and larger starting-factor budgets should be compared separately.
 
 ## Input Files
 
@@ -42,10 +44,10 @@ X_STRING="$DATA/gene_set_list_string_notext_medium.txt"
 
 T2D_PRE="$BASE/t2d_pre_exclusion/pigean"
 MODY_PRE="$BASE/mody_pre_exclusion/pigean"
-EAGGL_PRE="$BASE/t2d_mody_pre_exclusion/eaggl_learn_phi"
+EAGGL_PRE="$BASE/t2d_mody_pre_exclusion/eaggl_fixed_phi"
 T2D_POST="$BASE/t2d_post_exclusion/pigean"
 MODY_POST="$BASE/mody_post_exclusion/pigean"
-EAGGL_POST="$BASE/t2d_mody_post_exclusion/eaggl_learn_phi"
+EAGGL_POST="$BASE/t2d_mody_post_exclusion/eaggl_fixed_phi"
 DASH="$BASE/dashboard"
 mkdir -p "$T2D_PRE" "$MODY_PRE" "$EAGGL_PRE" "$T2D_POST" "$MODY_POST" "$EAGGL_POST" "$DASH"
 ```
@@ -108,13 +110,6 @@ mkdir -p "$T2D_PRE" "$MODY_PRE" "$EAGGL_PRE" "$T2D_POST" "$MODY_POST" "$EAGGL_PO
   --seed 0 \
   --hide-progress \
   --max-gb 2 \
-  --discovery-model gene_by_gene \
-  --anchor-aggregation multi \
-  --phi-selection-objective composite \
-  --learn-phi \
-  --max-num-factors 200 \
-  --factor-output-scope all \
-  --cluster-row-min-max-loading 0 \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
   --X-in "$X_OCR" \
@@ -136,19 +131,10 @@ mkdir -p "$T2D_PRE" "$MODY_PRE" "$EAGGL_PRE" "$T2D_POST" "$MODY_POST" "$EAGGL_PO
   --factor-metrics-out "$EAGGL_PRE/factor_metrics.out.gz" \
   --gene-clusters-out "$EAGGL_PRE/gene_clusters.out.gz" \
   --gene-set-clusters-out "$EAGGL_PRE/gene_set_clusters.out.gz" \
-  --gene-clusters-full-out "$EAGGL_PRE/gene_clusters_full.out.gz" \
-  --gene-clusters-full-via-gene-sets-out "$EAGGL_PRE/gene_clusters_full_via_gene_sets.out.gz" \
   --annotation-bridge-metrics-out "$EAGGL_PRE/annotation_bridge_metrics.out.gz" \
   --annotation-bridge-suggested-exclude-out "$EAGGL_PRE/annotation_bridge_suggested_exclude.txt" \
   --gene-factor-annotation-contribs-out "$EAGGL_PRE/gene_factor_annotation_contribs.out.gz" \
   --gene-factor-annotation-contribs-top-n 10 \
-  --learn-phi-report-out "$EAGGL_PRE/learn_phi_report.out.gz" \
-  --factor-phi-metrics-out "$EAGGL_PRE/factor_phi_metrics.out.gz" \
-  --factor-phi-factors-out "$EAGGL_PRE/factor_phi_factors.out.gz" \
-  --factor-phi-gene-set-clusters-out "$EAGGL_PRE/factor_phi_gene_set_clusters.out.gz" \
-  --factor-phi-gene-clusters-out "$EAGGL_PRE/factor_phi_gene_clusters.out.gz" \
-  --phi-selection-metrics-wide-out "$EAGGL_PRE/phi_selection_metrics_wide.out.gz" \
-  --phi-selection-metrics-long-out "$EAGGL_PRE/phi_selection_metrics_long.out.gz" \
   --params-out "$EAGGL_PRE/params.out.gz" \
   --log-file "$EAGGL_PRE/eaggl.run.log.gz" \
   --warnings-file "$EAGGL_PRE/eaggl.warnings.log.gz" \
@@ -214,13 +200,6 @@ EXCLUDE_T2D_MODY="$EAGGL_PRE/annotation_bridge_suggested_exclude.txt"
   --seed 0 \
   --hide-progress \
   --max-gb 2 \
-  --discovery-model gene_by_gene \
-  --anchor-aggregation multi \
-  --phi-selection-objective composite \
-  --learn-phi \
-  --max-num-factors 200 \
-  --factor-output-scope all \
-  --cluster-row-min-max-loading 0 \
   --X-in "$X_MOUSE" \
   --X-in "$X_MSIGDB" \
   --X-in "$X_OCR" \
@@ -242,19 +221,10 @@ EXCLUDE_T2D_MODY="$EAGGL_PRE/annotation_bridge_suggested_exclude.txt"
   --factor-metrics-out "$EAGGL_POST/factor_metrics.out.gz" \
   --gene-clusters-out "$EAGGL_POST/gene_clusters.out.gz" \
   --gene-set-clusters-out "$EAGGL_POST/gene_set_clusters.out.gz" \
-  --gene-clusters-full-out "$EAGGL_POST/gene_clusters_full.out.gz" \
-  --gene-clusters-full-via-gene-sets-out "$EAGGL_POST/gene_clusters_full_via_gene_sets.out.gz" \
   --annotation-bridge-metrics-out "$EAGGL_POST/annotation_bridge_metrics.out.gz" \
   --annotation-bridge-suggested-exclude-out "$EAGGL_POST/annotation_bridge_suggested_exclude.txt" \
   --gene-factor-annotation-contribs-out "$EAGGL_POST/gene_factor_annotation_contribs.out.gz" \
   --gene-factor-annotation-contribs-top-n 10 \
-  --learn-phi-report-out "$EAGGL_POST/learn_phi_report.out.gz" \
-  --factor-phi-metrics-out "$EAGGL_POST/factor_phi_metrics.out.gz" \
-  --factor-phi-factors-out "$EAGGL_POST/factor_phi_factors.out.gz" \
-  --factor-phi-gene-set-clusters-out "$EAGGL_POST/factor_phi_gene_set_clusters.out.gz" \
-  --factor-phi-gene-clusters-out "$EAGGL_POST/factor_phi_gene_clusters.out.gz" \
-  --phi-selection-metrics-wide-out "$EAGGL_POST/phi_selection_metrics_wide.out.gz" \
-  --phi-selection-metrics-long-out "$EAGGL_POST/phi_selection_metrics_long.out.gz" \
   --params-out "$EAGGL_POST/params.out.gz" \
   --log-file "$EAGGL_POST/eaggl.run.log.gz" \
   --warnings-file "$EAGGL_POST/eaggl.warnings.log.gz" \
@@ -327,13 +297,13 @@ done
 for EAGGL_DIR in "$EAGGL_PRE" "$EAGGL_POST"; do
   "$PY" -m eaggl.factor_graph \
     --eaggl-dir "$EAGGL_DIR" \
-    --gene-clusters-in "$EAGGL_DIR/gene_clusters_full_via_gene_sets.out.gz" \
+    --gene-clusters-in "$EAGGL_DIR/gene_clusters.out.gz" \
     --gene-set-clusters-in "$EAGGL_DIR/gene_set_clusters.out.gz" \
     --trait-factor-links-in "$EAGGL_DIR/trait_factor_links.nnls.out.gz" \
     --factor-trait-enrichments-in "$EAGGL_DIR/factor_trait_pigean_enrichments.out.gz" \
     --color-by auto \
-    --html-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.html" \
-    --json-out "$EAGGL_DIR/factor_graph.full_via_gene_sets.json" \
+    --html-out "$EAGGL_DIR/factor_graph.html" \
+    --json-out "$EAGGL_DIR/factor_graph.json" \
     > "$EAGGL_DIR/factor_graph.stdout.txt" \
     2> "$EAGGL_DIR/factor_graph.stderr.txt"
 done
@@ -358,15 +328,15 @@ The dashboard reads aggregate learn-phi outputs through `--eaggl-phi-sweep`; it 
   --pigean-group "multi_pre:mody_pre:T2D + MODY pre-exclusion" \
   --pigean-group "multi_post:t2d_post:T2D + MODY post-exclusion" \
   --pigean-group "multi_post:mody_post:T2D + MODY post-exclusion" \
-  --eaggl-phi-sweep "multi_pre:gene_by_gene_multi:$EAGGL_PRE" \
-  --eaggl-phi-sweep "multi_post:gene_by_gene_multi:$EAGGL_POST" \
+  --eaggl-run "multi_pre:gene_by_gene_multi:$EAGGL_PRE" \
+  --eaggl-run "multi_post:gene_by_gene_multi:$EAGGL_POST" \
   --run-title "multi_pre:T2D+MODY pre-exclusion EAGGL multi-anchor" \
   --run-title "multi_post:T2D+MODY post-exclusion EAGGL multi-anchor" \
   --x-input "$X_MOUSE" \
   --x-input "$X_MSIGDB" \
   --x-input "$X_OCR" \
   --x-input "$X_STRING" \
-  --default-gene-loading-source full_via_gene_sets \
+  --default-gene-loading-source discovery \
   --html-out "$DASH/t2d_mody_multitrait_dashboard.html" \
   --json-out "$DASH/t2d_mody_multitrait_dashboard.json" \
   > "$DASH/stdout.txt" \

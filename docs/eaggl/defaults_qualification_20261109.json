@@ -1,0 +1,94 @@
+{
+  "qualified_control_commit": "68d21eafe81fe262a29c817fe99f3b066baed6b6",
+  "comparison_scope": "Four traits, two seeds, fixed phi versus automatic phi, current versus proposed (32 configurations). Same six-library PIGEAN inputs per comparison.",
+  "production_replay": {
+    "trait": "CAD",
+    "seed": 202,
+    "phi": 0.01,
+    "factor_count": 31,
+    "scientific_configuration": "Minimal CLI defaults; numerical/consensus/retention flags omitted",
+    "wall_seconds": 117.78436449996661,
+    "peak_process_group_rss_bytes": 577650688,
+    "decompressed_export_sha256": {
+      "factors.out.gz": "2bb553e207f4f5d7093873bff012ad784b85aa3c47644ae3929959bd83513493",
+      "gene_clusters.out.gz": "59a4cc65b0afa3b1d3bbe7bf03a53dd28ac64ac19321498859d2b53f634f5978",
+      "gene_set_clusters.out.gz": "51db513c6c5351d571d6fe1efd35b68b5aeb342f3ea709701e6d47a890b80981",
+      "factor_metrics.out.gz": "e8c8e91fca42fcd5b34035ff5bc1ef562f6fceceda59fac8a6dfcc13caccb645"
+    },
+    "converged_restarts": 5,
+    "converged_projections": 6
+  },
+  "pooling_replay": [
+    {
+      "name": "T2D_auto_proposed_s101",
+      "clusters": 13,
+      "status": "PASS"
+    },
+    {
+      "name": "T2D_fixed_proposed_s202",
+      "clusters": 29,
+      "status": "PASS"
+    },
+    {
+      "name": "T2D_auto_proposed_s202",
+      "clusters": 12,
+      "status": "PASS"
+    },
+    {
+      "name": "CAD_auto_proposed_s101",
+      "clusters": 8,
+      "status": "PASS"
+    },
+    {
+      "name": "CAD_fixed_proposed_s202",
+      "clusters": 31,
+      "status": "PASS"
+    },
+    {
+      "name": "CAD_auto_proposed_s202",
+      "clusters": 11,
+      "status": "PASS"
+    },
+    {
+      "name": "Asthma_auto_proposed_s101",
+      "clusters": 12,
+      "status": "PASS"
+    },
+    {
+      "name": "Asthma_fixed_proposed_s202",
+      "clusters": 26,
+      "status": "PASS"
+    },
+    {
+      "name": "Asthma_auto_proposed_s202",
+      "clusters": 12,
+      "status": "PASS"
+    },
+    {
+      "name": "NAFLD_auto_proposed_s101",
+      "clusters": 8,
+      "status": "PASS"
+    },
+    {
+      "name": "NAFLD_fixed_proposed_s202",
+      "clusters": 22,
+      "status": "PASS"
+    },
+    {
+      "name": "NAFLD_auto_proposed_s202",
+      "clusters": 6,
+      "status": "PASS"
+    }
+  ],
+  "validation_notes": [
+    "Initial strict export comparison failed because harness omitted PYTHONHASHSEED=0; aligned profiles matched to roundoff. Corrected run passes byte-for-byte.",
+    "590-test EAGGL/dashboard suite: 585 passed, one skipped, four stale default/manifest expectations failed. Updated expectations and regenerated manifest; all failures pass focused reruns. Additional tests cover new dashboard default and optional launcher projection.",
+    "Final minimal effective configuration equals the replay configuration after parser-only default cleanup."
+  ],
+  "limitations": [
+    "Fixed-phi qualification is configuration-specific.",
+    "Automatic-phi T2D endocrine profile lost in one seed under complete-link support; auto remains explicit.",
+    "Some added weak profiles are seed-sensitive.",
+    "Full-gene annotation-mediated projection and multi-anchor biology are outside this qualification."
+  ]
+}

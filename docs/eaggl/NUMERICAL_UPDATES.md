@@ -6,7 +6,7 @@
 `gene_by_gene`, and legacy discovery for `gene_by_annotation`. An omitted iteration
 ceiling resolves to 20,000 for projected gradient or 100 for legacy; an omitted
 relative tolerance resolves to 1e-6 or 1e-4 respectively. Explicit settings are
-respected. The default discovery matrix remains `gene_by_annotation`.
+respected. The default discovery matrix is now `gene_by_gene`; explicit rectangular and supplied-factor modes retain their previous defaults.
 Direct Python state APIs retain their legacy defaults; automatic selection
 occurs in the CLI factor stage, not in every numerical API.
 
@@ -43,27 +43,21 @@ An adaptive fit that reaches its cap without confirmation is unconverged even
 if endpoint-only checks pass. Line-search failure cannot count as convergence.
 
 Consensus is matching plus median/mean aggregation and support filtering;
-there is no post-consensus reoptimization. Raw CLI consensus remains opt-in
-(`--factor-runs 1`, `--consensus-nmf` false). The reviewed portal launcher explicitly
-requests five independently seeded restarts and median consensus.
+there is no post-consensus reoptimization. Fresh gene-by-gene discovery now uses
+five independently seeded restarts and pooled median consensus, with complete-link
+cosine 0.7 and at least half the runs (three of five) supporting a group.
+See [RECOMMENDED_DEFAULTS.md](RECOMMENDED_DEFAULTS.md) for controls and limitations.
 
 ## Checked projections and saved context
 
-Fixed-basis projection remains legacy in the raw CLI for compatibility.
-The reviewed launcher explicitly requests:
+Fresh gene-by-gene discovery defaults to `verified_quadratic` fixed-basis
+projection, with 2,000 cycles and stationarity tolerance 1e-8. Supplied-factor,
+naive and rectangular modes retain legacy projection defaults. Optional audit
+outputs can be requested with:
 
 ```bash
---discovery-model gene_by_gene \
---symnmf-update-method projected_gradient \
---symnmf-stopping adaptive \
---factor-max-iterations 20000 --factor-rel-tol 1e-6 \
---factor-runs 5 --consensus-nmf \
---fixed-basis-projection-method verified_quadratic \
---projection-max-cycles 2000 --projection-stationarity-tol 1e-8 \
---factor-output-scope all --cluster-row-min-max-loading 0 \
---gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
---projection-context-out results/projection_context.npz \
---numerical-diagnostics-out results/numerical_diagnostics.json
+--numerical-diagnostics-out results/numerical_diagnostics.json \
+--projection-context-out results/projection_context.npz
 ```
 
 Checked projections solve the requested constrained nonnegative quadratic
@@ -100,6 +94,8 @@ final consensus and projections are written. Set `EAGGL_LLM_MODEL` and
 `EAGGL_LLM_AUTH_KEY` (or `OPENAI_API_KEY`) in the environment. OpenAI is the
 implemented provider in this pinned code; no particular model has been validated
 as best. Reuse a known-working supported model for the live smoke test.
+
+The launcher now inherits the recommended CLI discovery defaults. Optional `--full-gene-projection` requests annotation-mediated full-gene output; it is no longer a required display artifact.
 
 The helper uses top-five raw-loading genes and projected gene sets, without
 phenotype names. It preserves noncontiguous factor IDs and rejects missing,

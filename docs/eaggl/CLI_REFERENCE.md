@@ -36,6 +36,10 @@ Typical user workflow:
 5. optionally run factor-PheWAS as a secondary expert enrichment analysis
 6. optionally label the factors during fitting or later with `label` mode
 
+## Recommended workflow
+
+Fresh `factor` discovery uses the [recommended defaults](RECOMMENDED_DEFAULTS.md): gene-by-gene, fixed phi 0.01, five restarts, scale-aware retention, pooled median consensus and checked annotation projections. Input/output paths and seeds remain run choices. The commands below require no extra flags to enable that workflow.
+
 ## Common command shapes
 
 Default factor workflow from direct inputs:
@@ -48,7 +52,6 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
-  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out
 ```
 
@@ -60,11 +63,10 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
-  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out
 ```
 
-Consensus cNMF workflow from bundled PIGEAN outputs:
+Explicit three-restart alternative (the recommendation uses five):
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
@@ -74,19 +76,16 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
-  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --params-out results/params.out \
   --consensus-stats-out results/consensus.tsv
 ```
 
-Automatic phi-tuning workflow from bundled PIGEAN outputs:
+Optional automatic phi search, under investigation rather than the recommended baseline:
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
   --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
   --learn-phi \
-  --learn-phi-target-gene-effective-support 100 \
-  --learn-phi-max-num-iterations 50 \
   --learn-phi-report-out results/phi_search.tsv \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
@@ -111,7 +110,6 @@ PYTHONPATH=src python -m eaggl factor \
   --factors-out results/factors.out \
   --gene-set-clusters-out results/gene_set_clusters.out \
   --gene-clusters-out results/gene_clusters.out \
-  --gene-clusters-full-via-gene-sets-out results/gene_clusters_full_via_gene_sets.out.gz \
   --trait-factor-links-out results/trait_factor_links.out \
   --params-out results/params.out
 ```
@@ -235,9 +233,9 @@ Operational notes:
 - the default factor-PheWAS mode is `marginal_anchor_adjusted_binary`, which regresses thresholded phenotype-hit membership on one factor at a time while adjusting for direct anchor support
 - projection-only gene-basis phenotype clusters and factor-PheWAS use the raw `Factor1..FactorK` columns from `gene_clusters.out(.gz)` as the gene-factor loading matrix; any `combined`, `log_bf`, or `prior` columns in that file are reused as anchor covariates unless overridden by `--gene-stats-in`
 - projection-only gene-basis trait linkage requires `--gene-phewas-stats-in` and writes the long-form `trait_factor_links.out(.gz)` table
-- projection-only direct full-gene output from `--factor-gene-clusters-in` uses direct beta-weighted gene-gene evidence and therefore requires `--X-in` plus `--gene-set-stats-in`; request it with `--gene-clusters-full-out --full-gene-projection-method direct_gene_gene`; this is a diagnostic/alternative projection, not the default display projection
+- projection-only direct full-gene output from `--factor-gene-clusters-in` uses direct beta-weighted gene-gene evidence and therefore requires `--X-in` plus `--gene-set-stats-in`; request it with `--gene-clusters-full-out --full-gene-projection-method direct_gene_gene`; this is a diagnostic/alternative projection, not the default discovery display
 - projection-only gene-set-basis trait linkage uses the raw `Factor1..FactorK` columns from `gene_set_clusters.out(.gz)` with `--gene-set-phewas-stats-in`; request this with `--project-phenos-from-gene-sets`
-- projection-only gene-set-routed full-gene output from precomputed gene-set factors requires `--factor-gene-set-clusters-in` plus `--X-in`; write it with `--gene-clusters-full-via-gene-sets-out`, or with `--gene-clusters-full-out` when a gene-set factor basis is the only factor input; dashboards and factor graphs prefer this output when present
+- projection-only gene-set-routed full-gene output from precomputed gene-set factors requires `--factor-gene-set-clusters-in` plus `--X-in`; write it with `--gene-clusters-full-via-gene-sets-out`, or with `--gene-clusters-full-out` when a gene-set factor basis is the only factor input; this optional route has not passed the biological-preservation qualification for the recommended discovery workflow
 - `--gene-clusters-full-out` uses gene-set-routed projection by default (`--full-gene-projection-method gene_set_loadings`); use `--full-gene-projection-method direct_gene_gene` for a direct gene-gene diagnostic, or `auto` to preserve legacy dispatch
 - direct and gene-set-mediated full-gene projections can be written in one projection-only command by passing both `--factor-gene-clusters-in` and `--factor-gene-set-clusters-in` plus separate `--gene-clusters-full-out` and `--gene-clusters-full-via-gene-sets-out` paths
 - projection-only reuse expects the standard non-anchor `gene_clusters.out(.gz)` and `gene_set_clusters.out(.gz)` tables with one row per gene or gene set
@@ -283,23 +281,26 @@ These are first-tier factorization controls in the normal public EAGGL interface
 | Flag | Meaning |
 |---|---|
 | `--factor-runs` | number of random restarts for factorization; if greater than `1` without consensus enabled, EAGGL keeps the best-evidence run |
-| `--consensus-nmf` | aggregate multiple restarts into a consensus factorization instead of selecting a single best run |
-| `--consensus-min-factor-cosine` | minimum cosine similarity required to match a restart factor to the reference factor during consensus building |
+| `--consensus-nmf` / `--no-consensus-nmf` | aggregate multiple restarts into a consensus factorization instead of selecting a single best run |
+| `--consensus-min-factor-cosine` | minimum pairwise cosine for pooled groups, or reference-match cosine in reference mode |
 | `--consensus-min-run-support` | minimum fraction of restart runs that must support a consensus factor for it to be kept |
 | `--consensus-aggregation` | aggregation rule for matched factor loadings across supporting runs (`median` or `mean`) |
+| `--factor-retention` | `backend_scale` (recommended gene-by-gene default) or independent `legacy` opt-out |
+| `--consensus-matching` | `pooled` (recommended gene-by-gene default) or independent `reference` opt-out |
 
-Operational note:
+Operational notes:
+
 - `--consensus-nmf` requires `--factor-runs >= 2`.
-- If `--factor-runs > 1` and `--consensus-nmf` is not set, EAGGL performs multi-start factorization and keeps only the best-evidence run.
+- If `--factor-runs > 1` and consensus is disabled with `--no-consensus-nmf`, EAGGL performs multi-start factorization and keeps only the best-evidence run.
 
 ### Automatic phi tuning
 
-These are first-tier factorization controls when you want EAGGL to choose a better `phi` automatically rather than trusting a single fixed guess.
+These optional controls search candidate phi values. Fixed phi 0.01 is the recommended baseline; the current search has not demonstrated consistently better biological preservation.
 
 | Flag | Meaning |
 |---|---|
 | `--learn-phi` | enable structural auto-tuning of `phi` before the final reported factorization |
-| `--learn-phi-target-gene-effective-support` | required with `--learn-phi`; target median effective gene support among primary factors |
+| `--learn-phi-target-gene-effective-support` | legacy target-size control; not required for composite selection; may also change the gene-pair prior unless that prior is explicit |
 | `--learn-phi-size-tolerance-frac` | fractional tolerance around the target primary-factor gene effective support; defaults to `0.25` |
 | `--learn-phi-min-primary-factors` | minimum primary factor count required for a candidate; defaults to `3` |
 | `--learn-phi-max-primary-gene-max-weight-q90` | optional spike guardrail: maximum 90th percentile of primary-factor maximum gene weight |
@@ -327,7 +328,7 @@ These are first-tier factorization controls when you want EAGGL to choose a bett
 Operational notes:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
 - The default `--phi-selection-objective composite` scores each candidate using factor size, non-overlap, entity concentration, high-priority coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. Each component is scaled to `[0,1]`; unavailable components are skipped and the remaining weights are renormalized.
-- Use `--phi-selection-objective legacy` to recover the previous target-size heuristic. In legacy mode, `--learn-phi` still requires one of the `--learn-phi-target-*` options.
+- Use `--phi-selection-objective legacy` to recover the previous target-size heuristic. In rectangular legacy mode, `--learn-phi` requires a target-size option; gene-by-gene legacy mode supplies its historical target mass automatically.
 - Composite weights can be overridden with `--phi-selection-composite-weights factor_size=0.15,nonoverlap=0.15,entity_concentration=0.15,coverage=0.25,reconstruction=0.10,coherence=0.10,factor_balance=0.05,annotation_bridge_qc=0.05`. Unknown names and negative weights are rejected.
 - `--phi-selection-target-factor-gene-mass` defaults to `100` and controls the composite factor-size score. If no legacy target is supplied, the same value is also used as the adaptive search-size target.
 - `--phi-selection-metrics-wide-out` writes one row per candidate with component scores, weights, contributions, and the final composite score. `--phi-selection-metrics-long-out` writes one row per candidate-component pair, including availability and unavailable reasons.
@@ -351,7 +352,7 @@ Operational notes:
 | `--discovery-redundancy-weighting-mode` | choose leader-family discovery weighting: `effective_size`, `log_effective_size`, or `none` |
 | `--no-discovery-redundancy-weighting` | disable the default redundancy-balanced discovery weighting |
 | `--discovery-similarity-threshold` | similarity threshold used when assigning retained gene sets to discovery families; defaults to `0.35` |
-| `--discovery-model` | choose whether discovery is learned from the default rectangular gene-by-annotation matrix (`gene_by_annotation`) or from a symmetric gene-by-gene pairwise matrix (`gene_by_gene`) |
+| `--discovery-model` | choose symmetric gene-by-gene discovery (`gene_by_gene`, default) or explicit rectangular discovery (`gene_by_annotation`) |
 | `--factor-prune-gene-sets-num` / `--factor-prune-gene-sets-val` | deprecated factor-stage discovery controls kept only as compatibility aliases; use the discovery flags above instead |
 | `--factor-prune-genes-num` / `--factor-prune-genes-val` | prune weak gene memberships from factor outputs |
 | `--factor-prune-phenos-num` / `--factor-prune-phenos-val` | prune weak phenotype memberships from factor outputs |
@@ -362,8 +363,8 @@ Operational notes:
 | `--blockwise-warm-start` | warm-start neighboring phi candidates in blockwise phi search |
 | `--blockwise-max-blocks` | optional debugging cap on the number of processed blocks per epoch |
 | `--blockwise-report-out` | write per-epoch blockwise diagnostics |
-| `--cluster-row-min-max-loading` | minimum row-wise maximum raw factor loading required to print gene and gene-set cluster rows; defaults to `0.01` |
-| `--factor-output-scope` | choose which factor tiers are printed in user-facing factor and cluster outputs: `primary` (default), `primary_secondary`, or `all` |
+| `--cluster-row-min-max-loading` | minimum row-wise maximum raw factor loading required to print gene and gene-set cluster rows; defaults to `0` for fresh gene-by-gene discovery and `0.01` otherwise |
+| `--factor-output-scope` | choose which factor tiers are printed in user-facing factor and cluster outputs: `primary`, `primary_secondary`, or `all` (fresh gene-by-gene default; other modes use `primary`) |
 
 Gene-by-gene expert controls:
 
@@ -400,7 +401,7 @@ Notes:
 - For multiple anchor traits in `gene_by_annotation` mode, `--anchor-aggregation multi` uses `sum_t p_i,t q_j,t` as the cell weight. `--anchor-aggregation any` uses cell-level noisy-OR, `1 - product_t (1 - p_i,t q_j,t)`, so gene support from one trait and annotation support from another do not create cross-trait weight.
 - For multiple anchor traits in `gene_by_gene` mode, EAGGL first constructs each per-trait pair target exactly as it would for a single-trait run. `multi` uses the equal average of all per-trait targets, so zero targets dilute support; `any` uses noisy-OR union when support from any anchor should be sufficient.
 - No hidden any pseudo-anchor is appended during fitting; `any` is used only when explicitly requested with `--anchor-aggregation any`.
-- By default, `factors.out` and cluster outputs print only primary factors, defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
+- In primary-only output, `factors.out` and cluster outputs print factors defined by `combined_mass_fraction >= 0.005`. Use `--factor-output-scope primary_secondary` to include factors with `combined_mass_fraction >= 0.001`, or `--factor-output-scope all` to audit the full ARD tail.
 - Automatic phi-selection metrics are also primary-scoped by default: redundancy and repeat-stability matching ignore the low-mass ARD tail unless `--learn-phi-metric-factor-scope all` is set. This option is separate from `--factor-output-scope`, which only controls printed factor and cluster rows.
 - `factor_metrics.out` and `factor_phi_metrics.out` remain exhaustive over all raw fitted factors. The optional `factor_phi_*` output tables follow `--factor-output-scope`, matching the final user-facing output policy for each tested phi.
 - Factor labels are not renumbered when output filtering is active: if `Factor7` is primary, it remains `Factor7`.
@@ -461,7 +462,7 @@ Labeling details and the rationale for keeping labeling integrated into `factor`
 | `--gene-set-clusters-out` | gene-set cluster output |
 | `--gene-clusters-out` | gene cluster output |
 | `--gene-clusters-full-out` | full-gene cluster output; uses gene-set-routed projection by default (override with `--full-gene-projection-method`) |
-| `--gene-clusters-full-via-gene-sets-out` | explicitly write the recommended gene-set-routed full-gene cluster output |
+| `--gene-clusters-full-via-gene-sets-out` | explicitly write optional gene-set-routed full-gene cluster output; not the qualified default display route |
 | `--full-gene-projection-method` | choose the basis for `--gene-clusters-full-out`: `gene_set_loadings` (default), `direct_gene_gene` (diagnostic), or `auto` (legacy dispatch) |
 | `--trait-factor-links-out` | canonical long-form trait-factor linkage output |
 | `--factor-phewas-stats-out` | factor-level PheWAS output |
@@ -482,7 +483,7 @@ For post-factor phenotype interpretation:
 - `trait_response_source` records the selected phenotype support column, usually `combined`
 - `--factor-gmt-out` exports the same thresholded factor gene sets for a PIGEAN `multi-y` run; factor-to-trait regression statistics such as `beta`, `beta_uncorrected`, `beta_tilde`, `se`, `z`, and `p_value` are intentionally produced by PIGEAN, not by EAGGL
 - `factor_total_mass` in `factors.out` reports the raw total mass of each factor on the canonical linkage basis used for that run
-- `factor_tier` and `combined_mass_fraction` in `factors.out` report the post-fit interpretability tier next to `lambda`; the default user-facing outputs include only primary factors unless `--factor-output-scope` is widened
+- `factor_tier` and `combined_mass_fraction` in `factors.out` report the post-fit interpretability tier next to `lambda`; fresh gene-by-gene discovery reports all retained factors with these tier labels; other modes default to primary-only
 - `factor_n_eff`, `factor_top_share`, `factor_top10_share`, and `broad_factor_flag` in `factors.out` summarize factor breadth on the retained projection basis; `broad_factor_flag` marks factors with `factor_n_eff >= 500` and `factor_top_share <= 0.01`
 - `--gene-stats-in` / `--gene-set-stats-in` runs treat the input statistics as an implicit `input_gene_stats` anchor
 - for factor-to-trait interpretation in EAGGL, rank by `nnls_loading`; for regression-style trait association strength, export `--factor-gmt-out` and run PIGEAN `multi-y`
@@ -512,7 +513,7 @@ Current reference tests should cover:
 
 Cluster files report raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*`. Cosine is the row loading vector's cosine similarity to the one-hot factor indicator; Euclidean is the row loading vector's distance to that indicator. The previous `Relative_Factor*` and `Combined_Factor*` cluster columns are no longer written.
 
-`--factor-top-loading-type` controls the metric used to choose top entities for `factors.out` summaries and labels. It defaults to `euclidean`; valid values are `euclidean`, `cosine`, and `raw`.
+`--factor-top-loading-type` controls the metric used to choose top entities for `factors.out` summaries and labels. It defaults to `raw` for fresh gene-by-gene discovery and `euclidean` otherwise; valid values are `euclidean`, `cosine`, and `raw`.
 
 ### Project GMT gene sets onto supplied gene factors
 
