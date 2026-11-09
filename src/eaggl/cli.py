@@ -357,6 +357,8 @@ parser.add_option("","--label-individually",default=False,action="store_true") #
 parser.add_option("","--gene-sets-for-labeling",action="append",default=None) #file of gene set identifiers to use as candidates for factor labels; may be repeated
 parser.add_option("","--gene-sets-for-labeling-id-col",default=None,type=str) #optional header column name for --gene-sets-for-labeling; defaults to first column for GMT compatibility
 parser.add_option("","--factor-top-loading-type",default="euclidean",type=str) #metric used for top genes/gene sets in factors.out and factor labels: raw, cosine, or euclidean
+parser.add_option("", "--factor-retention", type="choice", choices=["legacy", "backend_scale"], default="legacy",
+                  help="Factor retention: historical absolute lambda cut or symmetric solver ARD scale")
 parser.add_option("","--max-num-factors",default=30,type=int) #maximum k for factorization
 parser.add_option("","--phi",default=0.05,type=float) #phi prior on factorization. Higher values yield fewer factors.
 parser.add_option("","--discovery-model",type="choice",choices=["gene_by_annotation","gene_by_gene"],default="gene_by_annotation") #factor discovery target: rectangular gene-by-annotation or symmetric gene-by-gene

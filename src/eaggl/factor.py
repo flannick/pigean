@@ -178,6 +178,7 @@ class FactorExecutionConfig:
     learn_phi_prune_gene_sets_num: int | None = 1000
     learn_phi_max_num_iterations: int | None = None
     seed: int | None = None
+    factor_retention: str = "legacy"
     factor_runs: int = 1
     consensus_nmf: bool = False
     consensus_min_factor_cosine: float = 0.7
@@ -303,6 +304,7 @@ class FactorExecutionConfig:
             "alpha0": self.alpha0,
             "beta0": self.beta0,
             "seed": self.seed,
+            "factor_retention": self.factor_retention,
             "factor_runs": self.factor_runs,
             "consensus_nmf": self.consensus_nmf,
             "consensus_min_factor_cosine": self.consensus_min_factor_cosine,
@@ -1959,6 +1961,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         alpha0=options.alpha0,
         beta0=options.beta0,
         seed=options.seed,
+        factor_retention=getattr(options, "factor_retention", "legacy"),
         factor_runs=options.factor_runs,
         consensus_nmf=options.consensus_nmf,
         consensus_min_factor_cosine=options.consensus_min_factor_cosine,
