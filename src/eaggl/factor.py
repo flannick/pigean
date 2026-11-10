@@ -1876,6 +1876,7 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         learn_phi_prune_genes_num = resolved_max_num_discovery_genes
         if (
             getattr(options, "learn_phi", False)
+            and getattr(options, "phi_selection_objective", "composite") != "requirements"
             and learn_phi_target_gene_mass is None
             and learn_phi_target_gene_effective_support is None
         ):
