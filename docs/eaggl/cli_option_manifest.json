@@ -1625,7 +1625,7 @@
       "source_line": 433,
       "summary": "run repeated random restarts for factorization; without consensus keep only the best run",
       "type": "int",
-      "usage_references": 25
+      "usage_references": 26
     },
     {
       "action": null,
@@ -3767,7 +3767,7 @@
       "source_line": 378,
       "summary": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
       "type": null,
-      "usage_references": 309
+      "usage_references": 325
     },
     {
       "action": null,
@@ -4083,7 +4083,7 @@
       "source_line": 397,
       "summary": "stop after automatic phi selection and report writing instead of running the final full-panel factorization",
       "type": null,
-      "usage_references": 3
+      "usage_references": 4
     },
     {
       "action": null,
@@ -4146,7 +4146,7 @@
       "source_line": 398,
       "summary": "write per-candidate phi search diagnostics",
       "type": null,
-      "usage_references": 11
+      "usage_references": 14
     },
     {
       "action": null,
@@ -4251,7 +4251,7 @@
       "source_line": 392,
       "summary": "comma-separated explicit phi candidate values for automatic phi tuning; overrides adaptive candidate generation while preserving selection criteria",
       "type": null,
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": null,
@@ -4650,7 +4650,7 @@
       "source_line": 362,
       "summary": "maximum starting factor budget before shrinkage removes unsupported factors",
       "type": "int",
-      "usage_references": 15
+      "usage_references": 16
     },
     {
       "action": null,
@@ -5322,7 +5322,7 @@
       "source_line": 210,
       "summary": "Write discovery stopping and checked-projection diagnostics as JSON",
       "type": null,
-      "usage_references": 5
+      "usage_references": 8
     },
     {
       "action": "store_true",
@@ -5511,7 +5511,7 @@
       "source_line": 363,
       "summary": "base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors",
       "type": "float",
-      "usage_references": 103
+      "usage_references": 111
     },
     {
       "action": null,
@@ -5763,7 +5763,7 @@
       "source_line": 403,
       "summary": null,
       "type": "choice",
-      "usage_references": 12
+      "usage_references": 19
     },
     {
       "action": null,
@@ -5952,7 +5952,7 @@
       "source_line": 273,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 132
+      "usage_references": 133
     },
     {
       "action": null,

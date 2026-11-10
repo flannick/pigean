@@ -18,7 +18,7 @@ PIGEAN is the trait-to-gene and trait-to-gene-set inference layer.
 
 EAGGL is the latent-mechanism layer that follows PIGEAN.
 
-The [recommended EAGGL workflow](docs/eaggl/RECOMMENDED_DEFAULTS.md) is also the CLI default for fresh factor discovery: gene-by-gene discovery at fixed phi 0.01, five restarts, scale-aware retention and supported pooled consensus. Automatic phi selection remains an explicit alternative.
+The [recommended EAGGL workflow](docs/eaggl/RECOMMENDED_DEFAULTS.md) is also the CLI default for fresh factor discovery: gene-by-gene discovery at fixed phi 0.01, five restarts, scale-aware retention and supported pooled consensus. Automatic phi selection remains an explicit alternative. The experimental [requirements selector](docs/eaggl/REQUIREMENTS_PHI.md) is available with `--learn-phi --phi-selection-objective requirements`.
 - At a high level, it factorizes the weighted gene-by-annotation structure into a smaller number of latent mechanisms.
 - It then annotates those factors with genes, gene sets, canonical trait linkage summaries, and optionally expert factor-level phenotype enrichment.
 - The mathematical writeup is in:

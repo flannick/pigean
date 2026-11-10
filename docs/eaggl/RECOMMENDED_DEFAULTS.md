@@ -81,3 +81,5 @@ To reproduce the previous raw CLI gene-by-gene defaults:
 For the previous default rectangular model, select `--discovery-model gene_by_annotation`; omitted mode-specific values resolve to the previous single-run configuration and phi 0.05.
 
 Automatic composite selection needs only `--learn-phi`. Do not add `--learn-phi-target-gene-effective-support` merely to enable it: that legacy control can also alter the pair prior unless the latter is explicit. Inputs and scientific settings should be held fixed when comparing selection policies.
+
+The experimental [requirements-based selector](REQUIREMENTS_PHI.md) is a separate opt-in alternative: `--learn-phi --phi-selection-objective requirements`. It compares three full candidate resolutions with explicit evidence-preservation checks; it does not change the fixed-phi recommendation.

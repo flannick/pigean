@@ -576,3 +576,5 @@ uses sparse X multiplication and avoids a factor-by-factor Gram matrix. Joint
 projection retains the existing dense solver, so thousands of factors with large
 GMT collections can require substantial time and memory; joint convergence is
 approximate, especially for strongly overlapping factors.
+
+For the experimental full-fit requirements selector, use `--learn-phi --phi-selection-objective requirements`. Its frozen grid, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
