@@ -60,6 +60,12 @@ class RequirementsTest(unittest.TestCase):
         self.assertEqual(d['selected_phi'], .01)
         self.assertFalse(d['selection_qualified'])
 
+    def test_expanded_flat_range_does_not_move_selection(self):
+        b,r,t,q=self.fixture()
+        for phi in [.0025,.00125]:
+            b[phi]=b[.01].copy();r[phi]=[b[phi].copy() for _ in range(5)];q[phi]=True
+        self.assertEqual(select(b,r,t,q)['selected_phi'],.01)
+
     def test_invalid_scientific_inputs(self):
         b, r, t, q = self.fixture(); t[0, 1] = np.nan
         with self.assertRaises(ValueError): select(b, r, t, q)

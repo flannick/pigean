@@ -3,6 +3,7 @@
 import numpy as np
 
 PHIS = (0.005, 0.01, 0.02)
+ERROR_TOLERANCE = 0.2
 
 
 def align_candidate(genes, weights, target, target_indices, canonical_genes=None):
@@ -27,15 +28,16 @@ def select(bases, raws, target, qualified):
     Failed fits remain in diagnostics. They never turn a partial comparison into
     a qualified recommendation; a qualified fixed-0.01 fit remains the fallback.
     """
-    if any(set(x) != set(PHIS) for x in (bases, raws, qualified)):
-        raise ValueError('Requirements selection uses exactly 0.005, 0.01, 0.02')
+    if (not set(PHIS).issubset(bases) or any(set(x) != set(bases) for x in (raws, qualified))
+            or any(not np.isfinite(p) or p <= 0 for p in bases)):
+        raise ValueError('Requirements selection needs matching positive phi grids including 0.005, 0.01, 0.02')
     target = np.asarray(target, dtype=float).copy()
     if (target.ndim != 2 or target.shape[0] != target.shape[1] or len(target) < 2
             or not np.isfinite(target).all() or (target < 0).any()
             or not np.allclose(target, target.T, rtol=0, atol=1e-12)):
         raise ValueError('Requirements target must be a finite nonnegative symmetric matrix')
     np.fill_diagonal(target, 0)
-    for phi in PHIS:
+    for phi in sorted(bases):
         if len(raws[phi]) != 5:
             raise ValueError('Requirements selection needs five restarts per candidate')
         for w in [bases[phi], *raws[phi]]:
@@ -43,7 +45,7 @@ def select(bases, raws, target, qualified):
                     or not np.isfinite(w).all() or (w < 0).any()):
                 raise ValueError('Invalid or misaligned requirements loadings')
     result = _evaluate_frozen(bases, raws, target, qualified)
-    result['method'] = 'requirements-v4'
+    result['method'] = 'requirements-bounded-v1'
     result['all_candidates_qualified'] = all(qualified.values())
     result['fallback_qualified'] = bool(qualified[0.01])
     result['proposed_phi'] = result['selected_phi']
@@ -69,7 +71,7 @@ def components(bases, raws, target, qualified, contrast_as_filter=False, **kwarg
     d['supported_profiles'] = sum((p['eligible'] for p in d['profiles']))
     return d
 
-def _evaluate_frozen(bases, raws, target, qualified, cosine=0.9, residual=0.2, contrast=1.25, tolerance=0.2, **kwargs):
+def _evaluate_frozen(bases, raws, target, qualified, cosine=0.9, residual=0.2, contrast=1.25, tolerance=ERROR_TOLERANCE, **kwargs):
     d = components(bases, raws, target, qualified, cosine=cosine, residual=residual, contrast=contrast, **kwargs)
     d.update(claims_unique_partition=False, adequacy_certified=False, interpretation='Preserves relative fit within tested views; neither unique biological partition nor absolute adequacy certified')
     refs = [p for p in d['profiles'] if p['eligible']]
@@ -121,10 +123,7 @@ def _evaluate_frozen(bases, raws, target, qualified, cosine=0.9, residual=0.2, c
     d['views'] = views
     admissible = [v['phi'] for v in views if v['admissible']]
     if admissible:
-        mid = np.mean(np.log([min(admissible), max(admissible)]))
-        dist = {p: abs(np.log(p) - mid) for p in admissible}
-        m = min(dist.values())
-        chosen = min([p for p in admissible if dist[p] <= m + 1e-12], key=lambda p: (abs(np.log(p / 0.01)), p))
+        chosen = min(admissible, key=lambda p: (abs(np.log(p / 0.01)), p))
         d.update(selected_phi=chosen, status='provisional_resolution')
     else:
         d.update(selected_phi=0.01, status='unresolved_fallback')
