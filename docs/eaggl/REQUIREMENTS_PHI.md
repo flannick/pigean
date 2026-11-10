@@ -1,20 +1,21 @@
-# Experimental requirements-based phi selection
+# Requirements-based phi selection
 
-The recommended default remains fixed phi 0.01. To try the frozen requirements selector, add these flags to the recommended gene-by-gene factor command:
+Fresh recommended gene-by-gene discovery uses this selector by default. No algorithm flags are required. To request its audit outputs, add:
 
 ```bash
---learn-phi --phi-selection-objective requirements \
 --learn-phi-report-out results/phi_selection.tsv.gz \
 --numerical-diagnostics-out results/numerical_diagnostics.json.gz
 ```
+
+Use `--no-learn-phi` to retain fixed phi 0.01. An explicit `--phi VALUE` also fixes that value unless `--learn-phi` is explicitly enabled. CLI flags override configuration values; `"learn_phi": false` is the configuration opt-out. Explicit custom recipes outside the supported search scope require this opt-out or an explicit older selector, rather than silently running an unqualified search.
 
 Create the output directory first. This selector fits phi 0.005, 0.01 and 0.02 with five restarts each, using the same child seeds across candidates. Inputs load once. The chosen complete fit is reused, including annotation projections; there is no fourth fit.
 
 ## What it tries to preserve
 
-The older composite selector combines metrics using weights. This experimental alternative checks explicit requirements before choosing a representative acceptable resolution. Local gene-pair evidence cannot be traded away merely for a better aggregate score. Restart-supported weak profiles enter the comparison even when their contrast with the dominant signal is small. Cross-phi persistence is corroborating evidence, not a requirement that would automatically reject fine-only programs. Redundancy is checked separately. A separate error allowance still limits sensitivity to arbitrarily small effects.
+The older composite selector combines metrics using weights. This selector checks explicit requirements before choosing a representative acceptable resolution. Local gene-pair evidence cannot be traded away merely for a better aggregate score. Restart-supported weak profiles enter the comparison even when their contrast with the dominant signal is small. Cross-phi persistence is corroborating evidence, not a requirement that would automatically reject fine-only programs. Redundancy is checked separately. A separate error allowance still limits sensitivity to arbitrarily small effects.
 
-The frozen rule uses support from at least three of five restarts at cosine 0.9, a redundancy threshold of 0.2, and regional/global error-excess tolerance of 0.2. Among acceptable candidates it chooses the middle log-phi resolution, breaking a tie toward 0.01. These are research settings, not a calibrated probability of biological correctness.
+The frozen rule uses support from at least three of five restarts at cosine 0.9, a redundancy threshold of 0.2, and regional/global error-excess tolerance of 0.2. Among acceptable candidates it chooses the middle log-phi resolution, breaking a tie toward 0.01. These are empirically evaluated settings, not a calibrated probability of biological correctness.
 
 ## Scope and diagnostics
 
@@ -34,10 +35,17 @@ The frozen research rule was evaluated on archived six-library inputs for CAD, T
 
 Package decision parity is exact on all ten saved trait/seed grids. Full-workflow parity is evaluated separately from the scientific comparison. The research implementation cost about 2.7–2.9 times one fixed-phi workflow on BMI/FEV1-FVC, and about 2.3 times the old automatic selector. Integration reuses input loading and the selected fit but still performs fifteen restart fits.
 
-The limited grid and 30-factor starting capacity remain caveats; a supported final consensus may exceed 30. Neither the absence of flagged duplicates nor configured numerical convergence proves absence of fragmentation. Earlier numerical-stopping failures and biological exceptions remain reasons not to default the selector without further review.
+The limited grid and 30-factor starting capacity remain caveats; a supported final consensus may exceed 30. Neither the absence of flagged duplicates nor configured numerical convergence proves absence of fragmentation. Earlier numerical-stopping failures and biological exceptions remain documented limitations; numerical and comparison failures trigger the explicit fallback policy above.
 
-Plain `--learn-phi` retains the composite selector. `--phi-selection-objective legacy` retains the historical target-size alternative. Neither automatic path changes merely by installing this opt-in feature.
+Plain `--learn-phi` explicitly enables the requirements selector for fresh gene-by-gene discovery. Use `--learn-phi --phi-selection-objective composite` for the previous weighted-score selector or `--learn-phi --phi-selection-objective legacy` for target-size selection. Rectangular, supplied-factor and other modes keep their previous mode-specific defaults. Direct Python state APIs are unchanged.
 
 ## Package integration replay
 
-The [qualification receipt](requirements_qualification_20261109.json) records one full NAFLD seed-202 replay: phi 0.005,27 factors,15 numerically converged restart fits and18 converged projection checks. Discovery factors, annotation projections, lambdas, pair target and all four exported result tables exactly match the saved standalone phi-0.005 result. The integrated workflow took120seconds (122seconds including supervision) and0.41GiB peak process-tree RSS. Saved standalone fixed-0.01 and complete three-phi workflows took42 and171seconds respectively; these historical timings are descriptive, not a controlled benchmark. A preliminary eight-second attempt caught and fixed a configuration handoff before fitting. This qualifies implementation parity, not a new default.
+The [qualification receipt](requirements_qualification_20261109.json) records one full NAFLD seed-202 replay: phi 0.005,27 factors,15 numerically converged restart fits and18 converged projection checks. Discovery factors, annotation projections, lambdas, pair target and all four exported result tables exactly match the saved standalone phi-0.005 result. The integrated workflow took120seconds (122seconds including supervision) and0.41GiB peak process-tree RSS. Saved standalone fixed-0.01 and complete three-phi workflows took42 and171seconds respectively; these historical timings are descriptive, not a controlled benchmark. A preliminary eight-second attempt caught and fixed a configuration handoff before fitting. This receipt predates the default-policy change and qualifies implementation parity. The default release adds interface/override checks and a replay with algorithm flags omitted.
+
+
+## Default-policy qualification and separate follow-up
+
+The default uses only the validated three-point grid. Wider saved sweeps found actual preservation failures (CAD0.16, T2D0.32, NAFLD0.0025), but did not find lower boundaries for CAD/T2D; they do not define a replacement expanded-grid policy. A middle acceptable resolution is a reproducible convention, not a uniquely optimal biological resolution.
+
+A saved T2D loading audit found GCK/PDX1 and PPARG/ADIPOQ share a dominant factor across phi, optimizer seeds and retention/consensus controls. Across phi0.0003125–0.32, dominant shares varied by less than one percentage point for each gene. Broad membership therefore remains a separate input/model interpretability investigation, not a defect resolved by phi selection. Evidence preservation and lack of near-duplicates do not establish that each gene has one dominant mechanism.

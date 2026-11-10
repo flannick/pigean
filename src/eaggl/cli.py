@@ -375,7 +375,8 @@ parser.add_option("","--gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",defa
 parser.add_option("","--no-gene-gene-row-sum-cap",dest="gene_gene_row_sum_cap",action="store_false")
 parser.add_option("","--gene-gene-sparsity",default=0.0,type=float) #gene-by-gene mode only: optional L1 penalty on W
 parser.add_option("","--gene-gene-profligate-correction",type="choice",choices=["none","linear"],default="none") #gene-by-gene mode only: opt-in linear annotation-count correction for profligate genes
-parser.add_option("","--learn-phi",default=False,action="store_true") #automatically tune phi before the final reported factorization
+parser.add_option("","--learn-phi",default=False,action="store_true") #automatically select phi; enabled by default for fresh gene-by-gene discovery
+parser.add_option("","--no-learn-phi",dest="learn_phi",action="store_false") #use fixed phi (0.01 for gene-by-gene discovery); explicit --phi also fixes it unless --learn-phi is requested
 parser.add_option("","--learn-phi-max-redundancy",default=0.5,type=float) #maximum allowed within-run weighted Jaccard overlap between metric-scope factors during phi search, measured on gene loadings when available
 parser.add_option("","--learn-phi-max-redundancy-q90",default=0.35,type=float) #maximum allowed 90th percentile nearest-neighbor weighted Jaccard overlap during phi search
 parser.add_option("","--learn-phi-runs-per-step",default=1,type=int) #number of repeated restarts used to score each candidate phi
@@ -400,7 +401,7 @@ parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor 
 parser.add_option("","--factor-phi-factors-out",default=None) #write factors.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-set-clusters-out",default=None) #write gene_set_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-clusters-out",default=None) #write gene_clusters.out-style rows for each phi-search candidate with a leading phi column
-parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite","requirements"],default="composite") #phi-selection objective: legacy target-size, composite score, or experimental requirements
+parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite","requirements"],default="composite") #phi-selection objective: requirements for fresh gene-by-gene discovery, or explicit legacy/composite alternatives
 parser.add_option("","--phi-selection-composite-weights",default=None) #comma-separated composite phi-selection weights, e.g. factor_size=0.15,coverage=0.25
 parser.add_option("","--phi-selection-target-factor-gene-mass",default=100.0,type=float) #target factor gene mass used by composite phi-selection size score
 parser.add_option("","--phi-selection-size-log2-width",default=1.0,type=float) #log2 width around the target factor gene mass for composite size scoring
@@ -1767,22 +1768,6 @@ def _bootstrap_cli(argv=None):
         bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
     if parsed_options.phi_selection_objective not in set(["legacy", "composite", "requirements"]):
         bail("--phi-selection-objective must be one of: legacy, composite, requirements")
-    if parsed_options.phi_selection_objective == "requirements":
-        required = dict(learn_phi=True, phi=.01, discovery_model="gene_by_gene",
-                        factor_backend="full", factor_runs=5, consensus_nmf=True,
-                        consensus_matching="pooled", consensus_aggregation="median",
-                        consensus_min_run_support=.5, consensus_min_factor_cosine=.7,
-                        factor_retention="backend_scale", max_num_factors=30,
-                        fixed_basis_projection_method="verified_quadratic",
-                        symnmf_update_method="projected_gradient", symnmf_stopping="adaptive")
-        incompatible = [key for key, value in required.items() if getattr(parsed_options, key) != value]
-        incompatible += [key for key in ("learn_phi_values", "learn_phi_max_num_iterations",
-                         "learn_phi_target_gene_mass", "learn_phi_target_gene_effective_support")
-                         if getattr(parsed_options, key) is not None]
-        if parsed_options.learn_phi_only:
-            incompatible.append("learn_phi_only")
-        if incompatible:
-            bail("Requirements selection uses the frozen recommended full-fit recipe; incompatible options: " + ", ".join(incompatible))
     try:
         _eaggl_phi_selection.parse_composite_weights(parsed_options.phi_selection_composite_weights)
     except Exception as exc:
@@ -1943,6 +1928,23 @@ def _bootstrap_cli(argv=None):
             bail("--discovery-model gene_by_gene currently requires --learn-phi-backend sentinel_pruned")
         if parsed_options.no_transpose:
             bail("--discovery-model gene_by_gene currently requires the default transposed factor matrix")
+
+    if parsed_options.learn_phi and parsed_options.phi_selection_objective == "requirements":
+        required = dict(learn_phi=True, phi=.01, discovery_model="gene_by_gene",
+                        factor_backend="full", factor_runs=5, consensus_nmf=True,
+                        consensus_matching="pooled", consensus_aggregation="median",
+                        consensus_min_run_support=.5, consensus_min_factor_cosine=.7,
+                        factor_retention="backend_scale", max_num_factors=30,
+                        fixed_basis_projection_method="verified_quadratic",
+                        symnmf_update_method="projected_gradient", symnmf_stopping="adaptive")
+        incompatible = [key for key, value in required.items() if getattr(parsed_options, key) != value]
+        incompatible += [key for key in ("learn_phi_values", "learn_phi_max_num_iterations",
+                         "learn_phi_target_gene_mass", "learn_phi_target_gene_effective_support")
+                         if getattr(parsed_options, key) is not None]
+        if parsed_options.learn_phi_only:
+            incompatible.append("learn_phi_only")
+        if incompatible:
+            bail("Requirements selection uses the frozen recommended full-fit recipe; incompatible options: " + ", ".join(incompatible) + ". Use --no-learn-phi for fixed-phi custom recipes, or --learn-phi --phi-selection-objective composite for the previous automatic selector.")
 
     if len(parsed_args) < 1:
         bail(usage)

@@ -22,7 +22,7 @@ class RecommendedDefaultsTest(unittest.TestCase):
     def test_minimal_equals_explicit_recommended(self):
         minimal = self.config()
         explicit = self.config(
-            '--discovery-model', 'gene_by_gene', '--phi', '0.01',
+            '--discovery-model', 'gene_by_gene', '--phi', '0.01', '--learn-phi',
             '--factor-runs', '5', '--consensus-nmf',
             '--consensus-matching', 'pooled', '--consensus-aggregation', 'median',
             '--consensus-min-factor-cosine', '0.7', '--consensus-min-run-support', '0.5',
@@ -34,17 +34,18 @@ class RecommendedDefaultsTest(unittest.TestCase):
             '--factor-output-scope', 'all', '--cluster-row-min-max-loading', '0',
             '--factor-top-loading-type', 'raw')
         self.assertEqual(minimal, explicit)
-        self.assertFalse(minimal['learn_phi'])
+        self.assertTrue(minimal['learn_phi'])
+        self.assertEqual(minimal['phi_selection_objective'], 'requirements')
 
     def test_independent_controls_and_single_run(self):
         for retention in ('legacy', 'backend_scale'):
             for matching in ('reference', 'pooled'):
                 with self.subTest(retention=retention, matching=matching):
-                    c = self.config('--factor-retention', retention, '--consensus-matching', matching)
+                    c = self.config('--no-learn-phi', '--factor-retention', retention, '--consensus-matching', matching)
                     self.assertEqual(c['factor_retention'], retention)
                     self.assertEqual(c['consensus_matching'], matching)
-        self.assertFalse(self.config('--factor-runs', '1')['consensus_nmf'])
-        c = self.config('--no-consensus-nmf')
+        self.assertFalse(self.config('--no-learn-phi', '--factor-runs', '1')['consensus_nmf'])
+        c = self.config('--no-learn-phi', '--no-consensus-nmf')
         self.assertFalse(c['consensus_nmf'])
         self.assertEqual(c['factor_runs'], 5)
 
@@ -55,6 +56,8 @@ class RecommendedDefaultsTest(unittest.TestCase):
             with self.subTest(mode=mode, flags=flags):
                 c = self.config(*flags, mode=mode)
                 self.assertEqual(c['discovery_model'], 'gene_by_annotation')
+                self.assertFalse(c['learn_phi'])
+                self.assertEqual(c['phi_selection_objective'], 'composite')
                 self.assertEqual(c['phi'], .05)
                 self.assertEqual(c['factor_runs'], 1)
                 self.assertFalse(c['consensus_nmf'])
@@ -82,7 +85,7 @@ class RecommendedDefaultsTest(unittest.TestCase):
             self.assertEqual(c['phi'], .03)
             self.assertEqual(c['factor_retention'], 'backend_scale')
 
-    def test_auto_phi_is_explicit(self):
+    def test_auto_phi_explicit_matches_default(self):
         c = self.config('--learn-phi')
         self.assertTrue(c['learn_phi'])
         self.assertEqual(c['phi'], .01)

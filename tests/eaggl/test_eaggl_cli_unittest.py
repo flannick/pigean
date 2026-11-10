@@ -292,27 +292,27 @@ class EagglCliTest(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_invalid_phi_learning_settings_return_usage_error(self) -> None:
-        proc = self._run("factor", "--learn-phi", "--print-effective-config")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--print-effective-config")
         self.assertEqual(proc.returncode, 0)
         payload = json.loads(proc.stdout)
         self.assertTrue(payload["options"]["learn_phi"])
         self.assertEqual(payload["options"]["phi_selection_objective"], "composite")
         self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 100.0)
 
-        proc = self._run("factor", "--discovery-model", "gene_by_annotation", "--learn-phi", "--phi-selection-objective", "legacy")
+        proc = self._run("factor", "--discovery-model", "gene_by_annotation", "--learn-phi", "--phi-selection-objective", "composite", "--phi-selection-objective", "legacy")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi requires either --learn-phi-target-gene-mass or --learn-phi-target-gene-effective-support", err)
         self.assertNotIn("Traceback", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-mass", "-1")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-mass", "-1")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-mass must be positive", err)
 
         proc = self._run(
             "factor",
-            "--learn-phi",
+            "--learn-phi", "--phi-selection-objective", "composite",
             "--learn-phi-target-gene-mass",
             "100",
             "--learn-phi-target-gene-effective-support",
@@ -322,7 +322,7 @@ class EagglCliTest(unittest.TestCase):
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-mass and --learn-phi-target-gene-effective-support are mutually exclusive", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "-1")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "-1")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-target-gene-effective-support must be positive", err)
@@ -426,13 +426,13 @@ class EagglCliTest(unittest.TestCase):
         self.assertIn("no such option", err)
         self.assertNotIn("Traceback", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy", "1.2")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy must be in (0, 1]", err)
         self.assertNotIn("Traceback", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy-q90", "1.2")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-redundancy-q90", "1.2")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-redundancy-q90 must be in (0, 1]", err)
@@ -461,7 +461,8 @@ class EagglCliTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, msg=(proc.stderr or "") + (proc.stdout or ""))
         payload = json.loads(proc.stdout)
-        self.assertEqual(payload["options"]["learn_phi_target_gene_mass"], 100.0)
+        self.assertIsNone(payload["options"]["learn_phi_target_gene_mass"])
+        self.assertEqual(payload["options"]["phi_selection_objective"], "requirements")
 
         proc = self._run(
             "factor",
@@ -476,7 +477,7 @@ class EagglCliTest(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["options"]["phi"], 0.002)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-size-tolerance-frac", "-0.1")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-size-tolerance-frac", "-0.1")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-size-tolerance-frac must be nonnegative", err)
@@ -490,19 +491,19 @@ class EagglCliTest(unittest.TestCase):
         self.assertNotIn("Traceback", err)
 
     def test_invalid_phi_search_shortcut_settings_return_usage_error(self) -> None:
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-prune-genes-num", "0")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-prune-genes-num", "0")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-prune-genes-num must be at least 1", err)
         self.assertNotIn("Traceback", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-prune-gene-sets-num", "0")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-prune-gene-sets-num", "0")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-prune-gene-sets-num must be at least 1", err)
         self.assertNotIn("Traceback", err)
 
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-num-iterations", "0")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--learn-phi-max-num-iterations", "0")
         self.assertEqual(proc.returncode, 2)
         err = (proc.stderr or "") + (proc.stdout or "")
         self.assertIn("--learn-phi-max-num-iterations must be at least 1", err)

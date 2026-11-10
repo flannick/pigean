@@ -603,7 +603,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         self.assertEqual(opts["params_out"], "params.tsv")
 
     def test_reference_learn_phi_defaults_include_sentinel_prune(self) -> None:
-        proc = self._run("factor", "--learn-phi", "--learn-phi-target-gene-effective-support", "25", "--print-effective-config")
+        proc = self._run("factor", "--learn-phi", "--phi-selection-objective", "composite", "--learn-phi-target-gene-effective-support", "25", "--print-effective-config")
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
         opts = json.loads(proc.stdout)["options"]
         self.assertTrue(opts["learn_phi"])
@@ -622,6 +622,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         proc = self._run(
             "factor",
             "--learn-phi",
+            "--phi-selection-objective", "composite",
             "--learn-phi-max-fit-loss-frac",
             "0.07",
             "--learn-phi-target-gene-effective-support",
@@ -635,6 +636,8 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
+            "--phi-selection-objective": ["test_phi_selection_composite_flags_round_trip_and_validate", "test_minimal_equals_explicit_recommended"],
+            "--no-learn-phi": ["test_independent_controls_and_single_run"],
             "--factor-retention": ["test_independent_controls_and_single_run"],
             "--consensus-matching": ["test_independent_controls_and_single_run"],
             "--no-consensus-nmf": ["test_independent_controls_and_single_run"],

@@ -6525,7 +6525,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         INFO,
     )
 
-    if phi_selection_objective == "requirements":
+    if learn_phi and phi_selection_objective == "requirements":
         expected = (learn_phi and phi == .01 and discovery_model == "gene_by_gene"
                     and factor_backend == "full" and factor_runs == 5 and consensus_nmf
                     and consensus_matching == "pooled" and consensus_aggregation == "median"

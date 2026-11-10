@@ -1,6 +1,6 @@
 # Recommended EAGGL workflow and defaults
 
-Fresh `python -m eaggl factor` discovery uses the workflow below without extra algorithm flags. Choose inputs, output paths and a seed for reproducibility. The recommendation is fixed phi 0.01; automatic phi selection remains an explicit alternative under investigation.
+Fresh `python -m eaggl factor` discovery uses the workflow below without extra algorithm flags. Choose inputs, output paths and a seed for reproducibility. The recommendation is requirements-based automatic selection across phi 0.005, 0.01 and 0.02, with the selected fit reused.
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
@@ -19,7 +19,7 @@ The output directory must exist. `--eaggl-bundle-in` can replace the three input
 | Choice | Recommended CLI default | Independent alternative |
 |---|---|---|
 | Discovery target | `--discovery-model gene_by_gene`, corrected beta pair evidence | `--discovery-model gene_by_annotation` restores rectangular-mode defaults |
-| Sparsity parameter | Fixed `--phi 0.01` | Set another phi, or explicitly request `--learn-phi` |
+| Sparsity parameter | `--learn-phi --phi-selection-objective requirements` (implicit) | `--no-learn-phi` fixes 0.01; `--phi VALUE` fixes another value unless learning is explicitly enabled |
 | Numerical fit | Projected gradient, adaptive stopping, maximum 20,000 updates, relative tolerance 1e-6 | Explicit solver/stopping/iteration flags |
 | Retention | `--factor-retention backend_scale`: lambda threshold is the smaller of the requested threshold and the backend's scale-aware cutoff | `--factor-retention legacy` |
 | Restarts | `--factor-runs 5` | `--factor-runs 1` also disables implicit consensus |
@@ -32,7 +32,7 @@ The output directory must exist. `--eaggl-bundle-in` can replace the three input
 
 Pooling uses deterministic greedy complete-link grouping over all restarts, with at most one factor from each restart in a group. It does not optimize a global clustering objective or reoptimize consensus loadings. If no group meets support, the existing reference-run fallback is retained and recorded in consensus diagnostics; that is not a successful supported consensus.
 
-Explicit CLI or configuration values override defaults. Rectangular discovery, `naive_factor`, labeling and supplied-factor projection retain their previous mode-specific defaults. Direct Python state APIs retain their prior defaults. This recommendation does not silently change those APIs.
+Explicit CLI or configuration values override defaults. The requirements search supports the qualified recipe below; custom restart, rank, retention, consensus or solver recipes require `--no-learn-phi` or an explicit older selector. Rectangular discovery, `naive_factor`, labeling and supplied-factor projection retain their previous mode-specific defaults. Direct Python state APIs retain their prior defaults. This recommendation does not silently change those APIs.
 
 ## Evidence and limitations
 
@@ -47,7 +47,7 @@ Qualification compared current versus proposed retention/consensus at fixed phi 
 
 The fixed-phi comparisons preserved all reproducible reference profiles under the study's matching gates and recovered additional structure; some weak additions remained seed-sensitive. No within-output near-duplicates reached cosine 0.95. These checks support this configuration, not universal superiority or a claim that every extra factor is a separate biological mechanism.
 
-Automatic phi has a known exception: one T2D endocrine profile retained by reference-centered consensus was rejected by complete-link support in one seed. The raw restart fits were identical; a third hormone-related fit met the reference match but not every pairwise match. Automatic search also selected its upper boundary in 14 of 16 configurations. Its redesign is separate work; do not assume that a search-selected phi is better than fixed 0.01.
+The previous composite automatic selector had a known exception: one T2D endocrine profile retained by reference-centered consensus was rejected by complete-link support in one seed. The raw restart fits were identical; a third hormone-related fit met the reference match but not every pairwise match. Automatic search also selected its upper boundary in 14 of 16 configurations. The replacement requirements selector explicitly checks local evidence preservation before selecting; see its separate qualification below.
 
 Discovery gene loadings plus annotation projections are the qualified display route. Optional full-gene projections through annotations remain available but have not passed the same biological-preservation qualification. Multi-anchor runs, annotation exclusions and larger starting-factor budgets need their own biological review.
 
@@ -57,21 +57,21 @@ Numerical stopping and projection diagnostics do not establish biological validi
 
 [Qualification receipt](defaults_qualification_20261109.json) records the frozen control and output hashes. Production pooling reproduces group membership, ordering and minimum pair cosine in all 12 saved stage-capture configurations. One full CAD seed-202 run using minimal defaults reproduces all four qualified output tables exactly after decompression: 31 factors, five numerically converged restarts and six converged projections, 118 seconds and 0.54 GiB peak process-group RSS. CLI parity, explicit overrides, alternate modes and dashboard/launcher tests cover the release interface.
 
-A bare discovery command now performs five restarts, so it does more work than the former single-run CLI default. The already recommended five-restart workflow is the relevant comparison for the qualification above.
+A bare discovery command performs fifteen restart fits (five at each of three phi values). Inputs load once and the selected fit is reused. The prior five-restart fixed-phi workflow is available with `--no-learn-phi`. The integrated NAFLD comparison measured about122seconds/0.41GiB; cost varies with inputs.
 
 ## Reproduce previous choices
 
 To turn off only the two new features, keeping the other recommended settings:
 
 ```bash
---factor-retention legacy --consensus-matching reference
+--no-learn-phi --factor-retention legacy --consensus-matching reference
 ```
 
 To reproduce the previous raw CLI gene-by-gene defaults:
 
 ```bash
 --discovery-model gene_by_gene --phi 0.01 \
---factor-retention legacy --consensus-matching reference \
+--no-learn-phi --factor-retention legacy --consensus-matching reference \
 --factor-runs 1 --no-consensus-nmf \
 --fixed-basis-projection-method legacy \
 --factor-output-scope primary --cluster-row-min-max-loading 0.01 \
@@ -80,6 +80,8 @@ To reproduce the previous raw CLI gene-by-gene defaults:
 
 For the previous default rectangular model, select `--discovery-model gene_by_annotation`; omitted mode-specific values resolve to the previous single-run configuration and phi 0.05.
 
-Automatic composite selection needs only `--learn-phi`. Do not add `--learn-phi-target-gene-effective-support` merely to enable it: that legacy control can also alter the pair prior unless the latter is explicit. Inputs and scientific settings should be held fixed when comparing selection policies.
+Automatic composite selection is available with `--learn-phi --phi-selection-objective composite`. Do not add `--learn-phi-target-gene-effective-support` merely to enable it: that legacy control can also alter the pair prior unless the latter is explicit. Inputs and scientific settings should be held fixed when comparing selection policies.
 
-The experimental [requirements-based selector](REQUIREMENTS_PHI.md) is a separate opt-in alternative: `--learn-phi --phi-selection-objective requirements`. It compares three full candidate resolutions with explicit evidence-preservation checks; it does not change the fixed-phi recommendation.
+The default [requirements-based selector](REQUIREMENTS_PHI.md) compares three complete candidate resolutions using explicit evidence-preservation checks. On archived six-library CAD, T2D, Asthma, NAFLD, BMI and FEV1/FVC inputs it selected0.01 except NAFLD0.005. Saved decisions match exactly across ten trait/seed grids; one integrated NAFLD replay exactly matches selected native factors, projections and exported tables. These empirical checks support the bounded policy, not a claim of biological superiority or a unique optimal phi. Unresolved comparisons explicitly fall back to numerically qualified0.01; a failed baseline raises an error. Request selection/numerical reports to inspect this status.
+
+Broad T2D gene-loading overlap persists across phi and remains a separate investigation. The default change does not fix that overlap or establish exclusive gene memberships. Wider phi grids and starting-factor budgets remain outside the qualified selection interface.

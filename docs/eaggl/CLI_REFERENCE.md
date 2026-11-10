@@ -38,7 +38,7 @@ Typical user workflow:
 
 ## Recommended workflow
 
-Fresh `factor` discovery uses the [recommended defaults](RECOMMENDED_DEFAULTS.md): gene-by-gene, fixed phi 0.01, five restarts, scale-aware retention, pooled median consensus and checked annotation projections. Input/output paths and seeds remain run choices. The commands below require no extra flags to enable that workflow.
+Fresh `factor` discovery uses the [recommended defaults](RECOMMENDED_DEFAULTS.md): gene-by-gene, requirements-based selection across phi 0.005/0.01/0.02 with five restarts per candidate, scale-aware retention, pooled median consensus and checked annotation projections. Input/output paths and seeds remain run choices. The commands below require no extra flags to enable that workflow.
 
 ## Common command shapes
 
@@ -71,6 +71,7 @@ Explicit three-restart alternative (the recommendation uses five):
 ```bash
 PYTHONPATH=src python -m eaggl factor \
   --eaggl-bundle-in path/to/pigean_to_eaggl.tar.gz \
+  --no-learn-phi \
   --factor-runs 3 \
   --consensus-nmf \
   --factors-out results/factors.out \
@@ -80,7 +81,7 @@ PYTHONPATH=src python -m eaggl factor \
   --consensus-stats-out results/consensus.tsv
 ```
 
-Optional automatic phi search, under investigation rather than the recommended baseline:
+Default automatic phi selection with an explicit audit report:
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
@@ -93,9 +94,9 @@ PYTHONPATH=src python -m eaggl factor \
   --params-out results/params.out
 ```
 
-`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. Current `--learn-phi` diagnostics include the target factor size, primary-factor gene-support summaries, the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `primary_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
+`--params-out` is the resolved run record. For factor runs it writes the effective factor configuration, including restart and consensus settings, anchor/filter choices, labeling settings, the final `phi` used for fitting, and any `--learn-phi` search diagnostics. The default requirements selector records the selected resolution, comparison status and qualification, with per-candidate evidence and numerical checks in `--learn-phi-report-out` and its compressed JSON sidecar. The previous composite/legacy `--learn-phi` diagnostics include the target factor size, primary-factor gene-support summaries, the redundancy basis, candidate capped-status, nearest-neighbor overlap summaries (`redundancy_max` and `redundancy_q90`), factor-mass summaries (`effective_factor_count` and `primary_factor_count`), and convergence diagnostics such as final `delambda` and whether the scout fit hit the iteration cap.
 
-Scalable backend note:
+Scalable backend note (custom fixed-phi or older automatic recipes; the requirements selector uses the qualified full backend):
 - `--factor-backend full|blockwise_global_w` selects the final factorization backend.
 - `--learn-phi-backend sentinel_pruned|blockwise_global_w` selects the phi-search backend.
 - `blockwise_global_w` keeps one shared global gene-factor basis and one shared ARD state across block-local gene-set solves, so all retained gene sets can contribute during phi search and final factorization without requiring one giant in-memory solve.
@@ -295,11 +296,15 @@ Operational notes:
 
 ### Automatic phi tuning
 
-These optional controls search candidate phi values. Fixed phi 0.01 is the recommended baseline; the current search has not demonstrated consistently better biological preservation.
+Fresh gene-by-gene discovery defaults to `--learn-phi --phi-selection-objective requirements`. The [requirements selector](REQUIREMENTS_PHI.md) evaluates three full fits at phi 0.005/0.01/0.02 and reuses the selected fit. Use `--no-learn-phi` for fixed 0.01, or `--phi VALUE` to fix another resolution. Explicit `--learn-phi` overrides the fixed-phi interpretation.
+
+The target-size, scout, adaptive-grid and composite controls below apply only to the explicitly selected older algorithms, not to the requirements selector. Custom unsupported requirements recipes fail with opt-out guidance.
 
 | Flag | Meaning |
 |---|---|
-| `--learn-phi` | enable structural auto-tuning of `phi` before the final reported factorization |
+| `--learn-phi` | explicitly enable automatic selection (already default for fresh gene-by-gene discovery) |
+| `--no-learn-phi` | disable selection and use fixed phi; configuration equivalent: `learn_phi: false` |
+| `--phi-selection-objective` | `requirements` by default for fresh gene-by-gene discovery; explicit `composite` or `legacy` alternatives |
 | `--learn-phi-target-gene-effective-support` | legacy target-size control; not required for composite selection; may also change the gene-pair prior unless that prior is explicit |
 | `--learn-phi-size-tolerance-frac` | fractional tolerance around the target primary-factor gene effective support; defaults to `0.25` |
 | `--learn-phi-min-primary-factors` | minimum primary factor count required for a candidate; defaults to `3` |
@@ -325,9 +330,9 @@ These optional controls search candidate phi values. Fixed phi 0.01 is the recom
 | `--learn-phi-prune-gene-sets-num` | deprecated expert knob retained for compatibility; phi search now uses the same discovery plan as the final fit and this option is ignored |
 | `--learn-phi-max-num-iterations` | expert shortcut: during phi search only, cap candidate NMF iterations separately from the final factorization |
 
-Operational notes:
+Operational notes for explicit composite/legacy selection:
 - `--phi` remains the initial guess. With `--learn-phi`, EAGGL treats it as the starting point for search rather than the final fixed value.
-- The default `--phi-selection-objective composite` scores each candidate using factor size, non-overlap, entity concentration, high-priority coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. Each component is scaled to `[0,1]`; unavailable components are skipped and the remaining weights are renormalized.
+- The explicit `--phi-selection-objective composite` scores each candidate using factor size, non-overlap, entity concentration, high-priority coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. Each component is scaled to `[0,1]`; unavailable components are skipped and the remaining weights are renormalized.
 - Use `--phi-selection-objective legacy` to recover the previous target-size heuristic. In rectangular legacy mode, `--learn-phi` requires a target-size option; gene-by-gene legacy mode supplies its historical target mass automatically.
 - Composite weights can be overridden with `--phi-selection-composite-weights factor_size=0.15,nonoverlap=0.15,entity_concentration=0.15,coverage=0.25,reconstruction=0.10,coherence=0.10,factor_balance=0.05,annotation_bridge_qc=0.05`. Unknown names and negative weights are rejected.
 - `--phi-selection-target-factor-gene-mass` defaults to `100` and controls the composite factor-size score. If no legacy target is supplied, the same value is also used as the adaptive search-size target.
@@ -577,4 +582,4 @@ projection retains the existing dense solver, so thousands of factors with large
 GMT collections can require substantial time and memory; joint convergence is
 approximate, especially for strongly overlapping factors.
 
-For the experimental full-fit requirements selector, use `--learn-phi --phi-selection-objective requirements`. Its frozen grid, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
+The full-fit requirements selector is the fresh gene-by-gene default; `--learn-phi --phi-selection-objective requirements` makes it explicit. Its frozen grid, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
