@@ -61,7 +61,7 @@ A bare discovery command performs fifteen restart fits (five at each of three ph
 
 ## Reproduce previous choices
 
-To turn off only the two new features, keeping the other recommended settings:
+To restore fixed phi and the earlier retention/reference-consensus choices:
 
 ```bash
 --no-learn-phi --factor-retention legacy --consensus-matching reference

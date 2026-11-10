@@ -1,0 +1,52 @@
+{
+  "status": "PASS_DEFAULT_POLICY_INTERFACE_AND_REPLAY",
+  "date": "2026-11-10",
+  "tested_commit": "a39a8fb",
+  "scope": "Fresh recommended gene-by-gene discovery; bounded three-point requirements policy on archived matched inputs",
+  "phi_candidates": [
+    0.005,
+    0.01,
+    0.02
+  ],
+  "selected_phi": 0.005,
+  "selected_factors": 27,
+  "selection_qualified": true,
+  "saved_decision_grids": 10,
+  "converged_restarts": 15,
+  "converged_projection_checks": 18,
+  "workflow_seconds": 110.88142154202797,
+  "supervised_seconds": 111.89495366706979,
+  "peak_process_tree_rss_bytes": 410877952,
+  "full_suite": {
+    "passed": 596,
+    "subtests_passed": 46,
+    "skipped": 1,
+    "stale_manifest_failure": 1
+  },
+  "manifest_regenerated_and_exact_failed_test_passes": true,
+  "unresolved_test_failures": 0,
+  "skip_reason": "Sibling standalone EAGGL checkout absent",
+  "selected_exports_sha256_decompressed": {
+    "factors.out.gz": "094890553018ce12607c113e6f152b4f1916e7bb862987f54d6b89e84548f4eb",
+    "gene_clusters.out.gz": "e580186fa19a4e5c90c6cbdb5cd22ebde10250438e885ba70ccd33bc73f14785",
+    "gene_set_clusters.out.gz": "1178022cac3d24d29a108bab066024ef00c9a5432fc62be2b0372b1e3f50f072",
+    "factor_metrics.out.gz": "7f2a665795c587270a85e4d554c125bc4a543e7720d1b5749217aad38bcf3693"
+  },
+  "parity": "Exact versus both saved selected-phi output and prior opt-in integrated output",
+  "fit_and_selection_kernels_unchanged_since_opt_in": true,
+  "limitations": [
+    "Three-point grid and 30 starting factors per restart",
+    "Optimizer replication and evidence preservation do not establish biological truth",
+    "Shared four-gene dominant loading persists across phi and remains a separate investigation",
+    "An unresolved comparison falls back explicitly; a failed baseline errors"
+  ],
+  "receipt_hashes": {
+    "spec.json": "b324f704b50ada97e40afc42f58c19f571d95e12c886606a63be404c9c308072",
+    "supervised/run_receipt.json": "2643ab7e32cd1fdd1f5a2aacc8fdb6b5a25bbb07336cacf41f190ff1153aa08f",
+    "NAFLD_s202/parity.json": "6976cfd47dada61e9d2f5c0b9a45015684004c3eb138ed1a743866bdc7724967",
+    "decision_parity.json": "a923fcf7d02314ea160df50e4484f6668569f84695e0b06d9035955cda2e7953",
+    "tests_release.log": "1b0ff5c295094abb365aa455c3e360ffea955a6b57f6aa017675e796e6e1e0fd",
+    "manifest_recheck.log": "062a9752765b4af694c69bf9f3921792847a7bc763f4614c57251b44f1709f20",
+    "source_scope.json": "927857b1963bcebf456013ca22b623872e3e2addfc1569425d353f9e6f6d3b08"
+  }
+}
