@@ -66,4 +66,20 @@ The original qualification used the three-point grid; the bounded extension amen
 A saved T2D loading audit found GCK/PDX1 and PPARG/ADIPOQ share a dominant factor across phi, optimizer seeds and retention/consensus controls. Across phi0.0003125–0.32, dominant shares varied by less than one percentage point for each gene. Broad membership therefore remains a separate input/model interpretability investigation, not a defect resolved by phi selection. Evidence preservation and lack of near-duplicates do not establish that each gene has one dominant mechanism.
 
 
-The [default-command qualification receipt](requirements_default_qualification_20261110.json) records the release replay with all algorithm flags omitted: NAFLD selected 0.005 / 27 factors with exact selected-factor, projection, target and four-table parity against both the prior opt-in integration and standalone reference. All 15 restarts and 18 projection checks qualified; execution took112 seconds and 0.38 GiB peak process-tree RSS. The full EAGGL suite passed 596 tests and 46 subtests; one stale generated-manifest check passed after regeneration and one optional sibling-checkout test was skipped. No unresolved failures remain. Fixed-mode runtime, CLI/config precedence and other-mode defaults are covered.
+The original three-candidate [default-command qualification receipt](requirements_default_qualification_20261110.json) records the release replay with all algorithm flags omitted: NAFLD selected 0.005 / 27 factors with exact selected-factor, projection, target and four-table parity against both the prior opt-in integration and standalone reference. All 15 restarts and 18 projection checks qualified; execution took112 seconds and 0.38 GiB peak process-tree RSS. The full EAGGL suite passed 596 tests and 46 subtests; one stale generated-manifest check passed after regeneration and one optional sibling-checkout test was skipped. No unresolved failures remain. Fixed-mode runtime, CLI/config precedence and other-mode defaults are covered.
+
+
+## Bounded-extension qualification
+
+The [extension receipt](requirements_extension_qualification_20261110.json) records 616 passing EAGGL tests, 50 passing subtests and one optional sibling-checkout skip. Ten saved initial trait/seed grids retain their previous decisions exactly. Saved CAD, T2D, Asthma, BMI and FEV1/FVC comparisons stop after the initial three candidates under the default rule. Saved noninferior CAD/T2D controls reach the two-extra-candidate cap while keeping the selected resolution at 0.01.
+
+Two complete default-command checks passed with exact initial-candidate arrays and selected gene/annotation loadings, targets and four exported tables:
+
+| Trait and optimizer seed | Candidates evaluated | Selected phi / factors | Workflow time | Peak process-tree RSS |
+|---|---|---|---|---|
+| T2D 202 | 0.01, 0.005, 0.02 | 0.01 / 29 | 334 s | 0.64 GiB |
+| NAFLD 101 | 0.01, 0.005, 0.02, 0.0025 | 0.005 / 26 | 182 s | 0.39 GiB |
+
+For NAFLD seed101, 0.0025 remains admissible but improves local normalized error over 0.005 by at most 0.0754, below the 0.2 material-gain threshold. The default stops; noninferior mode would request 0.00125, which was not fitted in this qualification. In the earlier seed202 saved fits, 0.0025 fails preservation instead. Thus both seeds stop after four default candidates and retain 0.005, but the boundary rejection itself does not replicate. This supports bounded default behavior, not a universal lower boundary.
+
+All 35 live restarts and 42 projection checks qualified. An observer filename mismatch after T2D completed was corrected by checking its saved outputs; T2D was not refitted. Both fits used 518 seconds of the shared 1,200-second allocation and stayed below the 4 GiB ceiling. These timings are descriptive; neither the candidate cap nor these archived-input checks guarantees a fixed runtime on other datasets.

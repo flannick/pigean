@@ -1,0 +1,335 @@
+{
+  "status": "PASS_BOUNDED_EXTENSION",
+  "date": "2026-11-10",
+  "tested_commit": "c74c8adb3ee5163b9cddeb4ca92e557c24f448f2",
+  "initial_order": [
+    0.01,
+    0.005,
+    0.02
+  ],
+  "default_extension": "improvement",
+  "default_max_extra": 2,
+  "meaningful_gain_threshold": 0.2,
+  "threshold_interpretation": "Direct normalized-error improvement beyond existing practical preservation tolerance; not a significance test",
+  "saved_initial_grids_exact": 10,
+  "live_runs": [
+    {
+      "selected_phi": 0.01,
+      "selection_qualified": true,
+      "seconds": 333.55698033294175,
+      "status": "PASS",
+      "selected_factors": 29,
+      "restarts": 15,
+      "projection_checks": 18,
+      "initial_candidate_arrays_exact": true,
+      "selected_arrays_and_four_exports_exact": true,
+      "name": "T2D_s202",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "stop_reason": "no_eligible_edge",
+      "peak_process_tree_rss_bytes": 689995776,
+      "exports_sha256_decompressed": {
+        "factors.out.gz": "3bbf00dcf2f5cdbf38aa15d97cd13c4e6187773a5a52b2295e992ee6f879abe8",
+        "gene_clusters.out.gz": "1088d88ee10fc90f7763b29f312e2db6fa7fd9b1be606092ae6597e0ed7e5633",
+        "gene_set_clusters.out.gz": "f8ec76580a6d8464c4ee9b82b3a3e2595d4858ba33818b4a4dd55284918e2f5d",
+        "factor_metrics.out.gz": "023b701800a0c9cd3606915076d3d4a2fd5a381030a580a09b5e9fd891102438"
+      }
+    },
+    {
+      "selected_phi": 0.005,
+      "selection_qualified": true,
+      "seconds": 182.2219384170603,
+      "status": "PASS",
+      "selected_factors": 26,
+      "restarts": 20,
+      "projection_checks": 24,
+      "initial_candidate_arrays_exact": true,
+      "selected_arrays_and_four_exports_exact": true,
+      "name": "NAFLD_s101",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02,
+        0.0025
+      ],
+      "stop_reason": "no_eligible_edge",
+      "peak_process_tree_rss_bytes": 421691392,
+      "exports_sha256_decompressed": {
+        "factors.out.gz": "6e6dc38e2b4642277174887e8d1ad7fba740388ef4ac32020ee92e3e8a6d2308",
+        "gene_clusters.out.gz": "9eafadc6550456c033a08dc0de101e244334b1a8ded4aac16b40887a0e100b16",
+        "gene_set_clusters.out.gz": "28dcb624e743f0d98ee93d59997294d4e23bbd50c6b5222ef771c98276593dbc",
+        "factor_metrics.out.gz": "bc494ccf81f52c1e38d593559d637c2eb3ccc2565cdf8f793fe86fa34a4bb820"
+      }
+    }
+  ],
+  "boundary_findings": {
+    "NAFLD_s101": "0.0025 admissible but maximum local gain over 0.005 was 0.0754, below 0.2; stop without changing selected output",
+    "NAFLD_s202": "Saved 0.0025 candidate fails preservation; stop without changing selected output",
+    "interpretation": "Same default stopping/selection in both seeds, different boundary admissibility; do not claim a replicated rejection"
+  },
+  "full_suite": {
+    "passed": 616,
+    "subtests_passed": 50,
+    "skipped": 1,
+    "skip_reason": "Optional sibling standalone EAGGL checkout absent"
+  },
+  "default_saved_replay": [
+    {
+      "trait": "CAD",
+      "seed": 101,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "T2D",
+      "seed": 101,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "NAFLD",
+      "seed": 101,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.005,
+      "qualified": true,
+      "stop_reason": "meaningful_improvement",
+      "missing_saved_phi": 0.0025,
+      "initial_parity": true
+    },
+    {
+      "trait": "Asthma",
+      "seed": 101,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "NAFLD",
+      "seed": 202,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02,
+        0.0025
+      ],
+      "selected_phi": 0.005,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "CAD",
+      "seed": 202,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "T2D",
+      "seed": 202,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "Asthma",
+      "seed": 202,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "BMI",
+      "seed": 303,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    },
+    {
+      "trait": "FEV1toFVC",
+      "seed": 303,
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null,
+      "initial_parity": true
+    }
+  ],
+  "live_replay": [
+    {
+      "name": "T2D_s202",
+      "mode": "none",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "extension_disabled",
+      "missing_saved_phi": null
+    },
+    {
+      "name": "T2D_s202",
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null
+    },
+    {
+      "name": "T2D_s202",
+      "mode": "noninferior",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.01,
+      "qualified": true,
+      "stop_reason": "acceptable_edge",
+      "missing_saved_phi": 0.0025
+    },
+    {
+      "name": "NAFLD_s101",
+      "mode": "none",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02
+      ],
+      "selected_phi": 0.005,
+      "qualified": true,
+      "stop_reason": "extension_disabled",
+      "missing_saved_phi": null
+    },
+    {
+      "name": "NAFLD_s101",
+      "mode": "improvement",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02,
+        0.0025
+      ],
+      "selected_phi": 0.005,
+      "qualified": true,
+      "stop_reason": "no_eligible_edge",
+      "missing_saved_phi": null
+    },
+    {
+      "name": "NAFLD_s101",
+      "mode": "noninferior",
+      "fit_order": [
+        0.01,
+        0.005,
+        0.02,
+        0.0025
+      ],
+      "selected_phi": 0.005,
+      "qualified": true,
+      "stop_reason": "acceptable_edge",
+      "missing_saved_phi": 0.00125
+    }
+  ],
+  "total_supervised_seconds": 518.3099530830514,
+  "budget_seconds": 1200,
+  "memory_ceiling_bytes": 4294967296,
+  "observer_issue": "T2D fit completed; comparison initially expected a gzip diagnostics filename. Corrected checker reused saved outputs and passed. Only remaining NAFLD fit ran under remaining original budget; no T2D refit.",
+  "limitations": [
+    "Candidate count is bounded, not constant wall time",
+    "Qualifications concern tested views and archived inputs, not unique biological truth",
+    "Optional noninferior mode reaches cap on flat CAD/T2D saved grids; does not establish an outer boundary",
+    "Broad T2D gene membership remains a separate investigation"
+  ],
+  "receipt_hashes": {
+    "spec.json": "a34d901ed4b7d886aadedcdf76e8f0da9d8bf23c681c9437333edd08c3e9795a",
+    "spec_resume.json": "58188ed3cb84b8b729ce2011fb0258546bedfd462afc459a25b807054e6679c4",
+    "supervised/run_receipt.json": "674c457745f9cd07d1c975ead6c3ea2f7389817fe0b6e22d956ac5c079433a74",
+    "supervised_resume/run_receipt.json": "37a403f4a9ac98f7abd577a971460b83402228dd00f9b2c3cdab4cd95ed8471d",
+    "saved_replay.json": "e6b3f1ba7be828171acc30f594caf7f99b842d9f553f782e3e80fae8dc8d4469",
+    "live_replay.json": "d3676bd216e29dc2a905b063c6dd59f7cbf4dec18eaa9fb8a7625578ec2ee32b",
+    "full_tests.log": "4c213e9701d8c8823f5a341fca8e4ba899270a58c6b23845152f56ab124ea989",
+    "T2D_s202/parity.json": "a888e625b234f5dfc700a162933de92e948385518ff492ffcfb24b2b84b639f1",
+    "NAFLD_s101/parity.json": "148d89ae81e96ccc6c472db7933d7af0cb8c06130fa5d9c6a093184def7d24ed"
+  }
+}
