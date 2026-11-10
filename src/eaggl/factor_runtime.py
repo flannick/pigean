@@ -6134,7 +6134,7 @@ def _apply_consensus_solution(
     return consensus_state, diagnostics
 
 
-def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="euclidean", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_factor_gene_threshold=0.05, trait_factor_linkage_nnls_min_loading=0.0, trait_factor_linkage_nnls_max_value=1.0, factor_gmt_out=None, no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", factor_retention="legacy", consensus_matching="reference", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
+def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None, factor_runs=1, consensus_nmf=False, consensus_min_factor_cosine=0.7, consensus_min_run_support=0.5, consensus_aggregation="median", consensus_stats_out=None, learn_phi=False, learn_phi_max_redundancy=0.5, learn_phi_max_redundancy_q90=0.35, learn_phi_runs_per_step=1, learn_phi_min_run_support=0.6, learn_phi_min_stability=0.85, learn_phi_fit_loss_warning_frac=0.05, learn_phi_max_severe_fit_loss_frac=1.0, learn_phi_target_gene_mass=None, learn_phi_target_gene_effective_support=None, learn_phi_size_tolerance_frac=0.25, learn_phi_min_primary_factors=3, learn_phi_max_primary_gene_max_weight_q90=None, learn_phi_max_steps=5, learn_phi_values=None, learn_phi_expand_factor=2.0, learn_phi_weight_floor=None, learn_phi_metric_factor_scope="primary", learn_phi_mass_floor_frac=_DEFAULT_LEARN_PHI_MASS_FLOOR_FRAC, learn_phi_only=False, learn_phi_report_out=None, factor_phi_metrics_out=None, factor_phi_factors_out=None, factor_phi_gene_set_clusters_out=None, factor_phi_gene_clusters_out=None, phi_selection_objective="composite", phi_search_extension="improvement", phi_search_max_extra=2, phi_selection_composite_weights=None, phi_selection_target_factor_gene_mass=100.0, phi_selection_size_log2_width=1.0, phi_selection_loading_cap=1.0, phi_selection_min_entity_total_loading=0.01, phi_selection_bridge_concentration_threshold=0.60, phi_selection_coverage_min_loading=0.05, phi_selection_gene_coverage_top_frac=0.05, phi_selection_gene_coverage_top_n=None, phi_selection_annotation_coverage_top_frac=0.05, phi_selection_annotation_coverage_top_n=None, phi_selection_tie_tolerance=0.01, phi_selection_metrics_wide_out=None, phi_selection_metrics_long_out=None, factor_backend="full", learn_phi_backend="sentinel_pruned", blockwise_gene_set_block_size=5000, blockwise_epochs=3, blockwise_shuffle_blocks=True, blockwise_warm_start=True, blockwise_max_blocks=None, blockwise_report_out=None, factors_out=None, factor_metrics_out=None, gene_set_clusters_out=None, gene_clusters_out=None, cluster_row_min_max_loading=0.01, factor_output_scope="primary", learn_phi_prune_genes_num=1000, learn_phi_prune_gene_sets_num=1000, learn_phi_max_num_iterations=None, gene_set_filter_type=None, gene_set_filter_value=None, gene_or_pheno_filter_type=None, gene_or_pheno_filter_value=None, pheno_prune_value=None, pheno_prune_number=None, gene_prune_value=None, gene_prune_number=None, gene_set_prune_value=None, gene_set_prune_number=None, max_num_discovery_gene_sets=None, auto_discovery_subset=True, discovery_redundancy_weighting=True, discovery_redundancy_weighting_mode="effective_size", discovery_similarity_threshold=0.35, anchor_pheno_mask=None, anchor_gene_mask=None, anchor_any_pheno=False, anchor_any_gene=False, anchor_gene_set=False, run_transpose=True, max_num_iterations=100, rel_tol=1e-4, min_lambda_threshold=1e-3, lmm_auth_key=None, lmm_model=None, lmm_provider="openai", label_gene_sets_only=False, label_include_phenos=False, label_individually=False, gene_sets_for_labeling=None, factor_top_loading_type="euclidean", keep_original_loadings=False, project_phenos_from_gene_sets=False, pheno_capture_input="weighted_thresholded", trait_linkage_source="combined", trait_linkage_threshold=1.0, trait_linkage_computation_mode="sparse_full", trait_factor_linkage_factor_gene_threshold=0.05, trait_factor_linkage_nnls_min_loading=0.0, trait_factor_linkage_nnls_max_value=1.0, factor_gmt_out=None, no_trait_linkage=False, discovery_model="gene_by_annotation", anchor_aggregation="multi", gene_gene_beta_source="beta", gene_gene_pair_prior=None, gene_gene_pair_prior_effective_size=None, gene_gene_logbf_base="natural", gene_gene_diagonal_weight=0.0, gene_gene_matrix_floor=1e-3, gene_gene_excess_probability=True, gene_gene_row_sum_cap=True, gene_gene_sparsity=0.0, gene_gene_profligate_correction="none", factor_retention="legacy", consensus_matching="reference", *, bail_fn, warn_fn, log_fn, info_level, debug_level, trace_level, labeling_module):
     bail = bail_fn
     log = log_fn
     INFO = info_level
@@ -6167,8 +6167,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--factor-output-scope must be one of: primary, primary_secondary, all")
     if str(learn_phi_metric_factor_scope) not in {"primary", "all"}:
         bail("--learn-phi-metric-factor-scope must be one of: primary, all")
-    if str(phi_selection_objective) not in {"legacy", "composite"}:
-        bail("--phi-selection-objective must be one of: legacy, composite")
+    if str(phi_selection_objective) not in {"legacy", "composite", "requirements"}:
+        bail("--phi-selection-objective must be one of: legacy, composite, requirements")
     try:
         eaggl_phi_selection.parse_composite_weights(phi_selection_composite_weights)
     except Exception as exc:
@@ -6205,7 +6205,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--consensus-nmf requires --factor-runs >= 2")
     if factor_top_loading_type not in {"raw", "cosine", "euclidean"}:
         bail("--factor-top-loading-type must be one of: raw, cosine, euclidean")
-    if learn_phi:
+    if learn_phi and phi_selection_objective != "requirements":
         if phi <= 0:
             bail("--learn-phi requires --phi > 0")
         if learn_phi_target_gene_mass is None and learn_phi_target_gene_effective_support is None:
@@ -6524,6 +6524,32 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         ),
         INFO,
     )
+
+    if learn_phi and phi_selection_objective == "requirements":
+        expected = (learn_phi and phi == .01 and discovery_model == "gene_by_gene"
+                    and factor_backend == "full" and factor_runs == 5 and consensus_nmf
+                    and consensus_matching == "pooled" and consensus_aggregation == "median"
+                    and consensus_min_run_support == .5 and consensus_min_factor_cosine == .7
+                    and factor_retention == "backend_scale" and max_num_factors == 30
+                    and getattr(state, "internal_projection_method", None) == "verified_quadratic"
+                    and getattr(state, "internal_symnmf_update_method", None) == "projected_gradient"
+                    and getattr(state, "internal_symnmf_stopping", None) == "adaptive")
+        if not expected:
+            bail("Requirements selection requires --learn-phi and the recommended full gene-by-gene recipe (phi0.01,30 initial factors,5 pooled median restarts,verified projection,adaptive projected-gradient solver)")
+        if (learn_phi_values is not None or learn_phi_max_num_iterations is not None
+                or learn_phi_target_gene_mass is not None or learn_phi_target_gene_effective_support is not None
+                or learn_phi_only or lmm_auth_key is not None):
+            bail("Requirements selection uses a frozen full-fit grid; custom search/target/learn-only and inline labeling options are unsupported")
+        if any(x is not None for x in (factor_phi_metrics_out, factor_phi_factors_out,
+                factor_phi_gene_set_clusters_out, factor_phi_gene_clusters_out,
+                phi_selection_metrics_wide_out, phi_selection_metrics_long_out)):
+            bail("Requirements selection reports via --learn-phi-report-out and --numerical-diagnostics-out, not legacy scout tables")
+        from .phi_requirements_runtime import run as run_requirements
+        return run_requirements(state, seed=seed, factor_kwargs=factor_kwargs,
+                                consensus_stats_out=consensus_stats_out, report_out=learn_phi_report_out,
+                                consensus_min_run_support=consensus_min_run_support,
+                                consensus_min_factor_cosine=consensus_min_factor_cosine,
+                                search_extension=phi_search_extension, search_max_extra=phi_search_max_extra)
 
     if learn_phi:
         weight_floor = 0.01 if learn_phi_weight_floor is None else float(learn_phi_weight_floor)

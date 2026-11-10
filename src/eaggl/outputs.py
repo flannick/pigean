@@ -178,4 +178,12 @@ def write_main_factor_outputs(runtime, options):
         payload = dict(discovery_restarts=records,
                        projections=getattr(runtime, 'internal_projection_diagnostics', []),
                        convergence_interpretation='Configured stopping checks, not a global-optimality certificate')
-        Path(diagnostics_path).write_text(json.dumps(_json_safe(payload), indent=2, allow_nan=False)+'\n')
+        requirements = getattr(runtime, 'phi_requirements_diagnostics', None)
+        if requirements is not None:
+            payload['phi_selection'] = requirements
+            import gzip
+            opener = gzip.open if str(diagnostics_path).endswith('.gz') else open
+            with opener(diagnostics_path, 'wt') as handle:
+                json.dump(_json_safe(payload), handle, indent=2, allow_nan=False)
+        else:
+            Path(diagnostics_path).write_text(json.dumps(_json_safe(payload), indent=2, allow_nan=False)+'\n')

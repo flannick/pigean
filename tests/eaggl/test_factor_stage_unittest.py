@@ -459,6 +459,19 @@ class FactorStageHelpersTest(unittest.TestCase):
         self.assertEqual(cfg.learn_phi_prune_genes_num, 1000)
         self.assertEqual(cfg.learn_phi_target_gene_mass, 40.0)
 
+    def test_requirements_execution_config_preserves_native_pair_prior(self) -> None:
+        workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
+        inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
+        options = _options(discovery_model="gene_by_gene", learn_phi=True,
+                           phi_selection_objective="requirements", phi_search_extension="noninferior", phi_search_max_extra=1)
+        cfg = eaggl._build_factor_execution_config(options, workflow, inputs)
+        self.assertEqual(cfg.phi_search_extension, "noninferior")
+        self.assertEqual(cfg.phi_search_max_extra, 1)
+        self.assertIsNone(cfg.learn_phi_target_gene_mass)
+        self.assertIsNone(cfg.learn_phi_target_gene_effective_support)
+        self.assertIsNone(cfg.gene_gene_pair_prior)
+        self.assertIsNone(cfg.gene_gene_pair_prior_effective_size)
+
     def test_build_factor_execution_config_gene_by_gene_shares_discovery_gene_cap_with_phi_search(self) -> None:
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
         factor_inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)

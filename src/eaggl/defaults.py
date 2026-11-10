@@ -1,5 +1,7 @@
 """Mode-aware scientific defaults for the recommended factor workflow."""
 LEGACY_FACTOR_DEFAULTS = {
+    "learn_phi": False,
+    "phi_selection_objective": "composite",
     "phi": 0.05,
     "factor_runs": 1,
     "consensus_nmf": False,
@@ -12,6 +14,8 @@ LEGACY_FACTOR_DEFAULTS = {
 }
 RECOMMENDED_FACTOR_DEFAULTS = {
     **LEGACY_FACTOR_DEFAULTS,
+    "learn_phi": True,
+    "phi_selection_objective": "requirements",
     "phi": 0.01,
     "factor_runs": 5,
     "consensus_nmf": True,
@@ -40,6 +44,10 @@ def apply_factor_defaults(options, mode, explicit):
     for name, value in defaults.items():
         if name not in explicit:
             setattr(options, name, value)
+    # A supplied phi is a fixed resolution unless learning is also explicit.
+    # This preserves existing fixed-phi CLI and configuration recipes.
+    if "phi" in explicit and "learn_phi" not in explicit:
+        options.learn_phi = False
     # An explicit single-run request is a complete opt-out of restart aggregation.
     # Explicitly requesting consensus with one run still fails normal validation.
     if options.factor_runs == 1 and "consensus_nmf" not in explicit:

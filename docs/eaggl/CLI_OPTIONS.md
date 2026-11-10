@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `318`
+- Total options: `321`
 - `method_required`: `11`
-- `method_optional`: `202`
+- `method_optional`: `205`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `262`
+- visibility `expert`: `265`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -182,6 +182,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--no-filter-negative` | `expert` | `yes` | `expert_help` | `filter_negative` | `None` | - |
 | `--no-gene-gene-excess-probability` | `expert` | `yes` | `advanced_workflows` | `gene_gene_excess_probability` | `-` | - |
 | `--no-gene-gene-row-sum-cap` | `expert` | `yes` | `advanced_workflows` | `gene_gene_row_sum_cap` | `-` | - |
+| `--no-learn-phi` | `expert` | `yes` | `expert_help` | `learn_phi` | `-` | - |
 | `--no-linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--no-sparse-solution` | `expert` | `yes` | `expert_help` | `sparse_solution` | `None` | - |
 | `--no-trait-linkage` | `normal` | `yes` | `core_help` | `no_trait_linkage` | `False` | disable canonical trait linkage even when trait inputs are available |
@@ -195,6 +196,8 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--pheno-capture-input` | `expert` | `yes` | `advanced_workflows` | `pheno_capture_input` | `weighted_thresholded` | legacy trait-linkage threshold mode retained for compatibility; canonical fixed-W phenotype projection ignores it |
 | `--pheno-filter-value` | `expert` | `yes` | `expert_help` | `pheno_filter_value` | `1` | - |
 | `--phi` | `normal` | `yes` | `core_help` | `phi` | `0.01` | base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors |
+| `--phi-search-extension` | `expert` | `yes` | `expert_help` | `phi_search_extension` | `improvement` | - |
+| `--phi-search-max-extra` | `expert` | `yes` | `expert_help` | `phi_search_max_extra` | `2` | - |
 | `--phi-selection-annotation-coverage-top-frac` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_frac` | `0.05` | - |
 | `--phi-selection-annotation-coverage-top-n` | `expert` | `yes` | `expert_help` | `phi_selection_annotation_coverage_top_n` | `None` | - |
 | `--phi-selection-bridge-concentration-threshold` | `expert` | `yes` | `expert_help` | `phi_selection_bridge_concentration_threshold` | `0.6` | - |

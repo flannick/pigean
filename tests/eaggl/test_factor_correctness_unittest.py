@@ -222,7 +222,8 @@ def test_extra_export_does_not_change_discovery_mask_or_trait_scores(tmp_path):
     np.testing.assert_allclose(results[0][1], results[1][1], atol=1e-12)
 
 
-def test_fresh_fit_projects_extra_traits_without_changing_discovery(tmp_path):
+@pytest.mark.parametrize("fixed_flags", [["--phi", ".01"], ["--no-learn-phi"]])
+def test_fresh_fit_projects_extra_traits_without_changing_discovery(tmp_path, fixed_flags):
     genes = tmp_path/'gene_stats.tsv'
     genes.write_text('Gene\tcombined\tlog_bf\tprior\nG1\t5\t3\t2\nG2\t4\t2\t2\nG3\t4\t2\t2\n')
     sets = tmp_path/'gene_set_stats.tsv'
@@ -234,7 +235,7 @@ def test_fresh_fit_projects_extra_traits_without_changing_discovery(tmp_path):
     for extra in (False, True):
         command = ['factor', '--X-in', str(annotations), '--gene-stats-in', str(genes),
                    '--gene-set-stats-in', str(sets), '--discovery-model', 'gene_by_gene',
-                   '--seed', '7', '--max-num-factors', '2', '--phi', '.01']
+                   '--seed', '7', '--max-num-factors', '2', *fixed_flags]
         if extra:
             command += ['--gene-phewas-bfs-in', str(phenos), '--trait-factor-links-out', str(tmp_path/'links.tsv')]
         assert main_support._bootstrap_cli(command)

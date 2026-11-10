@@ -1,0 +1,47 @@
+{
+  "status": "PASS_OPT_IN_ENGINEERING_PARITY",
+  "tested_commit": "de2912650e711daa138904efd219c84c979e20c0",
+  "scientific_default_qualified": false,
+  "fixed_phi_default": 0.01,
+  "selected_phi": 0.005,
+  "selected_factors": 27,
+  "grid_factors": {
+    "0.005": 27,
+    "0.01": 22,
+    "0.02": 19
+  },
+  "exact_saved_decision_grids": 10,
+  "converged_restarts": 15,
+  "converged_projection_checks": 18,
+  "workflow_seconds": 119.9925615839893,
+  "supervised_seconds": 121.97182400000747,
+  "peak_process_tree_rss_bytes": 439287808,
+  "failed_first_attempt_seconds": 8.224599916022271,
+  "tests": {
+    "requirements": 13,
+    "existing_factor_runtime": 73,
+    "factor_stage": 52,
+    "broad_cli_passed": 169,
+    "regenerated_manifest_passed": 1
+  },
+  "checksums": {
+    "decision_parity.json": "b00095a9f3a52777be3c17fc6cd24b046c72a985577ad9d9733356670b66e98e",
+    "NAFLD_s202_retry/parity.json": "57a55c62c13c657f53b37b57050932f1e0d321ab84dff5eab650993f0e1cbe38",
+    "supervised_retry/run_receipt.json": "f5954e20332d0f24fac47a502fa9afce9be5c0b227ca82140b6938575928faf0",
+    "spec_retry.json": "286da94f5b1ca8d9af89beb082632837ea0437973d112cbd47f8b896a72378eb",
+    "requirements_tests_final.log": "708cdaa734d340e92a32afc1df031c53de3de7d704ac86b2a992edc4d662707d",
+    "factor_stage_tests.log": "8d750726ba8d90a4309c55ff2ad85dece878d69701c32b3adad0b38bc925bc12",
+    "cli_tests_recheck.log": "9367013af8075e7ed86ecf7c884a048f350317dc2e72b072ea47aa1fbfcd2224"
+  },
+  "limitations": [
+    "Archived matched PIGEAN inputs; not new scientific validation",
+    "Timing comparison with saved workflows is descriptive, not a controlled performance benchmark",
+    "Fixed grid and starting rank; earlier uncertainty and numerical failures retained"
+  ],
+  "export_parity": {
+    "factors.out.gz": "exact",
+    "gene_clusters.out.gz": "exact",
+    "gene_set_clusters.out.gz": "exact",
+    "factor_metrics.out.gz": "exact"
+  }
+}
