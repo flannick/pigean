@@ -50,6 +50,8 @@ def select(bases, raws, target, qualified):
     if not result['all_candidates_qualified']:
         result['selected_phi'] = 0.01
         result['status'] = 'incomplete_numerical_qualification'
+    if result['status'] != 'provisional_resolution':
+        result['selected_phi'] = 0.01
     result['selection_qualified'] = bool(result['all_candidates_qualified']
                                          and result['status'] == 'provisional_resolution')
     return result

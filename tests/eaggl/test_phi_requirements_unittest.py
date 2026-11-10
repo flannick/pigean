@@ -1,5 +1,6 @@
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
@@ -49,6 +50,15 @@ class RequirementsTest(unittest.TestCase):
         np.testing.assert_array_equal(aw[:, 0], [1, 2, 3])
         np.testing.assert_array_equal(at, canonical_t)
         with self.assertRaises(ValueError): align_candidate(genes, w, canonical_t, [0, 0, 1])
+
+    def test_background_proposal_is_reported_but_not_promoted(self):
+        b, r, t, q = self.fixture()
+        with patch('eaggl.phi_requirements._evaluate_frozen',
+                   return_value=dict(selected_phi=.005, status='background_or_unresolved')):
+            d = select(b, r, t, q)
+        self.assertEqual(d['proposed_phi'], .005)
+        self.assertEqual(d['selected_phi'], .01)
+        self.assertFalse(d['selection_qualified'])
 
     def test_invalid_scientific_inputs(self):
         b, r, t, q = self.fixture(); t[0, 1] = np.nan
