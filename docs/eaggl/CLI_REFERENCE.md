@@ -296,13 +296,15 @@ Operational notes:
 
 ### Automatic phi tuning
 
-Fresh gene-by-gene discovery defaults to `--learn-phi --phi-selection-objective requirements`. The [requirements selector](REQUIREMENTS_PHI.md) evaluates three full fits at phi 0.005/0.01/0.02 and reuses the selected fit. Use `--no-learn-phi` for fixed 0.01, or `--phi VALUE` to fix another resolution. Explicit `--learn-phi` overrides the fixed-phi interpretation.
+Fresh gene-by-gene discovery defaults to `--learn-phi --phi-selection-objective requirements`. The [requirements selector](REQUIREMENTS_PHI.md) starts with full fits at phi 0.005/0.01/0.02, allows at most two extra candidates when an edge meaningfully improves evidence preservation, and reuses the selected fit. Use `--no-learn-phi` for fixed 0.01, or `--phi VALUE` to fix another resolution. Explicit `--learn-phi` overrides the fixed-phi interpretation.
 
 The target-size, scout, adaptive-grid and composite controls below apply only to the explicitly selected older algorithms, not to the requirements selector. Custom unsupported requirements recipes fail with opt-out guidance.
 
 | Flag | Meaning |
 |---|---|
 | `--learn-phi` | explicitly enable automatic selection (already default for fresh gene-by-gene discovery) |
+| `--phi-search-extension` | requirements-only: `improvement` (default), `noninferior`, or `none`; controls when an edge is explored |
+| `--phi-search-max-extra` | requirements-only: total extra-candidate budget across both directions, default `2`; `0` keeps three points |
 | `--no-learn-phi` | disable selection and use fixed phi; configuration equivalent: `learn_phi: false` |
 | `--phi-selection-objective` | `requirements` by default for fresh gene-by-gene discovery; explicit `composite` or `legacy` alternatives |
 | `--learn-phi-target-gene-effective-support` | legacy target-size control; not required for composite selection; may also change the gene-pair prior unless that prior is explicit |
@@ -582,4 +584,4 @@ projection retains the existing dense solver, so thousands of factors with large
 GMT collections can require substantial time and memory; joint convergence is
 approximate, especially for strongly overlapping factors.
 
-The full-fit requirements selector is the fresh gene-by-gene default; `--learn-phi --phi-selection-objective requirements` makes it explicit. Its frozen grid, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
+The full-fit requirements selector is the fresh gene-by-gene default; `--learn-phi --phi-selection-objective requirements` makes it explicit. Its initial grid, bounded extension, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.

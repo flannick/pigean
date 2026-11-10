@@ -12,6 +12,7 @@ from pathlib import Path
 
 from tests.eaggl.test_eaggl_cli_unittest import EagglCliTest
 from tests.eaggl.test_recommended_defaults_unittest import RecommendedDefaultsTest
+from tests.eaggl.test_phi_requirements_cli_unittest import RequirementsCliTest
 
 
 class EagglCliReferenceTest(unittest.TestCase):
@@ -636,6 +637,8 @@ class EagglCliReferenceTest(unittest.TestCase):
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
+            "--phi-search-extension": ["test_extension_options_and_validation"],
+            "--phi-search-max-extra": ["test_extension_options_and_validation"],
             "--phi-selection-objective": ["test_phi_selection_composite_flags_round_trip_and_validate", "test_minimal_equals_explicit_recommended"],
             "--no-learn-phi": ["test_independent_controls_and_single_run"],
             "--factor-retention": ["test_independent_controls_and_single_run"],
@@ -814,7 +817,7 @@ class EagglCliReferenceTest(unittest.TestCase):
         for flag, tests in flag_to_tests.items():
             for test_name in tests:
                 self.assertTrue(
-                    hasattr(self, test_name) or hasattr(EagglCliTest, test_name) or hasattr(RecommendedDefaultsTest, test_name),
+                    hasattr(self, test_name) or hasattr(EagglCliTest, test_name) or hasattr(RecommendedDefaultsTest, test_name) or hasattr(RequirementsCliTest, test_name),
                     msg=f"Mapped test '{test_name}' for {flag} does not exist",
                 )
 

@@ -1,6 +1,6 @@
 # Recommended EAGGL workflow and defaults
 
-Fresh `python -m eaggl factor` discovery uses the workflow below without extra algorithm flags. Choose inputs, output paths and a seed for reproducibility. The recommendation is requirements-based automatic selection across phi 0.005, 0.01 and 0.02, with the selected fit reused.
+Fresh `python -m eaggl factor` discovery uses the workflow below without extra algorithm flags. Choose inputs, output paths and a seed for reproducibility. The recommendation is requirements-based automatic selection starting at phi 0.005, 0.01 and 0.02, extending only for meaningful evidence improvement with at most two extra candidates; the selected fit is reused.
 
 ```bash
 PYTHONPATH=src python -m eaggl factor \
@@ -57,7 +57,7 @@ Numerical stopping and projection diagnostics do not establish biological validi
 
 [Qualification receipt](defaults_qualification_20261109.json) records the frozen control and output hashes. Production pooling reproduces group membership, ordering and minimum pair cosine in all 12 saved stage-capture configurations. One full CAD seed-202 run using minimal defaults reproduces all four qualified output tables exactly after decompression: 31 factors, five numerically converged restarts and six converged projections, 118 seconds and 0.54 GiB peak process-group RSS. CLI parity, explicit overrides, alternate modes and dashboard/launcher tests cover the release interface.
 
-A bare discovery command performs fifteen restart fits (five at each of three phi values). Inputs load once and the selected fit is reused. The prior five-restart fixed-phi workflow is available with `--no-learn-phi`. The integrated NAFLD comparison measured about122seconds/0.41GiB; cost varies with inputs.
+A bare discovery command normally performs fifteen restart fits (five at each of three phi values); bounded improvement-triggered extension permits at most ten additional restart fits by default. Inputs load once and the selected fit is reused. The prior five-restart fixed-phi workflow is available with `--no-learn-phi`. The integrated NAFLD comparison measured about122seconds/0.41GiB; cost varies with inputs.
 
 ## Reproduce previous choices
 
@@ -84,4 +84,4 @@ Automatic composite selection is available with `--learn-phi --phi-selection-obj
 
 The default [requirements-based selector](REQUIREMENTS_PHI.md) compares three complete candidate resolutions using explicit evidence-preservation checks. On archived six-library CAD, T2D, Asthma, NAFLD, BMI and FEV1/FVC inputs it selected0.01 except NAFLD0.005. Saved decisions match exactly across ten trait/seed grids; one integrated NAFLD replay exactly matches selected native factors, projections and exported tables. These empirical checks support the bounded policy, not a claim of biological superiority or a unique optimal phi. Unresolved comparisons explicitly fall back to numerically qualified0.01; a failed baseline raises an error. Request selection/numerical reports to inspect this status.
 
-Broad T2D gene-loading overlap persists across phi and remains a separate investigation. The default change does not fix that overlap or establish exclusive gene memberships. Wider phi grids and starting-factor budgets remain outside the qualified selection interface.
+Broad T2D gene-loading overlap persists across phi and remains a separate investigation. The default change does not fix that overlap or establish exclusive gene memberships. The extension policy and its shared budget are described in the selector documentation. Arbitrary starting-factor budgets remain outside the qualified selection interface.

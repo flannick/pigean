@@ -141,6 +141,8 @@ class FactorExecutionConfig:
     factor_phi_gene_set_clusters_out: str | None = None
     factor_phi_gene_clusters_out: str | None = None
     phi_selection_objective: str = "composite"
+    phi_search_extension: str = "improvement"
+    phi_search_max_extra: int = 2
     phi_selection_composite_weights: str | None = None
     phi_selection_target_factor_gene_mass: float = 100.0
     phi_selection_size_log2_width: float = 1.0
@@ -1925,6 +1927,8 @@ def build_factor_execution_config(options, workflow, factor_inputs):
         factor_phi_gene_set_clusters_out=getattr(options, "factor_phi_gene_set_clusters_out", None),
         factor_phi_gene_clusters_out=getattr(options, "factor_phi_gene_clusters_out", None),
         phi_selection_objective=getattr(options, "phi_selection_objective", "composite"),
+        phi_search_extension=getattr(options, "phi_search_extension", "improvement"),
+        phi_search_max_extra=getattr(options, "phi_search_max_extra", 2),
         phi_selection_composite_weights=getattr(options, "phi_selection_composite_weights", None),
         phi_selection_target_factor_gene_mass=getattr(options, "phi_selection_target_factor_gene_mass", 100.0),
         phi_selection_size_log2_width=getattr(options, "phi_selection_size_log2_width", 1.0),

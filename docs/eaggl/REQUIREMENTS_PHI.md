@@ -9,13 +9,28 @@ Fresh recommended gene-by-gene discovery uses this selector by default. No algor
 
 Use `--no-learn-phi` to retain fixed phi 0.01. An explicit `--phi VALUE` also fixes that value unless `--learn-phi` is explicitly enabled. CLI flags override configuration values; `"learn_phi": false` is the configuration opt-out. Explicit custom recipes outside the supported search scope require this opt-out or an explicit older selector, rather than silently running an unqualified search.
 
-Create the output directory first. This selector fits phi 0.005, 0.01 and 0.02 with five restarts each, using the same child seeds across candidates. Inputs load once. The chosen complete fit is reused, including annotation projections; there is no fourth fit.
+Create the output directory first. This selector starts at phi 0.01, then fits 0.005 and 0.02, with five restarts each and the same child seeds across candidates. Inputs load once. The chosen complete fit is reused, including annotation projections; selection never adds a separate final refit. Bounded extension can add at most two further candidate fits by default.
 
 ## What it tries to preserve
 
 The older composite selector combines metrics using weights. This selector checks explicit requirements before choosing a representative acceptable resolution. Local gene-pair evidence cannot be traded away merely for a better aggregate score. Restart-supported weak profiles enter the comparison even when their contrast with the dominant signal is small. Cross-phi persistence is corroborating evidence, not a requirement that would automatically reject fine-only programs. Redundancy is checked separately. A separate error allowance still limits sensitivity to arbitrarily small effects.
 
-The frozen rule uses support from at least three of five restarts at cosine 0.9, a redundancy threshold of 0.2, and regional/global error-excess tolerance of 0.2. Among acceptable candidates it chooses the middle log-phi resolution, breaking a tie toward 0.01. These are empirically evaluated settings, not a calibrated probability of biological correctness.
+The frozen rule uses support from at least three of five restarts at cosine 0.9, a redundancy threshold of 0.2, and regional/global error-excess tolerance of 0.2. Among acceptable candidates it chooses the one closest to 0.01 in log space, breaking a tie toward lower phi. Extending a flat acceptable range therefore does not move the selected resolution. These are empirically evaluated settings, not a calibrated probability of biological correctness.
+
+## Bounded extension and runtime
+
+The default `--phi-search-extension improvement` extends only from an admissible edge that materially improves evidence preservation over every interior candidate. Specifically, each interior must be inadmissible and its direct local or global normalized error must exceed the edge's by more than the existing 0.2 tolerance. This is a practical effect-size rule, not a statistical significance test. Numerical failures and redundancy-only rejection do not trigger extension. Every assessment includes all tested candidates and their supported evidence; nothing is discarded to make an edge pass.
+
+An eligible lower edge is halved; an eligible upper edge is doubled. If both are eligible, the edge closer to 0.01 runs first, then lower phi breaks a tie. Reassess after each fit. A rejected edge stops that direction; a new acceptable edge must show a further meaningful gain over the best interior alternative to continue. Flat or marginal gains stop without extra fitting.
+
+| Option | Behavior |
+|---|---|
+| `--phi-search-extension improvement` | Default; require material evidence improvement |
+| `--phi-search-extension noninferior` | Explore acceptable edges even without material gain |
+| `--phi-search-extension none` | Exactly the initial three candidates |
+| `--phi-search-max-extra 2` | Default total extra-candidate cap across both directions; zero disables extension |
+
+Both extension modes share this cap. Users can explicitly increase it. Normal default work is 15 restart fits and the maximum is 25, with projections for each candidate. This bounds candidate count, not wall time: individual fits can take different amounts of time. A numerically failed extra candidate stops the comparison and follows the unqualified fixed-baseline fallback below; it is never silently ignored. The report includes fit order, edge/interior gain comparisons, actual candidate count and stop reason. A budget-exhausted search may select a qualified tested view but does not establish that exploration beyond the edge is unnecessary. Adequacy remains limited to tested views.
 
 ## Scope and diagnostics
 
@@ -46,7 +61,7 @@ The [qualification receipt](requirements_qualification_20261109.json) records on
 
 ## Default-policy qualification and separate follow-up
 
-The default uses only the validated three-point grid. Wider saved sweeps found actual preservation failures (CAD0.16, T2D0.32, NAFLD0.0025), but did not find lower boundaries for CAD/T2D; they do not define a replacement expanded-grid policy. A middle acceptable resolution is a reproducible convention, not a uniquely optimal biological resolution.
+The original qualification used the three-point grid; the bounded extension amendment retains it as the initial comparison. Wider saved sweeps found actual preservation failures (CAD0.16, T2D0.32, NAFLD0.0025), but did not find lower boundaries for CAD/T2D; they do not define a replacement expanded-grid policy. Choosing the acceptable resolution closest to 0.01 is a reproducible convention, not a uniquely optimal biological resolution.
 
 A saved T2D loading audit found GCK/PDX1 and PPARG/ADIPOQ share a dominant factor across phi, optimizer seeds and retention/consensus controls. Across phi0.0003125–0.32, dominant shares varied by less than one percentage point for each gene. Broad membership therefore remains a separate input/model interpretability investigation, not a defect resolved by phi selection. Evidence preservation and lack of near-duplicates do not establish that each gene has one dominant mechanism.
 

@@ -6,7 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .phi_requirements import PHIS, align_candidate, select
+from .phi_requirements import align_candidate, select
+from .phi_search import INITIAL_ORDER, next_step, validate
 
 
 def write_report(path, decision):
@@ -26,12 +27,18 @@ def write_report(path, decision):
 
 
 def run(state, *, seed, factor_kwargs, consensus_stats_out, report_out,
-        consensus_min_run_support, consensus_min_factor_cosine):
+        consensus_min_run_support, consensus_min_factor_cosine,
+        search_extension="improvement", search_max_extra=2):
     from . import factor_runtime as fr
+    validate(search_extension, search_max_extra)
     candidates, bases, raws, qualified, diagnostics_by_phi = {}, {}, {}, {}, {}
     canonical, target = None, None
     child_seeds = fr._derive_factor_run_seeds(seed, 5)
-    for phi in PHIS:
+    pending = list(INITIAL_ORDER)
+    search_history, fit_order = [], []
+    while pending:
+        phi = pending.pop(0)
+        fit_order.append(phi)
         kwargs = dict(factor_kwargs, phi=phi, factor_gmt_out=None)
         run_states, summaries = [], []
         for index, child in enumerate(child_seeds):
@@ -76,7 +83,17 @@ def run(state, *, seed, factor_kwargs, consensus_stats_out, report_out,
             projections=projections, consensus_fallback=bool(consensus.get('fallback_to_reference', False)))
         candidates[phi] = (chosen, consensus)
         del run_states
-    decision = select(bases, raws, target, qualified)
+        if not pending:
+            decision = select(bases, raws, target, qualified)
+            step = next_step(decision, search_extension, search_max_extra)
+            search_history.append(step)
+            if step['next_phi'] is not None:
+                pending.append(step['next_phi'])
+    decision['search'] = dict(extension=search_extension, max_extra=search_max_extra,
+                             fit_order=fit_order, history=search_history,
+                             stop_reason=search_history[-1]['reason'])
+    factor_kwargs['log_fn']('Requirements search stopped: %s; %d candidates (%d extra)' %
+                           (search_history[-1]['reason'], len(fit_order), len(fit_order)-3), factor_kwargs['info_level'])
     decision['candidate_diagnostics'] = diagnostics_by_phi
     decision['child_seeds'] = child_seeds
     state.phi_requirements_diagnostics = decision
@@ -98,6 +115,8 @@ def run(state, *, seed, factor_kwargs, consensus_stats_out, report_out,
     state._record_params(dict(phi=phi, phi_selection_objective='requirements',
                               phi_selection_status=decision['status'],
                               phi_selection_qualified=decision['selection_qualified'],
+                              phi_search_extension=search_extension, phi_search_max_extra=search_max_extra,
+                              phi_search_candidates=len(fit_order), phi_search_stop_reason=search_history[-1]['reason'],
                               consensus_final_status=state.consensus_mode,
                               consensus_fallback_to_reference=state.consensus_fallback_to_reference), overwrite=True)
     factor_kwargs['log_fn']('Requirements selection: phi %.6g; status=%s; qualified=%s' %

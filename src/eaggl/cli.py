@@ -402,6 +402,8 @@ parser.add_option("","--factor-phi-factors-out",default=None) #write factors.out
 parser.add_option("","--factor-phi-gene-set-clusters-out",default=None) #write gene_set_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-clusters-out",default=None) #write gene_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite","requirements"],default="composite") #phi-selection objective: requirements for fresh gene-by-gene discovery, or explicit legacy/composite alternatives
+parser.add_option("","--phi-search-extension",type="choice",choices=["improvement","noninferior","none"],default="improvement") #requirements search: extend only for material evidence improvement (default), any acceptable edge, or never
+parser.add_option("","--phi-search-max-extra",type=int,default=2) #maximum additional requirements phi candidates total across both directions after the initial three
 parser.add_option("","--phi-selection-composite-weights",default=None) #comma-separated composite phi-selection weights, e.g. factor_size=0.15,coverage=0.25
 parser.add_option("","--phi-selection-target-factor-gene-mass",default=100.0,type=float) #target factor gene mass used by composite phi-selection size score
 parser.add_option("","--phi-selection-size-log2-width",default=1.0,type=float) #log2 width around the target factor gene mass for composite size scoring
@@ -1929,6 +1931,10 @@ def _bootstrap_cli(argv=None):
         if parsed_options.no_transpose:
             bail("--discovery-model gene_by_gene currently requires the default transposed factor matrix")
 
+    if parsed_options.phi_search_max_extra < 0:
+        bail("--phi-search-max-extra must be nonnegative")
+    if parsed_options.phi_search_extension not in {"improvement", "noninferior", "none"}:
+        bail("--phi-search-extension must be improvement, noninferior or none")
     if parsed_options.learn_phi and parsed_options.phi_selection_objective == "requirements":
         required = dict(learn_phi=True, phi=.01, discovery_model="gene_by_gene",
                         factor_backend="full", factor_runs=5, consensus_nmf=True,

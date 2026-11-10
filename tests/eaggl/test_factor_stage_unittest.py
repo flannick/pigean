@@ -463,8 +463,10 @@ class FactorStageHelpersTest(unittest.TestCase):
         workflow = eaggl.FactorWorkflow(workflow_id="F1", factor_gene_set_x_pheno=False)
         inputs = eaggl.FactorInputs(anchor_gene_mask=None, anchor_pheno_mask=None)
         options = _options(discovery_model="gene_by_gene", learn_phi=True,
-                           phi_selection_objective="requirements")
+                           phi_selection_objective="requirements", phi_search_extension="noninferior", phi_search_max_extra=1)
         cfg = eaggl._build_factor_execution_config(options, workflow, inputs)
+        self.assertEqual(cfg.phi_search_extension, "noninferior")
+        self.assertEqual(cfg.phi_search_max_extra, 1)
         self.assertIsNone(cfg.learn_phi_target_gene_mass)
         self.assertIsNone(cfg.learn_phi_target_gene_effective_support)
         self.assertIsNone(cfg.gene_gene_pair_prior)

@@ -55,4 +55,15 @@ class RequirementsCliTest(unittest.TestCase):
         self.assertNotEqual(p.returncode,0)
         self.assertIn('--no-learn-phi',p.stderr+p.stdout)
 
+    def test_extension_options_and_validation(self):
+        for mode in ['improvement','noninferior','none']:
+            p=self.command('--phi-search-extension',mode,'--phi-search-max-extra','0')
+            self.assertEqual(p.returncode,0,p.stderr)
+            opts=json.loads(p.stdout)['options']
+            self.assertEqual(opts['phi_search_extension'],mode);self.assertEqual(opts['phi_search_max_extra'],0)
+        p=self.command();self.assertEqual(p.returncode,0,p.stderr)
+        opts=json.loads(p.stdout)['options'];self.assertEqual(opts['phi_search_extension'],'improvement');self.assertEqual(opts['phi_search_max_extra'],2)
+        self.assertNotEqual(self.command('--phi-search-max-extra','-1').returncode,0)
+        self.assertNotEqual(self.command('--phi-search-extension','bad').returncode,0)
+
 if __name__=='__main__':unittest.main()
