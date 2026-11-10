@@ -37,3 +37,7 @@ Package decision parity is exact on all ten saved trait/seed grids. Full-workflo
 The limited grid and 30-factor starting capacity remain caveats; a supported final consensus may exceed 30. Neither the absence of flagged duplicates nor configured numerical convergence proves absence of fragmentation. Earlier numerical-stopping failures and biological exceptions remain reasons not to default the selector without further review.
 
 Plain `--learn-phi` retains the composite selector. `--phi-selection-objective legacy` retains the historical target-size alternative. Neither automatic path changes merely by installing this opt-in feature.
+
+## Package integration replay
+
+The [qualification receipt](requirements_qualification_20261109.json) records one full NAFLD seed-202 replay: phi 0.005,27 factors,15 numerically converged restart fits and18 converged projection checks. Discovery factors, annotation projections, lambdas, pair target and all four exported result tables exactly match the saved standalone phi-0.005 result. The integrated workflow took120seconds (122seconds including supervision) and0.41GiB peak process-tree RSS. Saved standalone fixed-0.01 and complete three-phi workflows took42 and171seconds respectively; these historical timings are descriptive, not a controlled benchmark. A preliminary eight-second attempt caught and fixed a configuration handoff before fitting. This qualifies implementation parity, not a new default.
