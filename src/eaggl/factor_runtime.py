@@ -6167,8 +6167,8 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--factor-output-scope must be one of: primary, primary_secondary, all")
     if str(learn_phi_metric_factor_scope) not in {"primary", "all"}:
         bail("--learn-phi-metric-factor-scope must be one of: primary, all")
-    if str(phi_selection_objective) not in {"legacy", "composite"}:
-        bail("--phi-selection-objective must be one of: legacy, composite")
+    if str(phi_selection_objective) not in {"legacy", "composite", "requirements"}:
+        bail("--phi-selection-objective must be one of: legacy, composite, requirements")
     try:
         eaggl_phi_selection.parse_composite_weights(phi_selection_composite_weights)
     except Exception as exc:
@@ -6205,7 +6205,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         bail("--consensus-nmf requires --factor-runs >= 2")
     if factor_top_loading_type not in {"raw", "cosine", "euclidean"}:
         bail("--factor-top-loading-type must be one of: raw, cosine, euclidean")
-    if learn_phi:
+    if learn_phi and phi_selection_objective != "requirements":
         if phi <= 0:
             bail("--learn-phi requires --phi > 0")
         if learn_phi_target_gene_mass is None and learn_phi_target_gene_effective_support is None:
@@ -6524,6 +6524,31 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         ),
         INFO,
     )
+
+    if phi_selection_objective == "requirements":
+        expected = (learn_phi and phi == .01 and discovery_model == "gene_by_gene"
+                    and factor_backend == "full" and factor_runs == 5 and consensus_nmf
+                    and consensus_matching == "pooled" and consensus_aggregation == "median"
+                    and consensus_min_run_support == .5 and consensus_min_factor_cosine == .7
+                    and factor_retention == "backend_scale" and max_num_factors == 30
+                    and getattr(state, "internal_projection_method", None) == "verified_quadratic"
+                    and getattr(state, "internal_symnmf_update_method", None) == "projected_gradient"
+                    and getattr(state, "internal_symnmf_stopping", None) == "adaptive")
+        if not expected:
+            bail("Requirements selection requires --learn-phi and the recommended full gene-by-gene recipe (phi0.01,30 initial factors,5 pooled median restarts,verified projection,adaptive projected-gradient solver)")
+        if (learn_phi_values is not None or learn_phi_max_num_iterations is not None
+                or learn_phi_target_gene_mass is not None or learn_phi_target_gene_effective_support is not None
+                or learn_phi_only or lmm_auth_key is not None):
+            bail("Requirements selection uses a frozen full-fit grid; custom search/target/learn-only and inline labeling options are unsupported")
+        if any(x is not None for x in (factor_phi_metrics_out, factor_phi_factors_out,
+                factor_phi_gene_set_clusters_out, factor_phi_gene_clusters_out,
+                phi_selection_metrics_wide_out, phi_selection_metrics_long_out)):
+            bail("Requirements selection reports via --learn-phi-report-out and --numerical-diagnostics-out, not legacy scout tables")
+        from .phi_requirements_runtime import run as run_requirements
+        return run_requirements(state, seed=seed, factor_kwargs=factor_kwargs,
+                                consensus_stats_out=consensus_stats_out, report_out=learn_phi_report_out,
+                                consensus_min_run_support=consensus_min_run_support,
+                                consensus_min_factor_cosine=consensus_min_factor_cosine)
 
     if learn_phi:
         weight_floor = 0.01 if learn_phi_weight_floor is None else float(learn_phi_weight_floor)

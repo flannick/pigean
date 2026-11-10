@@ -400,7 +400,7 @@ parser.add_option("","--factor-phi-metrics-out",default=None) #write per-factor 
 parser.add_option("","--factor-phi-factors-out",default=None) #write factors.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-set-clusters-out",default=None) #write gene_set_clusters.out-style rows for each phi-search candidate with a leading phi column
 parser.add_option("","--factor-phi-gene-clusters-out",default=None) #write gene_clusters.out-style rows for each phi-search candidate with a leading phi column
-parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite"],default="composite") #phi-selection objective: legacy target-size heuristic or composite multi-metric score
+parser.add_option("","--phi-selection-objective",type="choice",choices=["legacy","composite","requirements"],default="composite") #phi-selection objective: legacy target-size, composite score, or experimental requirements
 parser.add_option("","--phi-selection-composite-weights",default=None) #comma-separated composite phi-selection weights, e.g. factor_size=0.15,coverage=0.25
 parser.add_option("","--phi-selection-target-factor-gene-mass",default=100.0,type=float) #target factor gene mass used by composite phi-selection size score
 parser.add_option("","--phi-selection-size-log2-width",default=1.0,type=float) #log2 width around the target factor gene mass for composite size scoring
@@ -1765,8 +1765,24 @@ def _bootstrap_cli(argv=None):
         bail("--factor-backend must be one of: full, blockwise_global_w")
     if parsed_options.learn_phi_backend not in set(["sentinel_pruned", "blockwise_global_w"]):
         bail("--learn-phi-backend must be one of: sentinel_pruned, blockwise_global_w")
-    if parsed_options.phi_selection_objective not in set(["legacy", "composite"]):
-        bail("--phi-selection-objective must be one of: legacy, composite")
+    if parsed_options.phi_selection_objective not in set(["legacy", "composite", "requirements"]):
+        bail("--phi-selection-objective must be one of: legacy, composite, requirements")
+    if parsed_options.phi_selection_objective == "requirements":
+        required = dict(learn_phi=True, phi=.01, discovery_model="gene_by_gene",
+                        factor_backend="full", factor_runs=5, consensus_nmf=True,
+                        consensus_matching="pooled", consensus_aggregation="median",
+                        consensus_min_run_support=.5, consensus_min_factor_cosine=.7,
+                        factor_retention="backend_scale", max_num_factors=30,
+                        fixed_basis_projection_method="verified_quadratic",
+                        symnmf_update_method="projected_gradient", symnmf_stopping="adaptive")
+        incompatible = [key for key, value in required.items() if getattr(parsed_options, key) != value]
+        incompatible += [key for key in ("learn_phi_values", "learn_phi_max_num_iterations",
+                         "learn_phi_target_gene_mass", "learn_phi_target_gene_effective_support")
+                         if getattr(parsed_options, key) is not None]
+        if parsed_options.learn_phi_only:
+            incompatible.append("learn_phi_only")
+        if incompatible:
+            bail("Requirements selection uses the frozen recommended full-fit recipe; incompatible options: " + ", ".join(incompatible))
     try:
         _eaggl_phi_selection.parse_composite_weights(parsed_options.phi_selection_composite_weights)
     except Exception as exc:
@@ -1807,7 +1823,7 @@ def _bootstrap_cli(argv=None):
         bail("--cluster-row-min-max-loading must be nonnegative")
     if parsed_options.gene_factor_annotation_contribs_top_n < 0:
         bail("--gene-factor-annotation-contribs-top-n must be nonnegative")
-    if parsed_options.learn_phi:
+    if parsed_options.learn_phi and parsed_options.phi_selection_objective != "requirements":
         if parsed_options.phi <= 0:
             bail("--learn-phi requires --phi > 0")
         if (
