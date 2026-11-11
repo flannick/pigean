@@ -1,0 +1,9 @@
+# Optional correlation-SE warmup
+
+`--gibbs-se-warmup-iterations N` temporarily bypasses the correlation-related standard-error adjustment during the first N discarded outer Gibbs updates of each epoch. The default is zero (unchanged behavior). This is an initialization experiment, not a replacement for the sandwich correction or a new sampling target.
+
+For example, add `--gibbs-se-warmup-iterations 125` to the default GWAS workflow. Its minimum burn-in of 251 means updates 1–125 use the bypass, updates 126–250 use the full correction and are discarded, and retained updates start at 251. For an explicitly configured schedule, require `--min-num-burn-in >= 2*N+1`. Other schedule options continue to apply. A shortened final epoch reduces N if necessary to preserve an equally long fully corrected discarded interval. The requested count and last epoch's effective count are recorded in the parameters output.
+
+The bypass applies to regression finalization, including the initial linear prefilter within an outer update. It does not change SNP signal probabilities, HuGE refresh, the spike-and-slab prior, annotation QC corrections, or retained inference equations. It does not affect the preparation before outer Gibbs. It is independent of `--warm-start`, which initializes the inner coefficient sampler from the previous update. Outer Gauss-Seidel updates are unsupported with this option.
+
+Early screening on T2D and NAFLD found more consistent NAFLD histories and modest T2D improvement, with altered finite-run evidence scale. Improved R-hat is not proof of convergence: initialization can put chains in similar regions without improving travel between regions. Qualification must examine independent histories, dispersed starts, absolute evidence, biological controls and downstream factors. This option is not a recommendation to remove or weaken the retained SE correction.

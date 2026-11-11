@@ -499,6 +499,7 @@ parser.add_option("--gibbs-disable", action="append", default=None, help="disabl
 parser.add_option("","--gauss-seidel",action="store_true") #run gauss seidel for gibbs sampling
 parser.add_option("","--use-sampled-betas-in-gibbs",action="store_true",help="feed sampled inner betas into outer Gibbs updates (default for GWAS and cached-HuGE Gibbs inputs)")
 parser.add_option("","--use-mean-betas-in-gibbs",action="store_false",dest="use_sampled_betas_in_gibbs",help="feed mean inner betas into outer Gibbs updates; if both feedback flags are supplied, the last wins; does not select an iteration budget")
+parser.add_option("", "--gibbs-se-warmup-iterations", type="int", default=0, help="Bypass correlation SE adjustment for the first N discarded outer updates per epoch (opt-in; requires min burn-in >= 2*N+1).")
 parser.add_option("","--warm-start",action="store_true",dest="warm_start",default=True) #within gibbs, initialize corrected beta sampling from previous iteration values (default on)
 parser.add_option("","--no-warm-start",action="store_false",dest="warm_start") #disable warm-starting in outer gibbs
 
@@ -873,6 +874,7 @@ _CORE_VISIBLE_METHOD_FLAGS = {
 }
 
 _EXPERIMENTAL_FLAGS = {
+    "--gibbs-se-warmup-iterations",
     "--experimental-hyper-mutation",
     "--experimental-increase-hyper-if-betas-below",
 }
@@ -1779,6 +1781,11 @@ def _apply_mode_and_runtime_defaults(_options, _mode, _cli_dests, _config_dests)
     # Gibbs stopping defaults.
     from pigean.gibbs_defaults import apply_sampling_schedule
     apply_sampling_schedule(_options, _mode, set(_cli_dests or ()) | set(_config_dests or ()), bail)
+    from pigean.se_warmup import validate_warmup
+    try:
+        validate_warmup(_options.gibbs_se_warmup_iterations, _options.min_num_burn_in)
+    except ValueError as exc:
+        bail(str(exc))
     if _options.gibbs_reruns is None or _options.gibbs_reruns < 1:
         bail("Option --gibbs-reruns must be >= 1")
     if _options.gibbs_reruns > 1 and not _options.disable_stall_detection:

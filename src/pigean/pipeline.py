@@ -203,6 +203,7 @@ def build_main_gibbs_stage_config(options):
             max_frac_sem_betas=options.max_frac_sem_betas,
             use_mean_betas=not options.use_sampled_betas_in_gibbs,
             warm_start=options.warm_start,
+            se_warmup_iterations=getattr(options, "gibbs_se_warmup_iterations", 0),
             gibbs_summary_mode=options.gibbs_summary_mode,
             write_gibbs_global_filtered_summaries=options.write_gibbs_global_filtered_summaries,
             gene_set_p_active_threshold=options.gene_set_p_active_threshold,
