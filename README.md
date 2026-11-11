@@ -62,6 +62,7 @@ Use this as the index for the repo documentation set.
 - [Preparation defaults](docs/PREPARATION_ARITHMETIC.md): faster genetic-input Gibbs preparation, independent opt-outs and memory limits
 - [Stable inner variance](docs/INNER_CENTERED_VARIANCE.md): numerical stopping correction, NAFLD output changes and EAGGL release review
 - [Gibbs sampling defaults](docs/GIBBS_SAMPLING_DEFAULTS.md): genetic-input sampled feedback and 250-discarded/1,000-retained schedule, old-behavior controls, qualification and limitations
+- [Optional SE warmup](docs/SE_WARMUP.md): discarded initialization updates with the full sandwich correction restored before retention
 - `docs/PIGEAN_DASHBOARD.md`: post-processing dashboard for existing PIGEAN/EAGGL outputs
 - `docs/PIGEAN_PORTAL.md`: thresholded SQLite + served viewers — Explorer (one run) and Comparer (two runs) — for existing PIGEAN outputs
 - `docs/eaggl/CLI_REFERENCE.md`: human-written manual for how to run EAGGL
