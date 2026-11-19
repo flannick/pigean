@@ -465,15 +465,15 @@ def _gene_set_aliases(gene_set: str) -> list[str]:
     return aliases
 
 
-def _membership_for_gene_set(membership: dict[str, set[str]], gene_set: str) -> set[str]:
+def _membership_for_gene_set(membership: dict[str, set[str]], gene_set: str, label: str = "") -> set[str]:
     for alias in _gene_set_aliases(gene_set):
-        members = membership.get(alias)
+        members = membership.get(f"{label}\t{alias}") or membership.get(alias)
         if members:
             return members
     return set()
 
 
-def read_gene_set_membership(paths: list[Path], warnings: list[str]) -> dict[str, set[str]]:
+def read_gene_set_membership(paths: list[Path], warnings: list[str], *, wanted=None, gene_map=None) -> dict[str, set[str]]:
     membership: dict[str, set[str]] = defaultdict(set)
     for path in paths:
         if not path.exists():
@@ -482,6 +482,8 @@ def read_gene_set_membership(paths: list[Path], warnings: list[str]) -> dict[str
         try:
             with open_text(path) as handle:
                 for line in handle:
+                    if wanted is not None and line.partition("\t")[0] not in wanted[path]:
+                        continue
                     parts = line.rstrip("\n").split("\t")
                     if len(parts) < 2:
                         continue
@@ -492,13 +494,22 @@ def read_gene_set_membership(paths: list[Path], warnings: list[str]) -> dict[str
                     genes = []
                     for token in parts[start:]:
                         for raw_gene in token.split():
-                            gene = raw_gene.split(":", 1)[0].strip()
+                            gene, sep, weight = raw_gene.partition(":")
+                            if sep and parse_float(weight) == 0:
+                                continue
+                            gene = (gene_map or {}).get(gene, gene)
                             if gene:
                                 genes.append(gene)
                     if not genes:
                         continue
                     for alias in _gene_set_aliases(gene_set):
-                        membership[alias].update(genes)
+                        if wanted is None:
+                            membership[alias].update(genes)
+                        else:
+                            label = path.name.split(".")[0]
+                            membership[f"{label}\t{alias}"].update(genes)
+                            if alias in wanted[path] and alias in wanted.get(None, set()):
+                                membership[alias].update(genes)
         except OSError as exc:
             warnings.append(f"could not read X input {path}: {exc}")
     return dict(membership)
@@ -516,13 +527,13 @@ def build_gene_expansions(
     expansions: dict[str, list[dict]] = defaultdict(list)
     for row in gene_sets:
         beta = row.get("beta_uncorrected") if row.get("beta_uncorrected") is not None else row.get("beta")
-        if beta is not None and beta < beta_threshold:
+        if beta is not None and beta < beta_threshold and not row.get("beta"):
             continue
-        for gene in _membership_for_gene_set(membership, row["gene_set"]):
+        for gene in _membership_for_gene_set(membership, row["gene_set"], row.get("label", "")):
             if gene in gene_index:
                 expansions[gene].append({"gene_set": row["gene_set"], "label": row.get("label", ""), "beta": row.get("beta"), "beta_uncorrected": row.get("beta_uncorrected"), "n": row.get("n")})
     for gene in expansions:
-        expansions[gene].sort(key=lambda item: item.get("beta_uncorrected") or item.get("beta") or -1e300, reverse=True)
+        expansions[gene].sort(key=lambda item: (item.get("beta") or 0, item.get("beta_uncorrected") or 0), reverse=True)
         if max_rows_per_entry >= 0:
             expansions[gene] = expansions[gene][:max_rows_per_entry]
     return dict(expansions)
@@ -540,7 +551,7 @@ def build_gene_set_expansions(
     expansions: dict[str, list[dict]] = {}
     for row in gene_sets:
         members = []
-        for gene in _membership_for_gene_set(membership, row["gene_set"]):
+        for gene in _membership_for_gene_set(membership, row["gene_set"], row.get("label", "")):
             if gene in gene_by_id:
                 g = gene_by_id[gene]
                 combined = g.get("combined")
@@ -556,7 +567,7 @@ def build_gene_set_expansions(
         if max_rows_per_entry >= 0:
             members = members[:max_rows_per_entry]
         if members:
-            expansions[row["gene_set"]] = members
+            expansions[row.get("membership_key", row["gene_set"])] = members
     return expansions
 
 
@@ -582,12 +593,43 @@ def load_pigean_run(spec: PigeanRunSpec, args: argparse.Namespace, membership: d
     )
     if not gene_path.exists():
         warnings.append(f"missing PIGEAN gene stats: {gene_path}")
-    gene_sets = normalize_gene_set_rows(
-        read_tsv(gene_set_path, warnings) if gene_set_path.exists() else [],
-        warnings,
-        beta_threshold=args.gene_set_threshold,
-        max_rows=args.max_gene_sets_per_run,
-    )
+    run_x = [item.path for item in getattr(args, "run_x_input", []) if item.run_id == spec.run_id]
+    raw_sets = read_tsv(gene_set_path, warnings) if gene_set_path.exists() else []
+    gene_sets = normalize_gene_set_rows(raw_sets, warnings, beta_threshold=args.gene_set_threshold,
+                                         max_rows=args.max_gene_sets_per_run)
+    supporting = gene_sets
+    if run_x:
+        # A display cap on the top gene sets must not truncate the evidence for a gene.
+        scored = (r for r in raw_sets if r.get("filter_reason", "kept") == "kept"
+                  and (parse_float(r.get("beta")) or parse_float(r.get("beta_uncorrected"))))
+        supporting = normalize_gene_set_rows(list(scored), warnings, beta_threshold=-math.inf, max_rows=-1)
+        wanted = {f: set() for f in run_x}
+        wanted[None] = set()
+        for row in supporting + gene_sets:
+            if row["label"] == row["gene_set"]:
+                wanted[None].update(_gene_set_aliases(row["gene_set"]))
+            for f in run_x:
+                if row["label"] in (f.name.split(".")[0], row["gene_set"]):
+                    wanted[f].update(_gene_set_aliases(row["gene_set"]))
+        mapping = {}
+        for item in getattr(args, "run_gene_map", []):
+            if item.run_id == spec.run_id:
+                from pegs_shared.io_common import parse_gene_map_file
+                mapping = parse_gene_map_file(str(item.path))
+        membership = read_gene_set_membership(run_x, warnings, wanted=wanted, gene_map=mapping)
+    labels_by_name = defaultdict(set)
+    for row in gene_sets:
+        labels_by_name[row["gene_set"]].add(row["label"])
+    for row in gene_sets:
+        if len(labels_by_name[row["gene_set"]]) > 1:
+            row["membership_key"] = row["label"] + "\t" + row["gene_set"]
+    del raw_sets
+    loci = {}
+    for item in getattr(args, "run_huge_statistics", []):
+        if item.run_id == spec.run_id:
+            from .dashboard_locus import load_loci
+            loci = load_loci(item.path, genes, provenance_genes)
+            loci["genome_build"] = dict(getattr(args, "run_genome_build", [])).get(spec.run_id, "")
     if not gene_set_path.exists():
         warnings.append(f"missing PIGEAN gene-set stats: {gene_set_path}")
     return {
@@ -606,9 +648,13 @@ def load_pigean_run(spec: PigeanRunSpec, args: argparse.Namespace, membership: d
         "warnings": warnings,
         "genes": genes,
         "gene_sets": gene_sets,
+        "loci": loci,
+        "membership_loaded": bool(membership),
+        "mapped_gene_set_count": len({(r["label"], r["gene_set"]) for r in supporting + gene_sets
+                                      if _membership_for_gene_set(membership, r["gene_set"], r["label"])}),
         "gene_expansions": build_gene_expansions(
             genes,
-            gene_sets,
+            supporting,
             membership,
             args.gene_set_threshold,
             max_rows_per_entry=args.max_provenance_rows_per_entry,
@@ -1246,6 +1292,30 @@ def build_payload(args: argparse.Namespace) -> dict:
             seen_pigean_run_ids.add(spec.run_id)
         loaded = load_eaggl_run(spec, args)
         eaggl_runs[f"{spec.run_id}::{spec.mode_id}"] = loaded
+    hierarchies = {}
+    reference = None
+    if getattr(args, "hierarchy_phenotype_reference", None):
+        from .dashboard_node_views import read_reference
+        reference = read_reference(args.hierarchy_phenotype_reference)
+    anchors = {spec.run_id: spec.path / "pigean.gene_stats.out.gz" for spec in args.pigean_run}
+    for directory in getattr(args, "eaggl_hierarchy", []):
+        from .dashboard_hierarchy import load_hierarchy
+        hierarchy = load_hierarchy(directory, args.hierarchy_source_root, anchors=anchors, reference=reference)
+        trait = hierarchy["trait"]
+        if trait in hierarchies:
+            raise ValueError(f"Multiple hierarchy exports for {trait}")
+        hierarchies[trait] = hierarchy
+        if trait not in seen_pigean_run_ids:
+            pigean_runs.append(placeholder_pigean_run(trait, args, "Only hierarchy inputs supplied"))
+            seen_pigean_run_ids.add(trait)
+        key = f"{trait}::hierarchy"
+        if key in eaggl_runs:
+            raise ValueError(f"Reserved hierarchy run key: {key}")
+        eaggl_runs[key] = dict(run_id=trait, mode_id="hierarchy", research=True,
+                               title="Research consensus and hierarchy", factors=[],
+                               summary="Consensus factors and OR-combined families from the selected research fit.",
+                               paths={"factors":str(directory)}, factor_graph_html=hierarchy.pop("graph"),
+                               selected_phi_metrics={"phi":hierarchy["phi"], "num_factors":len(hierarchy["leaves"])}, warnings=[])
     eaggl_groups_by_run: dict[str, dict[str, dict]] = defaultdict(dict)
     for eaggl in eaggl_runs.values():
         group_id = eaggl.get("group_id") or eaggl.get("mode_id")
@@ -1290,6 +1360,7 @@ def build_payload(args: argparse.Namespace) -> dict:
         group["run_ids"] = [run_id for run_id in group["run_ids"] if run_id in known_runs]
     pigean_groups = [group for group in pigean_groups_by_id.values() if group["run_ids"]]
     payload = {
+        "hierarchies": hierarchies,
         "schema": "pigean_dashboard/v1",
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "run_root": str(Path.cwd()),
@@ -1308,7 +1379,7 @@ def build_payload(args: argparse.Namespace) -> dict:
         },
         "warnings": warnings,
         "x_inputs": [str(path) for path in args.x_input or []],
-        "gene_set_membership_count": len(membership),
+        "gene_set_membership_count": sum(run.get("mapped_gene_set_count", 0) for run in pigean_runs),
         "pigean_runs": pigean_runs,
         "pigean_groups": pigean_groups,
         "eaggl_runs": eaggl_runs,
@@ -1349,7 +1420,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pigean-group", action="append", type=parse_pigean_group_spec, default=[], help="Assign a PIGEAN run to a dashboard group as GROUP_ID:RUN_ID[:GROUP_TITLE]; repeatable.")
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
     parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory may contain per-phi EAGGL output directories or aggregate factor_phi_* learn-phi output tables.")
+    parser.add_argument("--eaggl-hierarchy", action="append", type=Path, default=[], metavar="DIR", help="Include a saved research hierarchy, its factor QC and phi selection. Repeat once per trait. For matched run tables, use the trait name as RUN_ID.")
+    parser.add_argument("--hierarchy-phenotype-reference", type=Path, help="Gzipped gene PheWAS reference with Trait_Internal, Gene and Combined columns. Requires matched PIGEAN run IDs for direct anchor adjustment.")
+    parser.add_argument("--hierarchy-source-root", type=Path, default=Path("."), help="Root for source paths recorded in hierarchy.json (default: current directory).")
     parser.add_argument("--eaggl-group", action="append", type=parse_eaggl_group_spec, default=[], help="Assign a standalone EAGGL run to a dashboard group as RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]; repeatable.")
+    parser.add_argument("--run-genome-build", action="append", type=parse_run_title, default=[], help="Coordinate assembly for a locus view as RUN_ID:BUILD.")
+    parser.add_argument("--run-x-input", action="append", type=parse_run_spec, default=[], help="Matched annotation library RUN_ID:FILE, repeatable.")
+    parser.add_argument("--run-gene-map", action="append", type=parse_run_spec, default=[], help="Matched gene identifier map RUN_ID:FILE for membership provenance.")
+    parser.add_argument("--run-huge-statistics", action="append", type=parse_run_spec, default=[], help="Matched HuGE statistics archive RUN_ID:FILE for locus provenance.")
     parser.add_argument("--x-input", action="append", type=Path, default=None, help="Optional GMT/gene-set input for gene/gene-set membership expansions; repeatable.")
     parser.add_argument("--title", default="PIGEAN/EAGGL Dashboard")
     parser.add_argument("--run-title", action="append", type=parse_run_title, default=[], help="Display title as RUN_ID:TITLE; repeatable.")
@@ -1383,8 +1461,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     args.run_titles = dict(args.run_title or [])
     args.trait_ids = dict(args.trait_id or [])
-    if not args.pigean_run and not args.eaggl_run and not args.eaggl_phi_sweep:
-        parser.error("Need at least one --pigean-run, --eaggl-run, or --eaggl-phi-sweep")
+    if not args.pigean_run and not args.eaggl_run and not args.eaggl_phi_sweep and not args.eaggl_hierarchy:
+        parser.error("Need at least one --pigean-run, --eaggl-run, --eaggl-phi-sweep, or --eaggl-hierarchy")
     if args.html_out is None and args.json_out is None:
         parser.error("Need at least one of --html-out or --json-out")
     payload = build_payload(args)

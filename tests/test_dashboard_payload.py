@@ -441,3 +441,35 @@ class DashboardPayloadTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_gene_provenance_keeps_library_identity_and_weighted_membership(tmp_path):
+    left, right = tmp_path / "A.gmt", tmp_path / "B.gmt"
+    left.write_text("shared\tNA\tALIAS:0.5\tZERO:0\n")
+    right.write_text("shared\tNA\tSECOND\n")
+    membership = dashboard.read_gene_set_membership(
+        [left, right], [], wanted={left: {"shared"}, right: {"shared"}}, gene_map={"ALIAS": "FIRST"}
+    )
+    rows = [{"gene_set": "shared", "membership_key": label + "\tshared", "label": label,
+             "beta": beta, "beta_uncorrected": 1} for label, beta in [("A", 1), ("B", 2)]]
+    genes = [{"gene": g, "combined": 1} for g in ("FIRST", "SECOND", "ZERO")]
+    supporting = dashboard.build_gene_expansions(genes, rows, membership, 0, max_rows_per_entry=50)
+    assert {g: [r["beta"] for r in sets] for g, sets in supporting.items()} == {"FIRST": [1], "SECOND": [2]}
+    members = dashboard.build_gene_set_expansions(genes, rows, membership, 0, max_rows_per_entry=50)
+    assert {key: [r["gene"] for r in values] for key, values in members.items()} == {
+        "A\tshared": ["FIRST"], "B\tshared": ["SECOND"]
+    }
+
+
+def test_leaf_profile_layout_keeps_landmarks_fixed_with_supplementary_nodes():
+    import numpy as np
+    from pigean.dashboard_node_views import leaf_profile_layout
+
+    leaves = np.array([[.9, .2, 0], [.1, .7, .1], [0, .2, .8]])
+    parent = 1 - (1 - leaves[:, 0]) * (1 - leaves[:, 1])
+    base = leaf_profile_layout(leaves, [0, 1, 2])
+    xy = leaf_profile_layout(np.column_stack((leaves, parent, leaves[:, 0], np.zeros(3))), [0, 1, 2])
+    np.testing.assert_allclose(xy[:3], base, atol=1e-12)
+    np.testing.assert_allclose(xy[4], base[0], atol=1e-12)
+    np.testing.assert_array_equal(xy[5], np.zeros(2))
+    np.testing.assert_allclose(leaf_profile_layout(leaves[:, :1], [0]), np.zeros((1, 2)))

@@ -72,7 +72,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 166
+      "usage_references": 168
     },
     {
       "action": "append",
@@ -744,7 +744,7 @@
       "source_line": 325,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 53
+      "usage_references": 58
     },
     {
       "action": null,
@@ -3159,7 +3159,7 @@
       "source_line": 241,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": "string",
-      "usage_references": 78
+      "usage_references": 79
     },
     {
       "action": null,
@@ -3306,7 +3306,7 @@
       "source_line": 257,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 87
+      "usage_references": 88
     },
     {
       "action": null,
@@ -4247,7 +4247,7 @@
       "source_line": 327,
       "summary": "show expert, advanced, and debug flags in addition to the normal public interface",
       "type": null,
-      "usage_references": 17
+      "usage_references": 21
     },
     {
       "action": "store_true",
@@ -6095,7 +6095,7 @@
       "source_line": 315,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 85
+      "usage_references": 86
     },
     {
       "action": "store_true",
@@ -6535,7 +6535,7 @@
       "source_line": 326,
       "summary": "print the fully resolved mode/options JSON and exit",
       "type": null,
-      "usage_references": 130
+      "usage_references": 133
     },
     {
       "action": null,
@@ -6871,7 +6871,7 @@
       "source_line": 323,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 41
+      "usage_references": 42
     },
     {
       "action": null,

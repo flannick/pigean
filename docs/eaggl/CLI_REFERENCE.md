@@ -14,6 +14,8 @@ Scope rules for this document:
 - every documented flag in this file should have direct regression coverage or explicit mapping to an existing EAGGL CLI test
 - niche, debug-only, or transitional flags belong in the generated inventory, not in this manual
 
+The separate saved-fit research selector has its own command, ordinary help and expert option reference. [Hierarchy leaf selector CLI](../../research/eaggl_leaf_selection/README.md#complete-selector-controls)
+
 ## Entry points and modes
 
 Primary entrypoint:

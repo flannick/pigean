@@ -34,6 +34,10 @@ Pooling uses deterministic greedy complete-link grouping over all restarts, with
 
 Explicit CLI or configuration values override defaults. The requirements search supports the qualified recipe below; custom restart, rank, retention, consensus or solver recipes require `--no-learn-phi` or an explicit older selector. Rectangular discovery, `naive_factor`, labeling and supplied-factor projection retain their previous mode-specific defaults. Direct Python state APIs retain their prior defaults. This recommendation does not silently change those APIs.
 
+## Research workflow for hierarchy leaves
+
+For saved union-model candidates, run the separate research selector with a **two-percentage-point relationship-error allowance**. It scores QC before choosing phi and preserves every selected factor and its flags. Use the passing factors as the starting leaves for a hierarchy. The research guide includes the exact command, all defaults and options, troubleshooting order, and the validated four-trait handoff. [Research workflow and CLI](../../research/eaggl_leaf_selection/README.md)
+
 ## Evidence and limitations
 
 Qualification compared current versus proposed retention/consensus at fixed phi 0.01 and automatic phi, across T2D, CAD, Asthma and NAFLD, with two independent master seeds and five final restarts each (32 configurations). Inputs were matched six-library PIGEAN outputs. Fixed-phi factor counts were:
