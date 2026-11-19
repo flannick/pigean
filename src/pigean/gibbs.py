@@ -7,6 +7,8 @@ from typing import Callable
 import numpy as np
 
 from .runtime import open_optional_gibbs_trace_files
+from .se_warmup import (validate_warmup, warmup_schedule, epoch_warmup_length,
+                        correlation_se_bypass)
 
 
 @dataclass
@@ -1721,13 +1723,20 @@ def _run_single_gibbs_iteration(
 ):
     iteration_start = time.perf_counter()
     (log_bf_m, log_bf_uncorrected_m, log_bf_raw_m) = log_bf_state
-    iter_state, gene_set_mask_m = callbacks.prepare_gibbs_iteration_state_fn(
-        state=state,
-        iteration_num=iteration_num,
-        iteration_state_config=iteration_state_config,
-        log_bf_m=log_bf_m,
-        log_bf_raw_m=log_bf_raw_m,
-    )
+    warmup_n = epoch_warmup_length(progress_runtime_config.min_num_burn_in_for_epoch)
+    bypass = epoch_control["in_burn_in"] and iteration_num < warmup_n
+    if iteration_num == 0:
+        state._record_param("gibbs_se_warmup_iterations_last_epoch", warmup_n, overwrite=True)
+        if warmup_n:
+            callbacks.log_fn("Correlation SE warmup: bypass %d discarded updates; full correction from update %d" % (warmup_n, warmup_n + 1))
+    with correlation_se_bypass(bypass):
+        iter_state, gene_set_mask_m = callbacks.prepare_gibbs_iteration_state_fn(
+            state=state,
+            iteration_num=iteration_num,
+            iteration_state_config=iteration_state_config,
+            log_bf_m=log_bf_m,
+            log_bf_raw_m=log_bf_raw_m,
+        )
 
     iteration_update = callbacks.run_gibbs_iteration_correction_and_updates_fn(
         correction_context=_build_gibbs_iteration_correction_context(
@@ -1862,6 +1871,7 @@ def run_outer_gibbs(
     max_frac_sem_betas=0.01,
     use_mean_betas=True,
     warm_start=False,
+    se_warmup_iterations=0,
     gibbs_summary_mode="raw_common_mask",
     write_gibbs_global_filtered_summaries=False,
     gene_set_p_active_threshold=0.01,
@@ -1947,6 +1957,8 @@ def run_outer_gibbs(
         burn_in_rhat_quantile=burn_in_rhat_quantile,
         use_max_r_for_convergence=use_max_r_for_convergence,
     )
+    validate_warmup(se_warmup_iterations, gibbs_controls.min_num_burn_in, gauss_seidel)
+    state._record_param("gibbs_se_warmup_iterations", se_warmup_iterations, overwrite=True)
     run_state = gibbs_controls.run_state
     num_chains = gibbs_controls.num_chains
 
@@ -2038,18 +2050,19 @@ def run_outer_gibbs(
             ),
         )
     )
-    _run_gibbs_epochs_with_optional_traces(
-        state=state,
-        run_state=run_state,
-        epoch_aggregates=epoch_aggregates,
-        epoch_phase_config=epoch_runtime_configs.epoch_phase_config,
-        epoch_iteration_static_config=epoch_runtime_configs.epoch_iteration_static_config,
-        gene_set_stats_trace_out=gene_set_stats_trace_out,
-        gene_stats_trace_out=gene_stats_trace_out,
-        gene_prior_terms_trace_out=gene_prior_terms_trace_out,
-        gibbs_inputs=gibbs_inputs,
-        callbacks=callbacks,
-    )
+    with warmup_schedule(se_warmup_iterations):
+        _run_gibbs_epochs_with_optional_traces(
+            state=state,
+            run_state=run_state,
+            epoch_aggregates=epoch_aggregates,
+            epoch_phase_config=epoch_runtime_configs.epoch_phase_config,
+            epoch_iteration_static_config=epoch_runtime_configs.epoch_iteration_static_config,
+            gene_set_stats_trace_out=gene_set_stats_trace_out,
+            gene_stats_trace_out=gene_stats_trace_out,
+            gene_prior_terms_trace_out=gene_prior_terms_trace_out,
+            gibbs_inputs=gibbs_inputs,
+            callbacks=callbacks,
+        )
 
     if run_state.num_completed_epochs == 0:
         callbacks.bail_fn("Gibbs failed to complete any successful epochs within restart/iteration limits")

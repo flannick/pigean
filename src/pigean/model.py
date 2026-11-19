@@ -104,6 +104,9 @@ def compute_logistic_beta_tildes(
 
 
 def finalize_regression(runtime, beta_tildes, ses, se_inflation_factors, *, log_fn, warn_fn, trace_level):
+    from .se_warmup import bypass_correlation_se
+    if bypass_correlation_se():
+        se_inflation_factors = None
     return pegs_regression.finalize_regression_outputs(
         beta_tildes,
         ses,

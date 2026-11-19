@@ -5,14 +5,14 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `375`
+- Total options: `376`
 - `method_required`: `20`
 - `method_optional`: `205`
 - `engineering`: `121`
-- `experimental`: `2`
+- `experimental`: `3`
 - `compat_alias`: `19`
 - `debug_only`: `8`
-- visibility `expert`: `331`
+- visibility `expert`: `332`
 - visibility `hidden`: `9`
 - visibility `normal`: `35`
 
@@ -383,6 +383,7 @@ Do not edit manually; run `scripts/generate_cli_manifest.py`.
 |---|---|---|---|---|---|---|
 | `--experimental-hyper-mutation` | `expert` | `yes` | `expert_help` | `experimental_hyper_mutation` | `False` | - |
 | `--experimental-increase-hyper-if-betas-below` | `expert` | `yes` | `expert_help` | `experimental_increase_hyper_if_betas_below` | `None` | - |
+| `--gibbs-se-warmup-iterations` | `expert` | `yes` | `expert_help` | `gibbs_se_warmup_iterations` | `0` | Bypass correlation SE adjustment for the first N discarded outer updates per epoch (opt-in; requires min burn-in >= 2*N+1). |
 
 ## Compat Alias
 
