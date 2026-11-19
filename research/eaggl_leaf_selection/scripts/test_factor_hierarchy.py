@@ -1,10 +1,11 @@
+from itertools import combinations
 import sys
 import unittest
 from pathlib import Path
 import numpy as np
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from eaggl_leaf_quality_research.hierarchy import build_tree, cut_tree
+from eaggl_leaf_quality_research.hierarchy import RULE_FIELDS, build_tree, cut_tree
 
 
 class HierarchyTest(unittest.TestCase):
@@ -35,6 +36,36 @@ class HierarchyTest(unittest.TestCase):
                 chosen=cut_tree(nodes,floor,metric)
                 self.assertEqual(sorted(k for i in chosen for k in members[i]),[1,2,3])
                 self.assertTrue(all(nodes[i][metric]>=floor for i in chosen))
+
+    def test_rule_controls_every_merge_and_cut(self):
+        w = np.random.default_rng(4).uniform(.001, 1, size=(11, 9))
+        trees = set()
+        for rule, field in RULE_FIELDS.items():
+            if rule == 'cosine':
+                z = w / np.linalg.norm(w, axis=0)
+                score = z.T @ z
+            else:
+                z = w if rule == 'shared-mass' else w**2
+                z = z / z.sum(0)
+                score = np.minimum(z[:,:,None], z[:,None,:]).sum(0)
+            nodes, _, groups = build_tree(w, range(w.shape[1]), rule)
+            active = set(range(w.shape[1]))
+            for i in range(w.shape[1], len(nodes)):
+                node = nodes[i]
+                best = max(score[np.ix_(groups[a], groups[b])].min() for a,b in combinations(active,2))
+                self.assertAlmostEqual(node[field], best)
+                self.assertAlmostEqual(score[np.ix_(groups[i], groups[i])].min(), best)
+                active.difference_update([node['left'], node['right']])
+                active.add(i)
+            trees.add(frozenset(frozenset(g) for g in groups))
+            for floor in (.3, .5, .7):
+                chosen = cut_tree(nodes, floor, field)
+                self.assertEqual(sorted(k for i in chosen for k in groups[i]), list(range(w.shape[1])))
+                for i in chosen:
+                    self.assertGreaterEqual(nodes[i][field], floor)
+                    parent = nodes[i]['parent']
+                    self.assertTrue(parent is None or nodes[parent][field] < floor)
+        self.assertGreater(len(trees), 1)
 
     def test_size_ceiling(self):
         nodes, values, members = build_tree(np.array([[.4,.8,0],[.25,.5,0],[0,0,.6],[0,0,.3]]), [5,7,2])

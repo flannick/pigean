@@ -4,17 +4,24 @@ from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import pdist, squareform
 
 
+RULE_FIELDS = {'cosine': 'min_leaf_cosine', 'shared-mass': 'min_shared_mass',
+               'shared-squared-mass': 'min_shared_squared_mass'}
+
+
 def distances(weights):
-    """One minus cosine, and one minus common mass after unit-sum normalization."""
+    """Condensed pairwise dissimilarities in the original leaf order."""
     profiles = weights.T
-    cosine = np.clip(pdist(profiles, 'cosine'), 0, 1)
-    mass = profiles / profiles.sum(axis=1, keepdims=True)
-    unmatched = np.clip(pdist(mass, 'cityblock') / 2, 0, 1)
-    return cosine, squareform(unmatched)
+    result = {'cosine': np.clip(pdist(profiles, 'cosine'), 0, 1)}
+    for rule, mass in [('shared-mass', profiles), ('shared-squared-mass', profiles**2)]:
+        mass = mass / mass.sum(axis=1, keepdims=True)
+        result[rule] = np.clip(pdist(mass, 'cityblock') / 2, 0, 1)
+    return result
 
 
-def build_tree(weights, leaf_ids):
+def build_tree(weights, leaf_ids, rule='cosine'):
     """Columns follow leaf_ids. Node indices are local; leaf IDs survive permutations."""
+    if rule not in RULE_FIELDS:
+        raise ValueError(f'Unknown linkage rule {rule}')
     w = np.asarray(weights, dtype=float)
     ids = np.asarray(leaf_ids, dtype=int)
     if (w.ndim != 2 or ids.shape != (w.shape[1],) or len(set(ids)) != len(ids)
@@ -26,14 +33,15 @@ def build_tree(weights, leaf_ids):
     n = len(ids)
     if not n:
         return [], w, []
-    cosine, unmatched = distances(w)
-    joins = linkage(cosine, method='complete') if n > 1 else []
+    distances_by_rule = distances(w)
+    matrices = {key: squareform(d) for key, d in distances_by_rule.items() if key != rule}
+    joins = linkage(distances_by_rule[rule], method='complete') if n > 1 else []
     nodes = []
     members = []
     loadings = np.empty((w.shape[0], 2*n-1))
     for i in range(2*n-1):
         left = right = None
-        similarity = overlap = 1.
+        scores = dict.fromkeys(RULE_FIELDS.values(), 1.)
         if i < n:
             indices = [i]
             loadings[:, i] = w[:, i]
@@ -41,16 +49,18 @@ def build_tree(weights, leaf_ids):
             a, b, distance, _ = joins[i-n]
             left, right = int(a), int(b)
             indices = members[left] + members[right]
-            similarity = 1 - float(distance)
-            overlap = min(nodes[left]['min_shared_mass'], nodes[right]['min_shared_mass'],
-                          1 - unmatched[np.ix_(members[left], members[right])].max())
+            scores[RULE_FIELDS[rule]] = 1 - float(distance)
+            cross = np.ix_(members[left], members[right])
+            for other, matrix in matrices.items():
+                field = RULE_FIELDS[other]
+                scores[field] = min(nodes[left][field], nodes[right][field], 1 - matrix[cross].max())
             x, y = loadings[:, left], loadings[:, right]
             loadings[:, i] = x + (1 - x)*y
             nodes[left]['parent'] = nodes[right]['parent'] = i
         energy = np.square(loadings[:, i])
         nodes.append(dict(node=i, parent=None, left=left, right=right,
                           leaf_id=int(ids[i]) if i < n else None, n_leaves=len(indices),
-                          min_leaf_cosine=similarity, min_shared_mass=float(overlap),
+                          **scores,
                           gene_equivalents=float(loadings[:, i].sum()),
                           effective_genes=float(energy.sum()**2 / (energy@energy))))
         members.append(indices)
@@ -81,7 +91,7 @@ def cut_tree(nodes, floor, metric='min_leaf_cosine'):
     if metric == 'gene_equivalents':
         if not np.isfinite(threshold) or threshold <= 0:
             raise ValueError('Gene-equivalent ceiling must be finite and positive')
-    elif metric not in ('min_leaf_cosine', 'min_shared_mass') or not 0 <= threshold <= 1:
+    elif metric not in RULE_FIELDS.values() or not 0 <= threshold <= 1:
         raise ValueError('Expected a supported metric and a floor in [0, 1]')
     frontier = []
     stack = [len(nodes)-1] if nodes else []
