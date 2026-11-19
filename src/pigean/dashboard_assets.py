@@ -5,6 +5,7 @@ import gzip
 import html
 import json
 
+from .dashboard_factor_atlas_assets import SCRIPT as ATLAS_SCRIPT, STYLE as ATLAS_STYLE
 from .dashboard_gene_assets import SCRIPT as GENE_SCRIPT, STYLE as GENE_STYLE
 from .dashboard_hierarchy_assets import SCRIPT as HIERARCHY_SCRIPT, STYLE as PORTAL_STYLE
 
@@ -320,8 +321,15 @@ function dashboardGraphDocument(source) {
   </style>`;
   return source.replace(/<\/head>/i, style+"</head>");
 }
-function createFactorGraphNode(eaggl) { const graph = selectedFactorGraph(eaggl); const graphFrame = graph.html ? `<iframe class="factor-graph-frame" title="Interactive factor graph" srcdoc="${esc(dashboardGraphDocument(graph.html))}"></iframe>` : ""; const wrapper = document.createElement("div"); wrapper.id = "factor-graph-mounted"; wrapper.dataset.graphKey = factorGraphKey(eaggl); wrapper.innerHTML = graphFrame ? `<details class="factor-graph-accordion" open><summary>Factor graph</summary><div class="factor-graph-body"><p class="note">${eaggl.research?"Map fitted to passing leaves. Families use their OR gene profiles. Genes sit at the average position of their leaves, weighted by loading.":"Interactive graph generated from "+esc(graph.label)+" gene loadings."}</p>${graphFrame}<p class="path">${esc(graph.path || "")}</p></div></details>` : `<details class="factor-graph-accordion"><summary>Factor graph</summary><div class="factor-graph-body empty">No factor graph was generated for this EAGGL run and gene-loading source.</div></details>`; return wrapper; }
-function mountFactorGraph(eaggl, existingGraph) { const slot = document.getElementById("factor-graph-slot"); if (!slot) return; slot.replaceWith(existingGraph || createFactorGraphNode(eaggl)); }
+function createFactorGraphNode(eaggl) { const graph = selectedFactorGraph(eaggl); const graphFrame = graph.html ? `<iframe class="factor-graph-frame" title="Interactive factor graph" srcdoc="${esc(dashboardGraphDocument(graph.html))}"></iframe>` : ""; const wrapper = document.createElement("div"); wrapper.id = "factor-graph-mounted"; wrapper.dataset.graphKey = factorGraphKey(eaggl); wrapper.innerHTML = graphFrame ? `<details class="factor-graph-accordion" open><summary>Factor graph</summary><div class="factor-graph-body"><p class="note">${eaggl.research?"Map fitted to passing leaves. Families use their OR gene profiles. Genes sit at the average position of their leaves, weighted by loading.":"Interactive graph generated from "+esc(graph.label)+" gene loadings."}</p>${graphFrame}<p class="path">${esc(graph.path || "")}</p></div></details>` : `<details class="factor-graph-accordion"><summary>Factor graph</summary><div class="factor-graph-body empty">No factor graph was generated for this EAGGL run and gene-loading source.</div></details>`; if (eaggl.research && DATA.factor_atlas && graphFrame) {
+    const body = wrapper.querySelector(".factor-graph-body"), mds = document.createElement("div");
+    mds.className = "mds-area"; mds.append(...body.childNodes); body.append(mds);
+    body.insertAdjacentHTML("afterbegin", '<div class="factor-view-switch" role="group" aria-label="Factor view"><button type="button" data-factor-view="mds">MDS graph</button><button type="button" data-factor-view="atlas">Cross-trait atlas</button></div>');
+    body.insertAdjacentHTML("beforeend", '<div class="atlas-area" hidden></div>');
+  }
+  return wrapper;
+}
+function mountFactorGraph(eaggl, existingGraph) { const slot = document.getElementById("factor-graph-slot"); if (!slot) return; const node=existingGraph || createFactorGraphNode(eaggl); slot.replaceWith(node); wireAtlas(node); }
 function renderEagglTableRegion(eaggl) {
   if(eaggl.research) return researchTable(DATA.hierarchies[eaggl.run_id]);
   const anchorCols = (eaggl.anchor_traits || []).map(a => ({
@@ -403,7 +411,7 @@ boot();
 def render_html(payload: dict, *, title: str = "PIGEAN/EAGGL Dashboard") -> str:
     data_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     encoded = base64.b64encode(gzip.compress(data_json, compresslevel=9)).decode("ascii")
-    script = GENE_SCRIPT + HIERARCHY_SCRIPT + JS.replace("__DASHBOARD_DATA_GZIP_BASE64__", encoded)
+    script = ATLAS_SCRIPT + GENE_SCRIPT + HIERARCHY_SCRIPT + JS.replace("__DASHBOARD_DATA_GZIP_BASE64__", encoded)
     safe_title = html.escape(title)
     return f"""<!doctype html>
 <html lang="en">
@@ -411,7 +419,7 @@ def render_html(payload: dict, *, title: str = "PIGEAN/EAGGL Dashboard") -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{safe_title}</title>
-  <style>{CSS}{PORTAL_STYLE}{GENE_STYLE}</style>
+  <style>{CSS}{PORTAL_STYLE}{GENE_STYLE}{ATLAS_STYLE}</style>
 </head>
 <body>
   <main class="shell">

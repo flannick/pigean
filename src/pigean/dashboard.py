@@ -1316,6 +1316,10 @@ def build_payload(args: argparse.Namespace) -> dict:
                                summary="Consensus factors and OR-combined families from the selected research fit.",
                                paths={"factors":str(directory)}, factor_graph_html=hierarchy.pop("graph"),
                                selected_phi_metrics={"phi":hierarchy["phi"], "num_factors":len(hierarchy["leaves"])}, warnings=[])
+    atlas = None
+    if getattr(args, "factor_atlas", None):
+        from .dashboard_factor_atlas import build_factor_atlas
+        atlas = build_factor_atlas(args.factor_atlas, hierarchies)
     eaggl_groups_by_run: dict[str, dict[str, dict]] = defaultdict(dict)
     for eaggl in eaggl_runs.values():
         group_id = eaggl.get("group_id") or eaggl.get("mode_id")
@@ -1361,6 +1365,7 @@ def build_payload(args: argparse.Namespace) -> dict:
     pigean_groups = [group for group in pigean_groups_by_id.values() if group["run_ids"]]
     payload = {
         "hierarchies": hierarchies,
+        "factor_atlas": atlas,
         "schema": "pigean_dashboard/v1",
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "run_root": str(Path.cwd()),
@@ -1422,6 +1427,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory may contain per-phi EAGGL output directories or aggregate factor_phi_* learn-phi output tables.")
     parser.add_argument("--eaggl-hierarchy", action="append", type=Path, default=[], metavar="DIR", help="Include a saved research hierarchy, its factor QC and phi selection. Repeat once per trait. For matched run tables, use the trait name as RUN_ID.")
     parser.add_argument("--hierarchy-phenotype-reference", type=Path, help="Gzipped gene PheWAS reference with Trait_Internal, Gene and Combined columns. Requires matched PIGEAN run IDs for direct anchor adjustment.")
+    parser.add_argument("--factor-atlas", type=Path, metavar="DIR", help="Add a searchable cross-trait leaf map from an integrated eaggl hierarchy output. Supply the matching per-trait hierarchies.")
     parser.add_argument("--hierarchy-source-root", type=Path, default=Path("."), help="Root for source paths recorded in hierarchy.json (default: current directory).")
     parser.add_argument("--eaggl-group", action="append", type=parse_eaggl_group_spec, default=[], help="Assign a standalone EAGGL run to a dashboard group as RUN_ID:MODE_ID:GROUP_ID[:GROUP_TITLE]; repeatable.")
     parser.add_argument("--run-genome-build", action="append", type=parse_run_title, default=[], help="Coordinate assembly for a locus view as RUN_ID:BUILD.")

@@ -402,3 +402,16 @@ overview groups. Both source leaves stay in the tree.
 | `overview.tsv.gz` | One row per leaf giving its family at the requested cut |
 | `redundancy_pairs.tsv.gz` | Similar pairs, cosine, norm ratio, fraction of each factor's squared loadings on shared genes, and profile/strength flags |
 | `gene_panel_overlap.tsv.gz`, `hierarchy.json` | Trait-pair coverage and maximum cosine, source file hashes, settings and counts |
+
+To display the integrated leaves in the offline PIGEAN dashboard, add
+`--factor-atlas runs/T2D_CAD_hierarchy` to the dashboard build alongside the
+matching per-trait `--eaggl-hierarchy` inputs. Install the optional
+`umap-learn` dependency in the build environment. The browser needs no network.
+Under **Factor graph**, switch from **MDS graph** to **Cross-trait atlas**.
+One point represents one input leaf. Positions come from a seeded cosine UMAP
+of the aligned gene profiles and stay fixed when coloring by gene, gene set or
+phenotype. A search uses all embedded rows. Gene and gene-set colors show raw
+loadings. If a matched phenotype reference was supplied, phenotype colors show
+signed marginal Factor PheWAS coefficients adjusted for discovery-trait genetic
+evidence. Hollow points mean the measurement is unavailable. Point details
+include the integrated family, source factor, leading genes and overlay value.
