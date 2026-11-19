@@ -112,3 +112,9 @@ python research/eaggl_leaf_selection/scripts/inspect_hierarchy_join.py \
 ```
 
 Each row represents one start and one pair of leaves on opposite sides of the join. Compare their consensus cosine and shared loading mass with those of the two matched raw profiles. Missing either match leaves the corresponding similarity fields blank. Count the starts with both matches when reporting a range. The five starts reuse the same input relationships. Agreement measures sensitivity to initialization. A pair can match in every start and still vary in how strongly its members resemble each other. These observations annotate the interpretation of the consensus join without changing its membership or adding a second QC stage.
+
+### Choosing a flat view
+
+Use the fitted leaves to see the most detail. For a coarser overview, cosine 0.50 is the current research reference. Use `--min-shared-mass 0.40` if you want each pair of descendant leaves to share at least 40% of its normalized loading mass. On the four saved traits that floor sometimes separates leaves with a recognizable common core. Two families displayed separately can share genes.
+
+For a size-limited review, use `--max-gene-equivalents 30` with the hierarchy build command. A ceiling of 30 means that the summed memberships of the discovery genes in a displayed family can reach 30. A weight of 0.2 contributes 0.2. The output `hierarchy_size_cuts.tsv.gz` identifies an indivisible leaf above the requested ceiling. This option can group small, biologically distinct profiles while splitting large families. Interpret it as a way to limit the breadth of a display. The original fit, tree and flat leaf output are common to all of these views.

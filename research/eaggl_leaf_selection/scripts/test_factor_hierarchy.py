@@ -36,6 +36,20 @@ class HierarchyTest(unittest.TestCase):
                 self.assertEqual(sorted(k for i in chosen for k in members[i]),[1,2,3])
                 self.assertTrue(all(nodes[i][metric]>=floor for i in chosen))
 
+    def test_size_ceiling(self):
+        nodes, values, members = build_tree(np.array([[.4,.8,0],[.25,.5,0],[0,0,.6],[0,0,.3]]), [5,7,2])
+        for cap in (.5, 1., 2., 3.):
+            frontier = cut_tree(nodes, cap, 'gene_equivalents')
+            self.assertEqual(sorted(k for i in frontier for k in members[i]), [2,5,7])
+            for i in frontier:
+                self.assertAlmostEqual(nodes[i]['gene_equivalents'], values[:, i].sum())
+                self.assertTrue(values[:, i].sum() <= cap or len(members[i]) == 1)
+                parent = nodes[i]['parent']
+                self.assertTrue(parent is None or values[:, parent].sum() > cap)
+        for cap in (0, -1, np.inf, np.nan):
+            with self.assertRaises(ValueError):
+                cut_tree(nodes, cap, 'gene_equivalents')
+
     def test_edge_cases(self):
         self.assertEqual(cut_tree(build_tree(np.empty((3,0)),[])[0],.5),[])
         n,_,_=build_tree(np.array([[1.],[0.]]),[4])

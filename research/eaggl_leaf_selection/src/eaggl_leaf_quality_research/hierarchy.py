@@ -51,6 +51,7 @@ def build_tree(weights, leaf_ids):
         nodes.append(dict(node=i, parent=None, left=left, right=right,
                           leaf_id=int(ids[i]) if i < n else None, n_leaves=len(indices),
                           min_leaf_cosine=similarity, min_shared_mass=float(overlap),
+                          gene_equivalents=float(loadings[:, i].sum()),
                           effective_genes=float(energy.sum()**2 / (energy@energy))))
         members.append(indices)
 
@@ -75,15 +76,20 @@ def build_tree(weights, leaf_ids):
 
 
 def cut_tree(nodes, floor, metric='min_leaf_cosine'):
-    """Return the coarsest non-overlapping frontier satisfying a minimum pair score."""
-    if metric not in ('min_leaf_cosine', 'min_shared_mass') or not 0 <= floor <= 1:
+    """Return maximal qualifying nodes. Indivisible leaves always remain visible."""
+    threshold = floor
+    if metric == 'gene_equivalents':
+        if not np.isfinite(threshold) or threshold <= 0:
+            raise ValueError('Gene-equivalent ceiling must be finite and positive')
+    elif metric not in ('min_leaf_cosine', 'min_shared_mass') or not 0 <= threshold <= 1:
         raise ValueError('Expected a supported metric and a floor in [0, 1]')
     frontier = []
     stack = [len(nodes)-1] if nodes else []
     while stack:
         i = stack.pop()
         node = nodes[i]
-        if node['left'] is None or node[metric] >= floor:
+        qualifies = node[metric] <= threshold if metric == 'gene_equivalents' else node[metric] >= threshold
+        if node['left'] is None or qualifies:
             frontier.append(i)
         else:
             stack.extend((node['right'], node['left']))

@@ -24,7 +24,7 @@ def similarities(a, b):
     return float(cosine), float(shared)
 
 
-def inspect(root, directory, manifest, nodes):
+def matched_starts(root, directory, manifest):
     receipt = json.loads((directory/'hierarchy.json').read_text())
     trait = receipt['trait']
     record = json.loads(manifest.read_text())['traits'][trait]
@@ -50,13 +50,18 @@ def inspect(root, directory, manifest, nodes):
     np.testing.assert_array_equal((matches >= 0).sum(0), qc.support)
     tree = pd.read_csv(directory/'factor_hierarchy.tsv.gz', sep='\t').set_index('node')
     np.testing.assert_array_equal(np.sort(tree.leaf_id.dropna()), qc.factor[~qc.flagged])
+    return trait, phi, tree, w, starts, matches, contract['restart_seeds']
+
+
+def inspect(root, directory, manifest, nodes):
+    trait, phi, tree, w, starts, matches, seeds = matched_starts(root, directory, manifest)
     rows = []
     for node in dict.fromkeys(nodes):
         if node not in tree.index or pd.notna(tree.loc[node].leaf_id):
             raise ValueError(f'{node} must be an internal node of {trait}')
         for a, b in product(leaves(tree, int(tree.loc[node].left)), leaves(tree, int(tree.loc[node].right))):
             consensus_cos, consensus_shared = similarities(w[:, a-1], w[:, b-1])
-            for seed, raw, match in zip(contract['restart_seeds'], starts, matches):
+            for seed, raw, match in zip(seeds, starts, matches):
                 i, j = match[[a-1, b-1]]
                 cos, shared = (similarities(raw[:, i], raw[:, j])
                                if i >= 0 and j >= 0 else (np.nan, np.nan))

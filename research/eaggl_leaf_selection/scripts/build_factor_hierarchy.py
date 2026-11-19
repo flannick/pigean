@@ -14,7 +14,7 @@ from eaggl_capacity_research.candidate_data import sha
 from eaggl_leaf_quality_research.hierarchy import build_tree, cut_tree
 
 FIELDS = ['node', 'parent', 'left', 'right', 'leaf_id', 'n_leaves', 'min_leaf_cosine',
-          'min_shared_mass', 'effective_genes', 'shared_leaf_pair_fraction']
+          'min_shared_mass', 'effective_genes', 'shared_leaf_pair_fraction', 'gene_equivalents']
 
 
 def run(args):
@@ -56,11 +56,19 @@ def run(args):
         tree.to_csv(stage/'factor_hierarchy.tsv.gz',sep='\t',index=False)
         pd.DataFrame(rows,columns=['metric','floor','node','leaf_factors']).to_csv(
             stage/'hierarchy_cuts.tsv.gz',sep='\t',index=False)
+        if args.max_gene_equivalents:
+            size_rows = []
+            for cap in dict.fromkeys(args.max_gene_equivalents):
+                for i in cut_tree(nodes, cap, 'gene_equivalents'):
+                    size = nodes[i]['gene_equivalents']
+                    size_rows.append((cap, i, ','.join(map(str, sorted(members[i]))), size, size > cap))
+            pd.DataFrame(size_rows, columns=['ceiling', 'node', 'leaf_factors', 'gene_equivalents',
+                                             'oversize_leaf']).to_csv(stage/'hierarchy_size_cuts.tsv.gz', sep='\t', index=False)
         np.savez_compressed(stage/'hierarchy_loadings.npz',W=values,genes=genes,node=tree.node.to_numpy(dtype=int))
         (stage/'hierarchy.json').write_text(json.dumps(dict(version=1,trait=args.trait,phi=record['phi'],
             source_files=files,method='complete linkage on original leaf cosine',parent='noisy OR',
             skipped_flagged=qc.factor[~passing].tolist(),cosine_cuts=args.min_leaf_cosine,
-            shared_mass_cuts=args.min_shared_mass),indent=2)+'\n')
+            shared_mass_cuts=args.min_shared_mass, size_ceilings=args.max_gene_equivalents),indent=2)+'\n')
         stage.rename(output)
 
 
@@ -72,4 +80,6 @@ if __name__ == '__main__':
     p.add_argument('--output',required=True,type=Path)
     p.add_argument('--min-leaf-cosine',nargs='+',type=float,default=[],help='Optional cosine cut floors')
     p.add_argument('--min-shared-mass',nargs='+',type=float,default=[],help='Optional minimum common gene mass on the same tree')
+    p.add_argument('--max-gene-equivalents', nargs='+', type=float, default=[],
+                   help='Optional ceiling on summed discovery-gene memberships per displayed family')
     run(p.parse_args())
