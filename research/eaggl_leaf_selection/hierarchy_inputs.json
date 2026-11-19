@@ -1,0 +1,97 @@
+{
+  "relative_to": "analysis/pigean_optimize",
+  "traits": {
+    "T2D": {
+      "phi": 0.02,
+      "passing": 84,
+      "fitted": 84,
+      "files": {
+        "loadings": {
+          "path": "results/EAGGL_four_trait_leaf_validation/T2D/selection/selected_fit.npz",
+          "sha256": "e08bae7fa65e8357bc7c0c99179d1e25182f5460712739df78cdefaf516b716b"
+        },
+        "qc": {
+          "path": "results/EAGGL_four_trait_leaf_validation/T2D/selection/selected_factor_qc.tsv.gz",
+          "sha256": "58b978aedb2a4097fa11dccf8d9485e203c914c0964e56b122d52a1f9d693bfc"
+        },
+        "axes": {
+          "path": "results/EAGGL_loading_auto_phi_20261116/main_101/inputs/metadata.npz",
+          "sha256": "380bbec2ca47cd7e140cd510b99adae2a765da5c53ff8eb26ace524f082a06d0"
+        },
+        "decision": {
+          "path": "results/EAGGL_four_trait_leaf_validation/T2D/selection/selection.json",
+          "sha256": "e2f0c80863494d40d5f335a263fd097a1369ad92ef12f1e34ef08e1af9ea256d"
+        }
+      }
+    },
+    "CAD": {
+      "phi": 0.01,
+      "passing": 74,
+      "fitted": 75,
+      "files": {
+        "loadings": {
+          "path": "results/EAGGL_four_trait_leaf_validation/CAD/selection/selected_fit.npz",
+          "sha256": "3f3cfa34f80145e96421a3801cbba2a49764a644a07f9619450951c3742cce13"
+        },
+        "qc": {
+          "path": "results/EAGGL_four_trait_leaf_validation/CAD/selection/selected_factor_qc.tsv.gz",
+          "sha256": "198ea843e06c2fbd656642025d2b7d8288e09ab6b13cf867883f08838ff62122"
+        },
+        "axes": {
+          "path": "results/EAGGL_four_trait_leaf_validation/CAD/main/inputs/metadata.npz",
+          "sha256": "7d6486f88494e4255f895ff7881259e6c0687c9e252ffd3be4c501c422efdabe"
+        },
+        "decision": {
+          "path": "results/EAGGL_four_trait_leaf_validation/CAD/selection/selection.json",
+          "sha256": "fc6211725d51ba489ee8ac2d95be2c7d9938478f185643432d22962f07d804d0"
+        }
+      }
+    },
+    "NAFLD": {
+      "phi": 0.01,
+      "passing": 35,
+      "fitted": 36,
+      "files": {
+        "loadings": {
+          "path": "results/EAGGL_four_trait_leaf_validation/NAFLD/selection/selected_fit.npz",
+          "sha256": "08013c0ae0c0b1e045d033ef51e20542153f5322277587dbe6eb3e6d532c415a"
+        },
+        "qc": {
+          "path": "results/EAGGL_four_trait_leaf_validation/NAFLD/selection/selected_factor_qc.tsv.gz",
+          "sha256": "26d51c105a350fc2857cfa04ad9586334ffeca9fc17d69a1e08bebb62e01635e"
+        },
+        "axes": {
+          "path": "results/EAGGL_four_trait_leaf_validation/NAFLD/main/inputs/metadata.npz",
+          "sha256": "79e221d9f2c38c0e4cb109b583f28353ba680d30b59c68f6e7bb7ab5cdd117cc"
+        },
+        "decision": {
+          "path": "results/EAGGL_four_trait_leaf_validation/NAFLD/selection/selection.json",
+          "sha256": "cca2d7ecc2d645db026ed9563497f899148c53067b5ba28ad9b41c7cdda0ea69"
+        }
+      }
+    },
+    "Asthma": {
+      "phi": 0.04,
+      "passing": 42,
+      "fitted": 42,
+      "files": {
+        "loadings": {
+          "path": "results/EAGGL_four_trait_leaf_validation/Asthma/selection/selected_fit.npz",
+          "sha256": "e7396501faf158ca8cc21dcc93a8b4fb6e469813ba87ef74e56ce82d3ba1dcaf"
+        },
+        "qc": {
+          "path": "results/EAGGL_four_trait_leaf_validation/Asthma/selection/selected_factor_qc.tsv.gz",
+          "sha256": "fe9b15eb60f6024f387226cac79c997a574a4a575915aba9a9522784e9e70a56"
+        },
+        "axes": {
+          "path": "results/EAGGL_four_trait_leaf_validation/Asthma/main/inputs/metadata.npz",
+          "sha256": "95146a8ebff995b642911da337ff9f94852bf4f51b9873a409f6c019c1fa14a3"
+        },
+        "decision": {
+          "path": "results/EAGGL_four_trait_leaf_validation/Asthma/selection/selection.json",
+          "sha256": "cdf9dea8c2a463df8f348b193a52c11c9bd4068510632f7f186aa3f9324bb8b4"
+        }
+      }
+    }
+  }
+}
