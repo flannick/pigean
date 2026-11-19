@@ -15,6 +15,7 @@ Scope rules for this document:
 - niche, debug-only, or transitional flags belong in the generated inventory, not in this manual
 
 The separate saved-fit research selector has its own command, ordinary help and expert option reference. [Hierarchy leaf selector CLI](../../research/eaggl_leaf_selection/README.md#complete-selector-controls)
+The `hierarchy` command builds one tree from separately fitted traits. See the [cross-trait workflow and redundancy flags](WORKFLOWS.md#group-independently-fitted-traits).
 
 ## Entry points and modes
 
@@ -28,6 +29,7 @@ Common modes:
 - `factor`: canonical EAGGL factor workflow with F1-F4 workflow selection
 - `naive_factor`: simpler baseline factorization path using the same high-level contracts
 - `label`: label precomputed factor loading tables without refitting
+- `hierarchy`: group gene-loading profiles from two or more traits and flag repeated profiles
 
 Typical user workflow:
 

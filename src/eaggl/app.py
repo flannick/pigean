@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from pegs_cli_errors import PegsCliError, handle_cli_exception, handle_unexpected_exception
 
 from . import cli as eaggl_cli
@@ -13,8 +15,12 @@ def run_main_pipeline(options):
 
 
 def main(argv=None):
+    args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] == ["hierarchy"]:
+        from .multitrait_hierarchy import main as hierarchy_main
+        return hierarchy_main(args[1:])
     try:
-        should_continue = eaggl_cli._bootstrap_cli(argv)
+        should_continue = eaggl_cli._bootstrap_cli(None if argv is None else args)
         if not should_continue:
             return 0
         if eaggl_cli.mode == "label":

@@ -161,3 +161,9 @@ PYTHONPATH=src python research/eaggl_leaf_selection/examples/build_dashboard.py 
 Under **Factors**, switch to **Leaves only** and inspect **Leading genes** or **Leading gene sets**. Under **Genes**, filter to `^G09$` and check **Order factors by total loading of matching genes**. Factor 2 moves first. The miniature example exercises file formats and interactions; the four-trait biological comparisons use the real archived fits.
 
 Run `python -m pytest tests/test_research_hierarchy_dashboard.py` for a portable end-to-end check. Set `CHROME_BIN` to a Chrome or Chromium executable to include the offline browser interaction test.
+
+To integrate multiple traits, use the selected fit's `leaf_loadings.tsv.gz`
+(one row per discovery gene, one raw loading column per passing leaf). The
+factor numbers match the original exported fit. Supply these files to
+`python -m eaggl hierarchy` as described in the
+[cross-trait hierarchy workflow](../../docs/eaggl/WORKFLOWS.md#group-independently-fitted-traits).

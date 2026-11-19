@@ -104,6 +104,12 @@ def run(inputs_path, candidates, replicas, output, *, policy=Policy()):
         if decision['selected'] is not None:
             source = grid[decision['selected_phi']]/'consensus/integrated_export/fit.npz'
             shutil.copyfile(source, stage/'selected_fit.npz')
+            qc = pd.read_csv(stage/decision['selected']/'factor_qc.tsv.gz', sep='\t')
+            passing = qc.loc[~qc.flagged, 'factor'].to_numpy(dtype=int)
+            with np.load(source) as fit:
+                leaf_table = pd.DataFrame(fit['W'][:, passing - 1], index=inputs.genes,
+                                          columns=[f'Factor{i}' for i in passing])
+            leaf_table.to_csv(stage/'leaf_loadings.tsv.gz', sep='\t', index_label='Gene')
             shutil.copyfile(stage/decision['selected']/'factor_qc.tsv.gz',stage/'selected_factor_qc.tsv.gz')
             decision.update(selected_fit_sha256=sha(source), selected_qc_sha256=sha(stage/'selected_factor_qc.tsv.gz'))
         (stage/'selection.json').write_text(json.dumps(decision,indent=2)+'\n')

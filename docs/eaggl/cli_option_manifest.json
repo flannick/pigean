@@ -1667,7 +1667,7 @@
       "source_line": 186,
       "summary": "write the main factor loading output table",
       "type": null,
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": null,
@@ -1856,7 +1856,7 @@
       "source_line": 192,
       "summary": null,
       "type": null,
-      "usage_references": 28
+      "usage_references": 29
     },
     {
       "action": null,
