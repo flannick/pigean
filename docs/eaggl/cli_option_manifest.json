@@ -596,7 +596,7 @@
       "source_line": 444,
       "summary": "choose how matched factors are aggregated across restarts in consensus mode",
       "type": "str",
-      "usage_references": 12
+      "usage_references": 13
     },
     {
       "action": null,
@@ -617,7 +617,7 @@
       "source_line": 437,
       "summary": "Reference-centered matching or supported complete-link pooling across all restarts",
       "type": "choice",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -638,7 +638,7 @@
       "source_line": 442,
       "summary": "minimum cosine similarity needed to align a restart factor to the reference factor",
       "type": "float",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": null,
@@ -659,7 +659,7 @@
       "source_line": 443,
       "summary": "minimum restart support fraction required to keep a consensus factor",
       "type": "float",
-      "usage_references": 11
+      "usage_references": 12
     },
     {
       "action": "store_true",
@@ -1625,7 +1625,7 @@
       "source_line": 436,
       "summary": "run repeated random restarts for factorization; without consensus keep only the best run",
       "type": "int",
-      "usage_references": 28
+      "usage_references": 29
     },
     {
       "action": null,
@@ -3389,7 +3389,7 @@
       "source_line": 274,
       "summary": "show expert workflow, projection, and debug flags in addition to the normal public interface",
       "type": null,
-      "usage_references": 17
+      "usage_references": 21
     },
     {
       "action": "store_true",
@@ -3767,7 +3767,7 @@
       "source_line": 378,
       "summary": "automatically tune phi to a requested primary-factor gene effective support before the final factorization",
       "type": null,
-      "usage_references": 333
+      "usage_references": 334
     },
     {
       "action": null,
@@ -4251,7 +4251,7 @@
       "source_line": 393,
       "summary": "comma-separated explicit phi candidate values for automatic phi tuning; overrides adaptive candidate generation while preserving selection criteria",
       "type": null,
-      "usage_references": 13
+      "usage_references": 14
     },
     {
       "action": null,
@@ -4650,7 +4650,7 @@
       "source_line": 362,
       "summary": "maximum starting factor budget before shrinkage removes unsupported factors",
       "type": "int",
-      "usage_references": 17
+      "usage_references": 18
     },
     {
       "action": null,
@@ -5049,7 +5049,7 @@
       "source_line": 439,
       "summary": "Keep the best restart instead of pooling; --factor-runs 1 requests one fit",
       "type": null,
-      "usage_references": 8
+      "usage_references": 9
     },
     {
       "action": "store_false",
@@ -5175,7 +5175,7 @@
       "source_line": 379,
       "summary": null,
       "type": null,
-      "usage_references": 20
+      "usage_references": 21
     },
     {
       "action": "store_false",
@@ -5532,7 +5532,7 @@
       "source_line": 363,
       "summary": "base sparsity/shrinkage strength for factor learning; larger values favor fewer broader factors",
       "type": "float",
-      "usage_references": 151
+      "usage_references": 158
     },
     {
       "action": null,
@@ -5553,7 +5553,7 @@
       "source_line": 405,
       "summary": null,
       "type": "choice",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,
@@ -5574,7 +5574,7 @@
       "source_line": 406,
       "summary": null,
       "type": "int",
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
