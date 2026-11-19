@@ -80,11 +80,10 @@ From the package root, point the command at the analysis directory that contains
 ```bash
 python research/eaggl_leaf_selection/scripts/build_factor_hierarchy.py \
   --input-root /path/to/analysis/pigean_optimize --trait CAD \
-  --output /path/to/new/CAD_hierarchy \
-  --min-leaf-cosine 0.30 0.50 0.70 --min-shared-mass 0.50
+  --output /path/to/new/CAD_hierarchy
 ```
 
-Both cut options are optional. The primary flat factors are the passing leaves. A cut picks the broadest nodes on each branch whose least similar pair of descendant leaves meets the requested floor. Every passing leaf appears exactly once. The binary tree uses complete linkage on cosine distances of the original discovery profiles. Input columns are ordered by exported leaf ID before tie resolution. Biological labels are used only during review.
+The default research command emits the full tree and a cosine 0.50 overview. The primary flat factors are the passing leaves. Every passing leaf appears exactly once. The default binary tree uses complete linkage on cosine distances of the original discovery profiles. Input columns are ordered by exported leaf ID before tie resolution. Biological labels are used only during review.
 
 For gene membership, a parent of nodes A and B has loading `A + (1 − A) × B` for each gene, the heuristic union under independence. A parent represents membership through any descendant. The same-leaf gene-pair score still uses the original union of descendant pair contributions. An internal node can span distinct submechanisms, and the root summarizes the trait.
 
@@ -119,8 +118,34 @@ Use the fitted leaves to see the most detail. For a coarser overview, cosine 0.5
 
 For a size-limited review, use `--max-gene-equivalents 30` with the hierarchy build command. A ceiling of 30 means that the summed memberships of the discovery genes in a displayed family can reach 30. A weight of 0.2 contributes 0.2. The output `hierarchy_size_cuts.tsv.gz` identifies an indivisible leaf above the requested ceiling. This option can group small, biologically distinct profiles while splitting large families. Interpret it as a way to limit the breadth of a display. The original fit, tree and flat leaf output are common to all of these views.
 
-### Testing the same similarity for merging and cutting
+### Matching the score to the merge order
 
-The research builder accepts `--overlap-rule` and `--min-overlap` together. For example, `--overlap-rule shared-squared-mass --min-overlap 0.40` builds a tree from shared squared-loading mass and cuts it at 40% on the same scale. For each leaf, square its gene loadings and normalize them to sum to one. Sum the smaller of the two shares at each gene to compare two leaves. The `shared-mass` rule uses the original loadings before normalization. The reference `cosine` rule uses the cosine of the two loading vectors. Each merge chooses the candidate with the highest minimum similarity across all pairs of leaves spanning its two children. OR parent profiles describe the resulting families. A size ceiling can be applied separately to limit display breadth.
+The research builder accepts `--overlap-rule` and `--min-overlap` together. For example, `--overlap-rule shared-squared-mass --min-overlap 0.40` builds a tree from shared squared-loading mass and cuts it at 40% on the same scale. For each leaf, square its gene loadings and normalize them to sum to one. Sum the smaller of the two shares at each gene to compare two leaves. The `shared-mass` rule uses the original loadings before normalization. The reference `cosine` rule uses the cosine of the two loading vectors. With the default leaf scope, each merge chooses the candidate with the highest minimum similarity across all pairs of leaves spanning its two children. OR parent profiles describe the resulting families. A size ceiling can be applied separately to limit display breadth.
 
 The previous shared-mass cuts on cosine trees remain available for reproducing the fixed-tree comparison. For a consistently defined overlap hierarchy use the paired arguments above. In four saved traits, promoting the high-loading genes in this way improved separation of the two broad NAFLD families relative to raw mass, but also split recognizable NAFLD and Asthma subgroups relative to cosine. Cosine remains the reference overview.
+
+### Which hierarchy options should I change?
+
+| Priority | User goal | Research builder controls |
+|---|---|---|
+| 1. Default | An overview of distinct mechanisms with leaves available for detail | Run the builder without method or cut flags. Defaults are `--merge-scope leaves --overlap-rule cosine --min-overlap 0.50`. |
+| 2. Display | Coarser or finer grouping of the same leaves | Change `--min-overlap` first. With cosine, try 0.30 for broader groups or 0.70 for finer groups. For a size-limited display, request `--max-gene-equivalents` and inspect oversize singletons. |
+| 3. Targeted alternative | Group by modeled membership in both families given membership in either | Try `--overlap-rule both-given-either --merge-scope leaves` and supply a floor on its own scale. At the reference display counts the four observed floors ranged from 0.024 to 0.052. A 0.40 floor left every leaf separate. |
+| 4. Expert comparison | Reproduce a prior analysis or test a particular nesting hypothesis | Choose the score and scope from the inventory below. For an alternate method, omitting the floor exports the entire tree. Legacy fixed-tree cuts use `--min-leaf-cosine` and `--min-shared-mass` with the cosine/leaf recipe. |
+
+**Inventory.** The columns describe the two values of `--merge-scope`. With **leaves**, complete linkage scores a candidate by its weakest cross-child leaf pair. With **nodes**, each merge scores the two current OR profiles. Each experiment produces one tree per trait. Reference counts were 53 T2D, 51 CAD, 20 NAFLD and 28 Asthma. Retention decisions are based on these four saved fits.
+
+| `--overlap-rule` | Meaning | `leaves` | `nodes` |
+|---|---|---|---|
+| `cosine` | Similar direction of gene loading profiles | **Default.** Preserves the reviewed distinct axes and lipid subfamily. | Park. Joined the two T2D anchor axes. |
+| `both-given-either` | Probability of membership in both, conditional on membership in either | **Targeted alternative.** Preserved the two NAFLD contrasts and all distinct anchor groups. Largest NAFLD family grew from 6 to 13 leaves. | Park. Combined all 24 pairs across the two NAFLD families and both T2D anchors. |
+| `prob-containment` | Larger conditional membership, A given B or B given A | Expert diagnostic. Recognizes exact binary nesting, but split the reviewed NAFLD lipoprotein join. | Park. Recovered that join, but concentrated 32 T2D leaves in one family. |
+| `profile-containment` | Fraction of the smaller profile's loading mass covered pointwise | Expert diagnostic for literal profile nesting. Missed the reviewed NAFLD lipoprotein join. | Park. Strong attraction to large families and uneven score cuts. |
+| `shared-mass` | Shared mass after scaling each profile to sum to one | Expert historical control. Mixed the NAFLD examples more than cosine. | Park. Mixed 20 of the 24 NAFLD cross-family pairs. |
+| `shared-squared-mass` | Shared mass after squaring loadings and normalizing | Expert alternative for strong cores. Preserved only 2/5 lipoprotein cross-child pairs. | Park. Mixed all 24 cross-family pairs. |
+
+For two non-overlapping branches with per-gene membership loadings A and B, the independent-membership approximation gives shared mass `sum(A*B)`. The conditional-on-either denominator is `sum(A+B-A*B)`. Directional containment divides the shared mass by each child's total, then takes the larger fraction. Profile containment instead uses `sum(min(A,B)) / min(sum(A),sum(B))`, so a profile fully dominated by another scores one. It measures literal profile nesting and has a conditional probability interpretation only under an alternative shared-threshold coupling of memberships. None of these yields a posterior probability that two mechanisms are identical.
+
+For each internal node, the topology table gives the raw merge score, the lowest score encountered in the greedy sequence through this join, both conditional memberships of the OR children, and each child's background coverage averaged over discovery genes. Compare right-given-left with right background and left-given-right with left background. In leaf scope the child-level conditionals summarize the completed merge. In node scope subsequent merges can score higher after an OR profile grows. The threshold cut returns exactly the state reached by stopping at the first below-floor merge, so some numbers of families are unreachable with a single floor. The original leaves, their QC and the OR summary formula are shared across all methods.
+
+To reproduce the four-trait comparison from these archived inputs, run `scripts/compare_linkage_rules.py --all-methods --analysis-root PATH --output NEW_DIRECTORY` with the analysis Python environment. The tables distinguish exact-count snapshots from the family count reproducible at the reported floor.

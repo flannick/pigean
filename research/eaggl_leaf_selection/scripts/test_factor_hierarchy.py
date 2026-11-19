@@ -8,6 +8,21 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from eaggl_leaf_quality_research.hierarchy import RULE_FIELDS, build_tree, cut_tree
 
 
+def pair_score(a, b, rule):
+    A, B = a.sum(), b.sum()
+    if rule == 'cosine':
+        return (a@b)/(np.linalg.norm(a)*np.linalg.norm(b))
+    if rule == 'both-given-either':
+        return (a*b).sum()/(a+b-a*b).sum()
+    if rule == 'prob-containment':
+        return max((a*b).sum()/A, (a*b).sum()/B)
+    if rule == 'profile-containment':
+        return np.minimum(a,b).sum()/min(A,B)
+    if rule == 'shared-squared-mass':
+        a, b = a*a, b*b
+    return np.minimum(a/a.sum(), b/b.sum()).sum()
+
+
 class HierarchyTest(unittest.TestCase):
     def test_known_tree_and_same_leaf_mass(self):
         w=np.array([[.4,.8,0],[.25,.5,0],[0,0,.6],[0,0,.3]])
@@ -41,13 +56,9 @@ class HierarchyTest(unittest.TestCase):
         w = np.random.default_rng(4).uniform(.001, 1, size=(11, 9))
         trees = set()
         for rule, field in RULE_FIELDS.items():
-            if rule == 'cosine':
-                z = w / np.linalg.norm(w, axis=0)
-                score = z.T @ z
-            else:
-                z = w if rule == 'shared-mass' else w**2
-                z = z / z.sum(0)
-                score = np.minimum(z[:,:,None], z[:,None,:]).sum(0)
+            score = np.eye(w.shape[1])
+            for a,b in combinations(range(w.shape[1]), 2):
+                score[a,b] = score[b,a] = pair_score(w[:,a], w[:,b], rule)
             nodes, _, groups = build_tree(w, range(w.shape[1]), rule)
             active = set(range(w.shape[1]))
             for i in range(w.shape[1], len(nodes)):
@@ -66,6 +77,40 @@ class HierarchyTest(unittest.TestCase):
                     parent = nodes[i]['parent']
                     self.assertTrue(parent is None or nodes[parent][field] < floor)
         self.assertGreater(len(trees), 1)
+
+    def test_node_merges_and_stops_match_direct_greedy_replay(self):
+        w = np.random.default_rng(7).uniform(.01, .9, size=(11, 9))
+        saw_inversion = False
+        for rule in RULE_FIELDS:
+            nodes, z, groups = build_tree(w, range(w.shape[1]), rule, 'nodes')
+            active = set(range(w.shape[1]))
+            history = [active.copy()]
+            scores = []
+            for i in range(w.shape[1], len(nodes)):
+                best, a, b = min((-pair_score(z[:,a],z[:,b],rule),a,b) for a,b in combinations(sorted(active),2))
+                self.assertEqual((a,b), (nodes[i]['left'], nodes[i]['right']))
+                self.assertAlmostEqual(nodes[i]['merge_score'], -best)
+                self.assertAlmostEqual(nodes[i]['right_given_left'], (z[:,a]@z[:,b])/z[:,a].sum())
+                np.testing.assert_allclose(z[:,i],1-(1-z[:,a])*(1-z[:,b]))
+                active.difference_update((a,b))
+                active.add(i)
+                history.append(active.copy())
+                scores.append(nodes[i]['merge_score'])
+            saw_inversion |= bool((np.diff(scores)>1e-10).any())
+            for threshold in sorted(set(scores+[.4,.5,.7])):
+                first = next((i for i,s in enumerate(scores) if s<threshold),len(scores))
+                self.assertEqual(set(cut_tree(nodes,threshold,'merge_prefix_floor')),history[first])
+        self.assertTrue(saw_inversion)
+
+    def test_nested_membership(self):
+        for scope in ('leaves','nodes'):
+            for inner, outer, rule, expected in [
+                ([1,0,0],[1,1,1],'both-given-either',1/3),
+                ([1,0,0],[1,1,1],'prob-containment',1),
+                ([.2,0,0],[.4,.5,.5],'prob-containment',.4),
+                ([.2,0,0],[.4,.5,.5],'profile-containment',1)]:
+                nodes, _, _ = build_tree(np.array([inner,outer]).T,[1,2],rule,scope)
+                self.assertAlmostEqual(nodes[-1]['merge_score'],expected)
 
     def test_size_ceiling(self):
         nodes, values, members = build_tree(np.array([[.4,.8,0],[.25,.5,0],[0,0,.6],[0,0,.3]]), [5,7,2])
