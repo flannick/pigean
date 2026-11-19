@@ -1,44 +1,17 @@
-"""Describe saved four-trait trees and test co-grouping against archived fits."""
+"""Describe four saved consensus trees and their flat cuts."""
 from pathlib import Path
 import argparse
 import json
 import numpy as np
 import pandas as pd
-from scipy.cluster.hierarchy import linkage, fcluster
-from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import pdist, squareform
 
-FLOORS=(.3,.5,.7)
-
-
-def compare_partition(w,v,labels,floor,ids,anchors):
-    cosine=(w/np.linalg.norm(w,axis=0)).T@(v/np.linalg.norm(v,axis=0))
-    a,b=linear_sum_assignment(-cosine)
-    keep=cosine[a,b]>=.7
-    a,b=a[keep],b[keep]
-    other=fcluster(linkage(pdist(v.T,'cosine'),method='complete'),1-floor,criterion='distance')
-    i,j=np.triu_indices(len(a),1)
-    ref=labels[a[i]]==labels[a[j]]
-    alt=other[b[i]]==other[b[j]]
-    same=int((ref & alt).sum())
-    anchor_checks = {}
-    for name,leaf in anchors.items():
-        group=labels==labels[np.flatnonzero(ids==leaf)[0]]
-        children=other[b[group[a]]]
-        total=len(children)*(len(children)-1)//2
-        coassigned=int((children[:,None]==children)[np.triu_indices(len(children),1)].sum())
-        anchor_checks[name]=dict(size=int(group.sum()),matched_children=len(children),pairs=total,same=coassigned)
-    return anchor_checks,dict(matched=len(a),passing=len(labels),other_active=v.shape[1],matched_pairs_in_reference=int(ref.sum()),
-                matched_pairs_in_other=int(alt.sum()), shared_pairs=same,
-                recall=same/ref.sum() if ref.any() else np.nan,
-                precision=same/alt.sum() if alt.any() else np.nan)
-
-
-def main(root):
+def main(root, output=None):
     out=root/'results/EAGGL_hierarchy_v1'
     base=root/'results/EAGGL_four_trait_leaf_validation'
-    perturbed={x['trait']:x for x in json.loads((root/'results/EAGGL_ARD_cross_trait_20261117/manifest.json').read_text())['traits']}
-    inventories=[];summary=[];stability=[];controls=[];pair_checks=[];anchor_stability=[]
+    output = out if output is None else output
+    output.mkdir(parents=True, exist_ok=True)
+    inventories=[];summary=[];controls=[];pair_checks=[]
     for trait in ['T2D','CAD','NAFLD','Asthma']:
         dest=out/trait
         z=np.load(dest/'hierarchy_loadings.npz'); w=z['W']; genes=z['genes']
@@ -80,34 +53,14 @@ def main(root):
         a=refparts['min_leaf_cosine',.5];b=refparts['min_shared_mass',.5]
         x=a[i]==a[j];y=b[i]==b[j]
         pair_checks.append(dict(trait=trait,cosine_pairs=x.sum(),overlap_pairs=y.sum(),common_pairs=(x&y).sum()))
-        grid=pd.read_csv(p/'phi_summary.tsv.gz',sep='\t')
-        source=Path(grid[grid.phi==phi].iloc[0].source)
-        level=json.loads((source.parents[1]/'contract.json').read_text())['b0']
-        comparisons=[]
-        for k in range(5):
-            raw=np.load(source/f'raw_{k}/fit.npz')['W']
-            comparisons.append((f'start_{k}',phi,v,raw[:,(raw*raw).sum(0)>level]))
-        case=perturbed[trait]
-        level=json.loads((root/case['manifest']).read_text())['hyper']['b0']
-        strength=4 if phi==.04 else 1
-        for part in range(2):
-            zz=np.load(root/case['run_root']/f'p{part}_x{strength}/fit.npz')
-            active=(zz['W']**2).sum(0)>level
-            _,curr,other=np.intersect1d(genes,zz['genes'],return_indices=True)
-            comparisons.append((f'masked_{part}',.01*strength,v[curr],zz['W'][other][:,active]))
-        for cmp,other_phi,current,other in comparisons:
-            for floor in FLOORS:
-                grouped,stats=compare_partition(current,other,refparts['min_leaf_cosine',floor],floor,ids,anchors)
-                for name,obs in grouped.items():
-                    anchor_stability.append(dict(trait=trait,comparison=cmp,panel=name,floor=floor,**obs))
-                stability.append(dict(trait=trait,comparison=cmp,phi=phi,other_phi=other_phi,common_genes=len(current),
-                    floor=floor,**stats))
     for name,items in [('families',inventories),('anchor_families',controls),('cut_summary',summary),
-                       ('stability',stability),('anchor_stability',anchor_stability),('pair_comparison',pair_checks)]:
-        pd.DataFrame(items).to_csv(out/f'{name}.tsv.gz',sep='\t',index=False)
+                       ('pair_comparison',pair_checks)]:
+        pd.DataFrame(items).to_csv(output/f'{name}.tsv.gz',sep='\t',index=False)
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--analysis-root',type=Path,required=True)
-    main(parser.parse_args().analysis_root.resolve())
+    parser.add_argument('--output', type=Path, help='Directory for the four descriptive tables')
+    args = parser.parse_args()
+    main(args.analysis_root.resolve(), args.output)

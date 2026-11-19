@@ -49,13 +49,20 @@ def normalize(w):
     return np.divide(w, norm, out=np.zeros_like(w), where=norm > 0)
 
 
-def restart_support(w, raws, cosine=.7):
-    counts = np.zeros(w.shape[1], dtype=int)
-    for raw in raws:
-        sim = normalize(raw).T @ normalize(w)
+def restart_matches(w, raws, cosine=.7):
+    """For each start and consensus leaf, return the matched raw column, or -1."""
+    matches = np.full((len(raws), w.shape[1]), -1, dtype=int)
+    consensus = normalize(w)
+    for row, raw in zip(matches, raws):
+        sim = normalize(raw).T @ consensus
         i, j = linear_sum_assignment(-sim)
-        counts[j] += sim[i, j] >= cosine
-    return counts
+        keep = sim[i, j] >= cosine
+        row[j[keep]] = i[keep]
+    return matches
+
+
+def restart_support(w, raws, cosine=.7):
+    return (restart_matches(w, raws, cosine) >= 0).sum(axis=0)
 
 
 def leaf_metrics(w, counts=None, policy=Policy()):

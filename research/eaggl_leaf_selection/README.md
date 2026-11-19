@@ -75,7 +75,7 @@ In the four-trait qualification, one point gave finer resolution in every trait.
 
 ## Build a mechanism hierarchy
 
-From the package root, point the command at the analysis directory that contains the files listed in the manifest. Run once per trait (T2D, CAD, NAFLD or Asthma). The command verifies the recorded hashes and builds a separate tree for each fit.
+From the package root, point the command at the analysis directory that contains the files listed in the manifest. Run once per trait (T2D, CAD, NAFLD or Asthma). The command verifies the recorded hashes and builds one tree per trait from the selected, jointly refitted consensus. Flagged leaves remain available in the original factor and QC tables.
 
 ```bash
 python research/eaggl_leaf_selection/scripts/build_factor_hierarchy.py \
@@ -99,4 +99,16 @@ For gene membership, a parent of nodes A and B has loading `A + (1 − A) × B` 
 
 Effective gene count uses squared loading mass, as in leaf QC. The shared-leaf pair fraction measures the off-diagonal mass explained by shared descendants divided by the mass obtained by multiplying the two parent memberships. It is missing when the denominator is zero. Outputs directory creation is atomic and requires a fresh destination.
 
-On the pinned T2D, CAD, NAFLD and Asthma fits, the 0.50 cosine cut produced 53, 51, 20 and 28 displayed families. The same trees cut at 50% minimum shared gene mass gave 77, 68, 26 and 36. CAD cardiac-development and Asthma immune-signaling pairs regrouped in both archived masked fits; broader metabolic and immune families had more variable boundaries. Use 0.50 cosine as an exploratory view. For the original study archive, the cross-trait assessment is reproducible with `scripts/assess_four_trait_hierarchies.py --analysis-root PATH` from this research directory using Python and the original study inputs, four generated trait directories and archived perturbed fits.
+On the pinned T2D, CAD, NAFLD and Asthma fits, the 0.50 cosine cut produced 53, 51, 20 and 28 displayed families. The same trees cut at 50% minimum shared gene mass gave 77, 68, 26 and 36. CAD cardiac-development and Asthma immune-signaling pairs regrouped in both archived masked fits; broader metabolic and immune families had more variable boundaries. Use 0.50 cosine as an exploratory view. Run `scripts/assess_four_trait_hierarchies.py --analysis-root PATH` to describe the four saved consensus trees. The historical masked-fit and per-start tree comparisons were exploratory and remain in the original study archive.
+
+### Inspecting one join
+
+Use the optional command below to examine a specific join on the saved tree. Supply the directory from the build command and its fit-local internal node ID. The command checks the fit and raw-start receipts and reproduces the saved support counts across all consensus leaves before inspecting the join.
+
+```bash
+python research/eaggl_leaf_selection/scripts/inspect_hierarchy_join.py \
+  --input-root /path/to/analysis/pigean_optimize --hierarchy /path/to/new/CAD_hierarchy \
+  --node 80 --output /path/to/CAD_join.tsv.gz
+```
+
+Each row represents one start and one pair of leaves on opposite sides of the join. Compare their consensus cosine and shared loading mass with those of the two matched raw profiles. Missing either match leaves the corresponding similarity fields blank. Count the starts with both matches when reporting a range. The five starts reuse the same input relationships. Agreement measures sensitivity to initialization. A pair can match in every start and still vary in how strongly its members resemble each other. These observations annotate the interpretation of the consensus join without changing its membership or adding a second QC stage.
