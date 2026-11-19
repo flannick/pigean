@@ -47,6 +47,14 @@ For EAGGL directories, the dashboard looks for:
 
 Pass `--x-input PATH` one or more times to enable gene/gene-set membership expansions from GMT-like gene-set input files.
 
+### Gene and gene-set evidence
+
+The gene plot shows indirect support (`prior`, horizontal) and direct support after updating gene-set priors (`log_bf`, vertical). The gene-set plot shows the marginal effect (`beta_uncorrected`, horizontal) and joint effect (`beta`, vertical). Both plots follow the column filters across all pages. Hover over a point for its name and values.
+
+For run-specific provenance, repeat `--run-x-input RUN_ID:FILE` for the annotation libraries recorded by the run and pass its gene alias map with `--run-gene-map RUN_ID:FILE`. **Show gene sets** lists fitted sets containing the gene, ranked by joint effect and then marginal effect. Up to 50 are shown by default. **Show genes** under a gene set displays its scored members.
+
+Pass the run’s HuGE archive with `--run-huge-statistics RUN_ID:FILE` and its known assembly with `--run-genome-build RUN_ID:BUILD`. **Show SNPs** marks the linked signal with the lowest GWAS P value against the selected gene and neighboring intervals. Equal P values are resolved by the larger stored gene–signal Bayes factor. Expand the signal list to see all linked lead positions, P values and stored Bayes factors. The coordinates identify the lead variants in archives that omit rsIDs.
+
 ## Useful Options
 
 ```bash
@@ -92,3 +100,22 @@ The EAGGL Factors tab reads `factor_metrics.out.gz` when available and shows fac
 Text column filters use case-insensitive browser regular expressions. Common Perl-style patterns such as `PPARG|PDX1`, `^GOBP_`, and `insulin.*signal` are supported; invalid regex patterns simply match no rows. Numeric column filters continue to use the selected threshold operator.
 
 By default, the embedded payload is size-controlled: genes must have combined support at least `1`, gene sets must have `beta_uncorrected` at least `0.01` when that column is available, factor gene/gene-set loadings are retained when they are at least `0.05` times the factor-specific maximum loading, phenotype projections require effective size at least `200`, and nested provenance tables are capped at `50` rows per expanded entry.
+
+In both the gene and gene-set loading heatmaps, **Order factors by total loading of matching genes** (or **gene sets**) puts the largest column sums first. Totals use raw loadings from all matching embedded rows, across pages, even when another display metric is selected. Ties keep the original factor order. Click a factor header to sort the rows separately.
+
+### Research factor hierarchy
+
+Supply a hierarchy export per trait. Relative source paths in the export are resolved against the analysis directory. For example, from the analysis directory:
+
+```bash
+python -m pigean.dashboard \
+  --eaggl-hierarchy results/EAGGL_hierarchy_v1/main_default_review/T2D \
+  --eaggl-hierarchy results/EAGGL_hierarchy_v1/main_default_review/CAD \
+  --hierarchy-source-root . --html-out hierarchy.html
+```
+
+The original dashboard opens with run selection, the PIGEAN tables and the EAGGL panel. Select **Research consensus and hierarchy** or a supplied Main run in the EAGGL selector. **Hierarchy** shows the saved cut and full tree, **Factors** includes flagged leaves, and **Phi selection** explains the recorded candidate decision.
+
+The research MDS graph, gene and gene-set heatmaps, and factor PheWAS include all leaves, internal families and flagged factors. **Plot nodes** opens at the saved overview cut and excludes flagged leaves until **Include flagged factors** is checked. Choose **Leaves only** for the fitted factors or **All nodes** for every level. The gene, gene-set and phenotype matrices support case-insensitive regular expressions such as `^(GCK|PPARG)$`. **At the cut** keeps the maximal qualifying family on each path, including indivisible leaves. **At or above the cut** also keeps its ancestors. Adjust the overlap floor or maximum gene equivalents, or toggle flagged leaves separately. The cut filters the existing coordinates and assay results. A gene disappears from the graph when it loses its last visible factor connection. The initial map fits classical MDS to the full discovery-gene profiles of QC-passing leaves. Each leaf is normalized to unit length, so squared distance equals twice one minus the leaf cosine. Families use their own OR-combined gene profiles and project onto the same two axes. Flagged leaves also project onto those axes. A displayed gene sits at the mean of its fitted leaf positions weighted by its original loadings. Positions describe similarity in two dimensions, and the displayed edges show selected memberships. Physics and dragging can move the displayed nodes; reset restores the fitted map. The graph uses up to three leading representatives per factor and cross-links those genes at half their strongest loading (minimum 0.01). Parent gene-set loadings summarize the fitted leaf values by OR.
+
+To include **Factor PheWAS**, supply a matched `--pigean-run TRAIT:DIR` for each trait and `--hierarchy-phenotype-reference FILE.gz` with columns `Trait_Internal`, `Gene` and `Combined`. Each node is tested separately on the discovery genes, with a binary response (Combined > 1), the node loading, the anchor's direct log BF and an intercept. The dashboard uses EAGGL's marginal binary regression with HC3 standard errors. The displayed two-sided nominal P values use its normal reference. A constant phenotype response or unidentified node coefficient is shown as missing. Search, sort a node column, or switch heatmap metrics. The standalone HTML embeds the complete matrices. The underlying assays use the original input precision. The embedded values use float32.

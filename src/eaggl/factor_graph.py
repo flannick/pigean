@@ -1224,7 +1224,7 @@ def write_json(graph: dict, path: str | Path) -> None:
         fh.write("\n")
 
 
-def _scaled_graph_for_html(graph: dict, *, width: int = 1200, height: int = 900) -> dict:
+def _scaled_graph_for_html(graph: dict, *, width: int = 1200, height: int = 900, equal_aspect: bool = False) -> dict:
     nodes = graph["nodes"]
     edges = graph["edges"]
     if not nodes:
@@ -1234,6 +1234,13 @@ def _scaled_graph_for_html(graph: dict, *, width: int = 1200, height: int = 900)
     min_y = min(node["y"] for node in nodes)
     max_y = max(node["y"] for node in nodes)
     pad = 80
+    if equal_aspect:
+        # One pixel scale for both axes preserves the fitted distance geometry.
+        available_w, available_h = max(1, width - 2 * pad), max(1, height - 2 * pad)
+        unit = max((max_x - min_x) / available_w, (max_y - min_y) / available_h, 1e-9)
+        mid_x, mid_y = (max_x + min_x) / 2, (max_y + min_y) / 2
+        min_x, max_x = mid_x - unit * available_w / 2, mid_x + unit * available_w / 2
+        min_y, max_y = mid_y - unit * available_h / 2, mid_y + unit * available_h / 2
 
     def sx(x: float) -> float:
         denom = max(max_x - min_x, 1e-9)
@@ -1695,6 +1702,13 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
     }
   }
 
+  let hierarchyFactors = null;
+  window.addEventListener("message", event => {
+    if (event.source !== window.parent || event.data?.type !== "eaggl-hierarchy-cut" ||
+        !Array.isArray(event.data.factors)) return;
+    hierarchyFactors = new Set(event.data.factors);
+    applyFilters();
+  });
   function applyFilters() {
     let visibleCount = 0;
     const matchedNodeIds = new Set();
@@ -1716,6 +1730,15 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
       node._filterMatched = matchedNodeIds.has(node.id);
       node._filterNeighbor = Boolean(state.neighbor);
       node._hoverEligible = textFilters.length === 0 || node._filterMatched;
+    }
+    if (hierarchyFactors) {
+      const visibleFactors = new Set(graph.nodes.filter(n => n.kind === "factor" && n._visible && hierarchyFactors.has(n.id)).map(n => n.id));
+      for (const node of graph.nodes) {
+        node._visible = node._visible && (node.kind === "factor" ? visibleFactors.has(node.id)
+          : Array.from(neighborsByNode.get(node.id) || []).some(id => visibleFactors.has(id)));
+      }
+    }
+    for (const node of graph.nodes) {
       if (node._visible) visibleCount += 1;
     }
     renderFilterChips();
@@ -1922,12 +1945,12 @@ def _interactive_html_script(*, physics_enabled: bool) -> str:
 """.replace("__PHYSICS_ENABLED__", "true" if physics_enabled else "false")
 
 
-def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int = 900, interactive: bool = True, physics: bool = True) -> None:
+def write_html(graph: dict, path: str | Path, *, width: int = 1200, height: int = 900, interactive: bool = True, physics: bool = True, equal_aspect: bool = False) -> None:
     nodes = graph["nodes"]
     edges = graph["edges"]
     if not nodes:
         _bail("Cannot write graph HTML with no nodes")
-    scaled_graph = _scaled_graph_for_html(graph, width=width, height=height)
+    scaled_graph = _scaled_graph_for_html(graph, width=width, height=height, equal_aspect=equal_aspect)
     graph_json = json.dumps(scaled_graph, sort_keys=True).replace("</", "<\\/")
     if interactive:
         svg_markup = '<g id="edges-layer"></g>\n    <g id="nodes-layer"></g>\n    <g id="labels-layer"></g>'
