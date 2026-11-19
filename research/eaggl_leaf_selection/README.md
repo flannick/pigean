@@ -149,3 +149,15 @@ For two non-overlapping branches with per-gene membership loadings A and B, the 
 For each internal node, the topology table gives the raw merge score, the lowest score encountered in the greedy sequence through this join, both conditional memberships of the OR children, and each child's background coverage averaged over discovery genes. Compare right-given-left with right background and left-given-right with left background. In leaf scope the child-level conditionals summarize the completed merge. In node scope subsequent merges can score higher after an OR profile grows. The threshold cut returns exactly the state reached by stopping at the first below-floor merge, so some numbers of families are unreachable with a single floor. The original leaves, their QC and the OR summary formula are shared across all methods.
 
 To reproduce the four-trait comparison from these archived inputs, run `scripts/compare_linkage_rules.py --all-methods --analysis-root PATH --output NEW_DIRECTORY` with the analysis Python environment. The tables distinguish exact-count snapshots from the family count reproducible at the reported floor.
+
+### Standalone hierarchy example
+
+From the repository root, run the following in the package's development Python environment. Use a new output directory. The example constructs a synthetic selected-fit handoff with three leaves and simulated restart profiles, checks the fit with the research leaf QC code, and runs the hierarchy builder and dashboard CLI. Open the resulting `index.html`. The default cut groups leaves 1 and 2 and keeps leaf 3 separate.
+
+```bash
+PYTHONPATH=src python research/eaggl_leaf_selection/examples/build_dashboard.py /tmp/eaggl-example
+```
+
+Under **Factors**, switch to **Leaves only** and inspect **Leading genes** or **Leading gene sets**. Under **Genes**, filter to `^G09$` and check **Order factors by total loading of matching genes**. Factor 2 moves first. The miniature example exercises file formats and interactions; the four-trait biological comparisons use the real archived fits.
+
+Run `python -m pytest tests/test_research_hierarchy_dashboard.py` for a portable end-to-end check. Set `CHROME_BIN` to a Chrome or Chromium executable to include the offline browser interaction test.
