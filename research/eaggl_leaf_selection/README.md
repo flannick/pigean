@@ -72,3 +72,31 @@ The research fits used 120 starting slots, five independent starts, pooled match
 Released Main uses a different selector. Its fitting controls include `--learn-phi-values`, `--phi-search-extension`, `--phi-search-max-extra`, `--max-num-factors`, `--factor-runs`, `--consensus-matching`, `--consensus-min-factor-cosine`, `--consensus-min-run-support`, `--consensus-aggregation` and `--no-consensus-nmf`. Its qualified automatic workflow restricts custom fitting recipes. The points and QC options above belong to the research selector. [Main workflow and supported overrides](../../docs/eaggl/RECOMMENDED_DEFAULTS.md)
 
 In the four-trait qualification, one point gave finer resolution in every trait. Five points weakened recognizable NAFLD substructure. None of the tested structural QC threshold changes moved the selected phi. Four traits support this ordering for troubleshooting; performance on arbitrary new traits remains to be measured. [Validated leaf inputs and SHA-256 checksums](hierarchy_inputs.json)
+
+## Build a mechanism hierarchy
+
+From the package root, point the command at the analysis directory that contains the files listed in the manifest. Run once per trait (T2D, CAD, NAFLD or Asthma). The command verifies the recorded hashes and builds a separate tree for each fit.
+
+```bash
+python research/eaggl_leaf_selection/scripts/build_factor_hierarchy.py \
+  --input-root /path/to/analysis/pigean_optimize --trait CAD \
+  --output /path/to/new/CAD_hierarchy \
+  --min-leaf-cosine 0.30 0.50 0.70 --min-shared-mass 0.50
+```
+
+Both cut options are optional. The primary flat factors are the passing leaves. A cut picks the broadest nodes on each branch whose least similar pair of descendant leaves meets the requested floor. Every passing leaf appears exactly once. The binary tree uses complete linkage on cosine distances of the original discovery profiles. Input columns are ordered by exported leaf ID before tie resolution. Biological labels are used only during review.
+
+For gene membership, a parent of nodes A and B has loading `A + (1 − A) × B` for each gene, the heuristic union under independence. A parent represents membership through any descendant. The same-leaf gene-pair score still uses the original union of descendant pair contributions. An internal node can span distinct submechanisms, and the root summarizes the trait.
+
+| Output | Contents |
+|---|---|
+| `factor_hierarchy.tsv.gz` | Fit-local zero-based node and parent IDs, children, one-based source leaf IDs, original consensus IDs, number of descendants, minimum cosine and common loading mass, effective number of genes and shared-leaf pair fraction. The root has an empty parent field. |
+| `hierarchy_loadings.npz` | Gene-by-node matrix W with explicit gene and node axes. Leaf columns copy the original weights. |
+| `hierarchy_cuts.tsv.gz` | Chosen nodes and their source leaf IDs at each requested cut. |
+| `hierarchy.json` | Trait, phi, method version, source hashes, supplied cut settings and excluded flagged leaf IDs. |
+
+**Overlap in gene usage.** To compare two leaves, scale each to one unit of total loading and sum the smaller of their two weights at each gene. A value of 0.50 means half their loading mass can be assigned to the same genes, after adjusting for overall strength. The optional shared-mass floor cuts the existing cosine tree using its least-overlapping pair of descendants. A ceiling on overlap **between displayed families** is a different criterion. Two families can share genes even when they differ in their overall makeup. Neither measure estimates the probability that two factors have the same underlying mechanism.
+
+Effective gene count uses squared loading mass, as in leaf QC. The shared-leaf pair fraction measures the off-diagonal mass explained by shared descendants divided by the mass obtained by multiplying the two parent memberships. It is missing when the denominator is zero. Outputs directory creation is atomic and requires a fresh destination.
+
+On the pinned T2D, CAD, NAFLD and Asthma fits, the 0.50 cosine cut produced 53, 51, 20 and 28 displayed families. The same trees cut at 50% minimum shared gene mass gave 77, 68, 26 and 36. CAD cardiac-development and Asthma immune-signaling pairs regrouped in both archived masked fits; broader metabolic and immune families had more variable boundaries. Use 0.50 cosine as an exploratory view. For the original study archive, the cross-trait assessment is reproducible with `scripts/assess_four_trait_hierarchies.py --analysis-root PATH` from this research directory using Python and the original study inputs, four generated trait directories and archived perturbed fits.
