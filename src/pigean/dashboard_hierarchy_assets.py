@@ -39,12 +39,20 @@ function currentHierarchy() {return DATA.hierarchies[explorer.trait];}
 function percent(x) {return (100*x).toFixed(2)+"%";}
 function topNames(rows, n=3) {return rows.slice(0,n).map(r=>esc(r[0])).join(" · ");}
 function itemLink(key,text) {return `<button type="button" class="hlink" data-hitem="${esc(key)}">${text}</button>`;}
+function leafTitle(h,id) {
+  const name=h.leafLabels?.["f"+id];
+  return "Factor "+id+(name?" · "+name:"");
+}
+function familyTitle(h,id) {
+  const name=h.familyLabels?.["n"+id];
+  return name ? name+" · Family "+id : "Family "+id;
+}
 function flagLabel(f) {return f.flagged ? `<span class="hflag">Flagged · ${esc(f.reason)}</span>` : "Pass";}
 function cutLabel(c) {return (c.metric==="min_leaf_cosine" ? "Minimum leaf cosine" : c.metric.replaceAll("_"," "))+" "+c.floor.toFixed(2);}
 function nodeHtml(h,id,open=false) {
   const n=h.nodes[id], key=n.factor ? "f"+n.factor : "n"+id;
-  if(n.factor) return `<li class="hleaf">${itemLink(key,"Factor "+n.factor)} <span>${topNames(n.genes)}</span></li>`;
-  return `<li><details ${open?"open":""}><summary data-hpreview="${key}">${topNames(n.genes)} <span class="hsmall"> · ${n.count} factors</span></summary><ul>${n.children.map(i=>nodeHtml(h,i)).join("")}</ul></details></li>`;
+  if(n.factor) return `<li class="hleaf">${itemLink(key,esc(leafTitle(h,n.factor)))} <span>${topNames(n.genes)}</span></li>`;
+  return `<li><details ${open?"open":""}><summary data-hpreview="${key}">${h.familyLabels?.[key]?esc(familyTitle(h,id)):topNames(n.genes)} <span class="hsmall"> · ${n.count} factors</span></summary><ul>${n.children.map(i=>nodeHtml(h,i)).join("")}</ul></details></li>`;
 }
 function loadingList(title,rows) {
   return `<h3>${title}</h3><table class="hdata"><thead><tr><th>Name</th><th class="number">Loading</th></tr></thead><tbody>${rows.map(([name,value])=>`<tr><td>${esc(name)}</td><td class="number">${esc(Number(value.toPrecision(4)))}</td></tr>`).join("")}</tbody></table>`;
@@ -53,7 +61,7 @@ function inspector(h) {
   if(!explorer.item) return '<h2>Loading details</h2><p class="hmeta">Choose a family or factor to inspect its loadings.</p>';
   const leaf=explorer.item[0]==="f", id=Number(explorer.item.slice(1));
   const obj=leaf?h.leaves.find(f=>f.id===id):h.nodes[id];
-  return `<h2>${leaf?"Factor "+id:"Family "+id}</h2><div class="hmeta">${leaf?`QC · ${flagLabel(obj)}<br>Effective genes · ${obj.effective.toFixed(1)} · Restart support · ${esc(obj.support||"Unassessed")}`:`${obj.count} descendant factors · OR-combined gene loadings`}</div>${loadingList("Leading discovery genes",obj.genes)}${leaf?loadingList("Leading gene sets",obj.annotations):""}<p class="hmeta">Up to 15 positive loadings per list.</p>`;
+  return `<h2>${leaf?esc(leafTitle(h,id)):esc(familyTitle(h,id))}</h2><div class="hmeta">${leaf?`QC · ${flagLabel(obj)}<br>Effective genes · ${obj.effective.toFixed(1)} · Restart support · ${esc(obj.support||"Unassessed")}`:`${obj.count} descendant factors · OR-combined gene loadings`}</div>${loadingList("Leading discovery genes",obj.genes)}${obj.annotations?.length?loadingList(leaf?"Leading gene sets":"Leading gene sets across descendants",obj.annotations):""}<p class="hmeta">Up to 15 positive loadings per list.</p>`;
 }
 function treeCard(h) {
   const cut=h.cuts[explorer.cut], flagged=h.leaves.filter(f=>f.flagged);
@@ -62,20 +70,21 @@ function treeCard(h) {
   if(!explorer.item) explorer.item=first.factor?"f"+first.factor:"n"+first.id;
   const options=h.cuts.map((c,i)=>`<option value="${i}" ${i===explorer.cut?"selected":""}>${esc(cutLabel(c))}</option>`).join("");
   return `<div class="hgrid"><section class="panel"><div class="hheading"><h2>Factor hierarchy</h2><select aria-label="Hierarchy view" id="hcut">${options}<option value="-1" ${!cut?"selected":""}>Full tree</option></select></div>
-    <p class="hmeta">${cut?roots.length+" overview groups":"One root"} · ${h.leaves.length-flagged.length} passing factors · φ = ${h.phi} · ${esc(h.method)}. Gene labels show the strongest loadings.</p>
+    <p class="hmeta">${cut?roots.length+" overview groups":"One root"} · ${h.leaves.length-flagged.length} passing factors · φ = ${h.phi} · ${esc(h.method)}. ${h.familyLabels?"Mechanism names summarize the leading genes and gene sets.":"Gene labels show the strongest loadings."}</p>
     <div class="hscroll"><ul class="htree">${roots.map(i=>nodeHtml(h,i,explorer.item==="n"+i)).join("")}</ul></div>
-    ${flagged.length?`<h3 class="hsub">Outside the hierarchy</h3>${flagged.map(f=>`<div>${itemLink("f"+f.id,"Factor "+f.id)} · ${topNames(f.genes)} ${flagLabel(f)}</div>`).join("")}`:""}</section>
+    ${flagged.length?`<h3 class="hsub">Outside the hierarchy</h3>${flagged.map(f=>`<div>${itemLink("f"+f.id,esc(leafTitle(h,f.id)))} · ${topNames(f.genes)} ${flagLabel(f)}</div>`).join("")}`:""}</section>
     <aside id="hinspector" class="panel hinspect">${inspector(h)}</aside></div>`;
 }
 function inventoryCard(h) {
   const cols=[
     {key:"id",label:"Factor",numeric:true,render:f=>"Factor "+f.id},
+    ...(h.leafLabels?[{key:"mechanism",label:"Mechanism",render:f=>esc(f.mechanism||"Unlabeled")}]:[]),
     {key:"genes",label:"Leading genes",render:(f,k)=>`<button data-open-row-tab="${esc(k)}" data-tab="genes">${topNames(f.genes)}</button>`,filterValue:f=>f.genes.map(g=>g[0]).join(" ")},
     {key:"annotations",label:"Leading gene sets",render:(f,k)=>`<button data-open-row-tab="${esc(k)}" data-tab="gene_sets">${topNames(f.annotations,1)}</button>`,filterValue:f=>f.annotations.map(g=>g[0]).join(" ")},
     {key:"summary",label:"QC",render:f=>flagLabel(f)},
     {key:"effective",label:"Effective genes",numeric:true},
     {key:"support",label:"Restart support",numeric:true}];
-  const rows=h.leaves.map(f=>({...f,summary:f.flagged?f.reason:"Pass",support:f.support===""?null:Number(f.support)}));
+  const rows=h.leaves.map(f=>({...f,mechanism:h.leafLabels?.["f"+f.id]||"",summary:f.flagged?f.reason:"Pass",support:f.support===""?null:Number(f.support)}));
   return `<h2>EAGGL factors</h2><p class="note">${rows.length} fitted leaves · ${rows.filter(f=>f.flagged).length} flagged. Expand a loading column to inspect its leading entries.</p>`+
     tableHtml("factors:"+h.trait+":hierarchy",rows,cols,{detailRenderer:(f,k)=>state.factorDetailTabs[k]==="gene_sets"?loadingList("Leading gene sets",f.annotations):loadingList("Leading genes",f.genes)});
 }

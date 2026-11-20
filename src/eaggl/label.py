@@ -13,6 +13,7 @@ except ImportError:
 
 from . import cli as eaggl_cli
 from . import factor as eaggl_factor
+from . import set_evidence
 from . import labeling as eaggl_labeling
 from . import state as eaggl_state
 
@@ -222,7 +223,7 @@ def _validate_factor_columns(tables):
     return reference
 
 
-def _top_items(ids, loadings, *, loading_type, num_top=5, allowed_ids=None, context="items"):
+def _top_items(ids, loadings, *, loading_type, num_top=5, allowed_ids=None, context="items", sort_ties_by_id=False):
     if ids is None or loadings is None:
         return []
     matrix = np.asarray(loadings, dtype=float)
@@ -238,62 +239,31 @@ def _top_items(ids, loadings, *, loading_type, num_top=5, allowed_ids=None, cont
             _warn("--gene-sets-for-labeling has no overlap with supplied gene-set loadings; using all gene sets for labels")
             allowed = None
     top_by_factor = []
+    by_name = np.argsort(ids, kind="stable") if sort_ties_by_id else None
     for factor_index in range(scores.shape[1]):
-        order = list(np.argsort(-scores[:, factor_index]))
+        order = (np.argsort(-scores[:, factor_index]) if by_name is None else
+                 by_name[np.argsort(-scores[by_name, factor_index], kind="stable")])
         if allowed is not None:
             filtered = [idx for idx in order if bool(allowed[idx]) and scores[idx, factor_index] > 0]
             if filtered:
                 order = filtered
             else:
                 _warn("Factor%d has no positive-loading gene sets matching --gene-sets-for-labeling; using unfiltered gene sets for its label" % (factor_index + 1))
-        chosen = [ids[idx] for idx in order[: min(num_top, len(order))] if scores[idx, factor_index] > 0]
+        positive = [idx for idx in order if scores[idx, factor_index] > 0 and matrix[idx, factor_index] > 0]
+        chosen = [ids[idx] for idx in positive[:num_top]]
         top_by_factor.append(chosen)
     return top_by_factor
 
 
-def _set_labels_with_llm(labels, label_payloads, options):
-    if getattr(options, "lmm_auth_key", None) is None or not label_payloads:
-        return labels
-    client = eaggl_labeling.build_labeling_client(
-        auth_key=options.lmm_auth_key,
-        lmm_model=options.lmm_model,
-        lmm_provider=options.lmm_provider,
-        bail_fn=_bail,
-    )
-    prompt = (
-        "Print a label, five words maximum, for each group. "
-        "Print only labels, one per line, label number followed by text: %s"
-        % " ".join("%d. %s" % (index + 1, payload) for index, payload in enumerate(label_payloads))
-    )
-    _log("Querying LMM with prompt: %s" % prompt)
-    response = client.query(prompt, warn_fn=_warn)
-    if response is None:
-        return labels
-    responses = [line.strip() for line in response.strip("\n").split("\n") if line.strip()]
-    if len(responses) != len(labels):
-        _log("Couldn't decode LMM response %s; using simple label" % response)
-        return labels
-    out = []
-    for raw in responses:
-        tokens = raw.split()
-        if len(tokens) > 1 and tokens[0].endswith("."):
-            try:
-                int(tokens[0][:-1])
-                raw = " ".join(tokens[1:])
-            except ValueError:
-                pass
-        out.append(raw)
-    return out
-
-
 def _populate_labels(runtime, *, gene_table, gene_set_table, pheno_table, options, gene_sets_for_labeling):
     num_factors = runtime.num_factors()
+    enriched = getattr(options, "gene_set_clusters_format", "evidence") == "evidence"
     gene_set_tops = _top_items(
         gene_set_table.ids if gene_set_table is not None else None,
         gene_set_table.loadings if gene_set_table is not None else None,
-        loading_type=options.factor_top_loading_type,
+        loading_type="raw" if enriched else options.factor_top_loading_type,
         allowed_ids=gene_sets_for_labeling,
-        context="gene sets",
+        context="gene sets", sort_ties_by_id=enriched,
     )
     gene_tops = _top_items(
         gene_table.ids if gene_table is not None else None,
@@ -318,64 +288,26 @@ def _populate_labels(runtime, *, gene_table, gene_set_table, pheno_table, option
     if options.label_gene_sets_only and gene_set_table is None:
         _bail("--label-gene-sets-only requires --label-gene-set-clusters-in")
 
-    labels = []
-    label_payloads = []
-    for factor_index in range(num_factors):
-        gene_sets = runtime.factor_top_gene_sets[factor_index] if runtime.factor_top_gene_sets is not None else []
-        genes = runtime.factor_top_genes[factor_index] if runtime.factor_top_genes is not None else []
-        phenos = runtime.factor_top_phenos[factor_index] if runtime.factor_top_phenos is not None else []
-        if gene_sets:
-            simple_label = gene_sets[0]
-        elif not options.label_gene_sets_only and genes:
-            simple_label = genes[0]
-        elif phenos:
-            simple_label = phenos[0]
-        else:
-            simple_label = "Factor%d" % (factor_index + 1)
-        labels.append(simple_label)
-
-        payload = list(gene_sets)
-        if not options.label_gene_sets_only:
-            payload.extend(genes)
-        if options.label_include_phenos or (not gene_sets and not genes):
-            payload.extend(phenos)
-        label_payloads.append(",".join(payload))
-
-    runtime.factor_labels = _set_labels_with_llm(labels, label_payloads, options)
-    runtime.factor_labels_gene_sets = None
-    runtime.factor_labels_genes = None
-    runtime.factor_labels_phenos = None
-    if options.label_individually and getattr(options, "lmm_auth_key", None) is not None:
-        if gene_set_table is not None:
-            simple_gene_set_labels = [
-                (runtime.factor_top_gene_sets[i][0] if runtime.factor_top_gene_sets[i] else "Factor%d" % (i + 1))
-                for i in range(num_factors)
-            ]
-            runtime.factor_labels_gene_sets = _set_labels_with_llm(
-                simple_gene_set_labels,
-                [",".join(runtime.factor_top_gene_sets[i]) for i in range(num_factors)],
-                options,
-            )
-        if gene_table is not None and runtime.factor_top_genes is not None:
-            simple_gene_labels = [
-                (runtime.factor_top_genes[i][0] if runtime.factor_top_genes[i] else "Factor%d" % (i + 1))
-                for i in range(num_factors)
-            ]
-            runtime.factor_labels_genes = _set_labels_with_llm(
-                simple_gene_labels,
-                [",".join(runtime.factor_top_genes[i]) for i in range(num_factors)],
-                options,
-            )
-        if pheno_table is not None and runtime.factor_top_phenos is not None:
-            simple_pheno_labels = [
-                (runtime.factor_top_phenos[i][0] if runtime.factor_top_phenos[i] else "Factor%d" % (i + 1))
-                for i in range(num_factors)
-            ]
-            runtime.factor_labels_phenos = _set_labels_with_llm(
-                simple_pheno_labels,
-                [",".join(runtime.factor_top_phenos[i]) for i in range(num_factors)],
-                options,
-            )
+    eaggl_labeling.configure_sources(runtime, options, _bail)
+    all_entries = []
+    index = {name: i for i, name in enumerate(gene_set_table.ids)} if gene_set_table else {}
+    for factor_index, gene_sets in enumerate(runtime.factor_top_gene_sets):
+        entries = []
+        for name in gene_sets:
+            if enriched:
+                j = index[name]
+                row = gene_set_table.rows[j]
+                column = gene_set_table.factor_columns[factor_index]
+                entries.append(eaggl_labeling.evidence_entry(name, gene_set_table.loadings[j, factor_index],
+                    row.get("Coverage_" + column), row.get("Enrichment_" + column),
+                    row.get("SupportingGenes_" + column)))
+            else:
+                entries.append(name)
+        all_entries.append(entries)
+    client = (eaggl_labeling.build_labeling_client(auth_key=options.lmm_auth_key, lmm_model=options.lmm_model,
+              lmm_provider=options.lmm_provider, bail_fn=_bail) if options.lmm_auth_key else None)
+    eaggl_labeling.apply_source_labels(runtime, all_entries, client=client, sets_only=options.label_gene_sets_only,
+        include_phenos=options.label_include_phenos, individually=options.label_individually, log=_log, warn=_warn)
 
 
 def _row_metric_values(loadings):
@@ -385,11 +317,10 @@ def _row_metric_values(loadings):
     return cosine, euclidean
 
 
-def _write_wide_cluster_table(path, table, labels, *, cluster_row_min_max_loading):
+def _write_wide_cluster_table(path, table, labels, *, cluster_row_min_max_loading, gene_set_format="evidence"):
     if path is None or table is None:
         return
     loadings = np.asarray(table.loadings, dtype=float)
-    cosine, euclidean = _row_metric_values(loadings)
     metadata_columns = [
         column
         for column in (table.rows[0].keys() if table.rows else [table.id_column])
@@ -400,6 +331,9 @@ def _write_wide_cluster_table(path, table, labels, *, cluster_row_min_max_loadin
     ]
     if table.id_column not in metadata_columns:
         metadata_columns = [table.id_column] + metadata_columns
+    evidence_columns = set_evidence.metric_columns(table.factor_columns) if table.kind == "gene_set" else []
+    metadata_columns = [c for c in metadata_columns if c not in evidence_columns]
+    use_evidence = bool(evidence_columns) and gene_set_format == "evidence"
     output_header = (
         metadata_columns
         + ["cluster", "label"]
@@ -407,6 +341,10 @@ def _write_wide_cluster_table(path, table, labels, *, cluster_row_min_max_loadin
         + ["Cosine_%s" % column for column in table.factor_columns]
         + ["Euclidean_%s" % column for column in table.factor_columns]
     )
+    if not use_evidence:
+        cosine, euclidean = _row_metric_values(loadings)
+    if use_evidence:
+        output_header = metadata_columns + ["cluster", "label"] + table.factor_columns + evidence_columns
     with eaggl_state.open_gz(path, "w") as output_fh:
         output_fh.write("%s\n" % "\t".join(output_header))
         for row_index, row in enumerate(table.rows):
@@ -424,10 +362,13 @@ def _write_wide_cluster_table(path, table, labels, *, cluster_row_min_max_loadin
                     values.append(str(table.ids[row_index]))
                 else:
                     values.append(str(row.get(column, "")))
-            values.extend(["Factor%d" % (cluster_index + 1), labels[cluster_index]])
+            values.extend([table.factor_columns[cluster_index], labels[cluster_index]])
             values.extend("%.4g" % value for value in row_loadings)
-            values.extend("%.4g" % value for value in cosine[row_index, :])
-            values.extend("%.4g" % value for value in euclidean[row_index, :])
+            if use_evidence:
+                values.extend(row.get(c, "NA") for c in evidence_columns)
+            else:
+                values.extend("%.4g" % value for value in cosine[row_index, :])
+                values.extend("%.4g" % value for value in euclidean[row_index, :])
             output_fh.write("%s\n" % "\t".join(values))
 
 
@@ -455,6 +396,7 @@ def _write_trait_factor_links(path, table):
 def _build_runtime(options, *, gene_table, gene_set_table, pheno_table, factor_columns):
     runtime = eaggl_state.EagglState(background_prior=options.background_prior, batch_size=options.batch_size)
     num_factors = len(factor_columns)
+    runtime.label_input_factor_names = factor_columns
     runtime.exp_lambdak = np.ones(num_factors, dtype=float)
     runtime.factor_relevance = np.ones(num_factors, dtype=float)
     runtime.factor_marginal_relevance = None
@@ -586,6 +528,7 @@ def run_label_command(options, *, cli_specified_dests=None):
         options.gene_set_clusters_out,
         gene_set_table,
         runtime.factor_labels,
+        gene_set_format=options.gene_set_clusters_format,
         cluster_row_min_max_loading=options.cluster_row_min_max_loading,
     )
     _write_wide_cluster_table(

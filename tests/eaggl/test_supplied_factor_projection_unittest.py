@@ -85,7 +85,12 @@ class SuppliedFactorProjectionTest(unittest.TestCase):
                         with gzip.open(path, 'rt') as f:
                             rows = list(csv.DictReader(f, delimiter='\t'))
                         self.assertEqual({r['Gene_Set'] for r in rows}, {'S1', 'S2', 'S0'})
-                        self.assertIn('Cosine_Factor1', rows[0])
+                        s1 = next(row for row in rows if row['Gene_Set'] == 'S1')
+                        self.assertEqual(s1['BasisGenes'], '3')
+                        self.assertEqual(s1['MemberGenes'], '1')
+                        self.assertAlmostEqual(float(s1['Coverage_Factor2']), .5)
+                        self.assertAlmostEqual(float(s1['Enrichment_Factor2']), 1.5)
+                        self.assertEqual(s1['SupportingGenes_Factor2'], 'G1')
                         values = {r['Gene_Set']: [float(r['Factor1']), float(r['Factor2'])] for r in rows}
                         if kind in observed:
                             for name in values:

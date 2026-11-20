@@ -102,9 +102,8 @@ def main():
                         help='Optional annotation-mediated full-gene output; outside discovery qualification')
     parser.add_argument('--mock-labels', action='store_true', help='Testing only; no biological labels')
     args = parser.parse_args()
-    if not args.mock_labels and (not os.environ.get('EAGGL_LLM_MODEL') or not
-            (os.environ.get('EAGGL_LLM_AUTH_KEY') or os.environ.get('OPENAI_API_KEY'))):
-        parser.error('Live labels are required: set EAGGL_LLM_MODEL and the API key environment variable')
+    if not args.mock_labels and not (os.environ.get('EAGGL_LLM_AUTH_KEY') or os.environ.get('OPENAI_API_KEY')):
+        parser.error('Live labels are required: set the API key environment variable')
     if not (0 <= args.phi < float('inf')) or (args.max_num_factors is not None and args.max_num_factors < 1):
         parser.error('Phi must be finite/nonnegative and starting rank must be positive')
     if args.input_dir and (args.gs_s3 or args.gss_s3):

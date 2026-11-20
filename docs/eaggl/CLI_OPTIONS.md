@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `321`
+- Total options: `326`
 - `method_required`: `11`
-- `method_optional`: `205`
+- `method_optional`: `210`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `265`
+- visibility `expert`: `270`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -40,6 +40,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-ext` | `expert` | `yes` | `expert_help` | `add_ext` | `False` | - |
 | `--add-gene-sets-by-enrichment-p` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_enrichment_p` | `None` | - |
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
+| `--additional-label-sources` | `expert` | `yes` | `advanced_workflows` | `additional_label_sources` | `-` | Add a separate label using this combination of sources. Repeat for other combinations. |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
 | `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | shape parameter for the ARD factor-precision prior; larger values encourage sparser retained factors |
 | `--anchor-aggregation` | `normal` | `yes` | `core_help` | `anchor_aggregation` | `multi` | combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring |
@@ -106,18 +107,22 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
+| `--gene-set-clusters-format` | `expert` | `yes` | `expert_help` | `gene_set_clusters_format` | `evidence` | gene-set output and labeling evidence format (default evidence) |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
 | `--gene-set-projection-mode` | `expert` | `yes` | `expert_help` | `gene_set_projection_mode` | `joint` | supplied-factor gene-set projection: joint (default), marginal, or both; use separate output paths |
 | `--gene-sets-for-labeling` | `expert` | `yes` | `advanced_workflows` | `gene_sets_for_labeling` | `None` | restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
+| `--label-context` | `expert` | `yes` | `advanced_workflows` | `label_context` | `-` | Optional study context sent with each model-generated label. Factor evidence determines the name. |
 | `--label-gene-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_clusters_in` | `None` | label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns |
 | `--label-gene-set-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_set_clusters_in` | `None` | label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table with Factor columns |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
 | `--label-pheno-clusters-in` | `normal` | `yes` | `core_help` | `label_pheno_clusters_in` | `None` | label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table with Factor columns |
+| `--label-sources` | `expert` | `yes` | `advanced_workflows` | `label_sources` | `-` | Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination. |
+| `--label-strategy` | `expert` | `yes` | `advanced_workflows` | `label_strategy` | `cross-factor` | Compare selected evidence across the fitted leaves when naming each leaf (default), or name each independently. |
 | `--label-trait-factor-links-in` | `normal` | `yes` | `core_help` | `label_trait_factor_links_in` | `None` | label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
@@ -145,7 +150,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
-| `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-4o-mini` | choose the LLM model used for optional labeling |
+| `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-6-luna` | choose the LLM model used for optional labeling |
 | `--lmm-provider` | `expert` | `yes` | `advanced_workflows` | `lmm_provider` | `openai` | choose the LLM provider used for optional labeling |
 | `--max-for-linear` | `expert` | `yes` | `expert_help` | `max_for_linear` | `None` | - |
 | `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |

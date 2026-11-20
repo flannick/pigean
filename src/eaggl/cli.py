@@ -79,7 +79,7 @@ def bail(message):
     raise CliUsageError(message)
 
 
-usage = "usage: python -m eaggl [factor|naive_factor|label|hierarchy] [options]"
+usage = "usage: python -m eaggl [factor|naive_factor|label|hierarchy|label-hierarchy] [options]"
 
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 get_comma_separated_args_as_set = pegs_callback_set_comma_separated_args_as_set
@@ -213,6 +213,7 @@ parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-ge
 parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
 parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair
 parser.add_option("","--gene-factor-annotation-contribs-top-n",default=10,type=int) #maximum annotation contribution rows per gene-factor-anchor combination
+parser.add_option("","--gene-set-clusters-format",type="choice",choices=["evidence","legacy"],default="evidence",help="gene-set output and labeling evidence format (default evidence)")
 parser.add_option("","--cluster-row-min-max-loading",default=0.0,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="all") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -350,9 +351,13 @@ parser.add_option("","--no-adjust-priors",default=None,action='store_false',dest
 #factor parameters
 parser.add_option("","--lmm-auth-key",default=None,type=str) #pass authorization key to enable LLM cluster labelling
 parser.add_option("","--lmm-provider",default="openai",type=str) #LLM provider for labeling: openai (implemented), gemini/claude (reserved)
-parser.add_option("","--lmm-model",default="gpt-4o-mini",type=str) #choose model
+parser.add_option("","--lmm-model",default="gpt-6-luna",type=str) #choose model
 parser.add_option("","--label-gene-sets-only",default=False,action="store_true") #use only gene sets (rather than genes and gene sets) for label
 parser.add_option("","--label-include-phenos",default=False,action="store_true") #add phenos to the labels (if --label-gene-sets-only is specified, the labelling will use just gene sets and phenos but skip genes). When doing phenotype based factoring, this (confusingly) adds genes rather than phenos, since phenotypes are the default thing used to label
+parser.add_option("", "--label-sources", type="string", help="Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination.")
+parser.add_option("", "--label-strategy", type="choice", choices=["cross-factor", "independent"], default="cross-factor", help="Compare selected evidence across the fitted leaves when naming each leaf (default), or name each independently.")
+parser.add_option("", "--label-context", type="string", metavar="TEXT", help="Optional study context sent with each model-generated label. Factor evidence determines the name.")
+parser.add_option("", "--additional-label-sources", action="append", type="string", help="Add a separate label using this combination of sources. Repeat for other combinations.")
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
 parser.add_option("","--gene-sets-for-labeling",action="append",default=None) #file of gene set identifiers to use as candidates for factor labels; may be repeated
 parser.add_option("","--gene-sets-for-labeling-id-col",default=None,type=str) #optional header column name for --gene-sets-for-labeling; defaults to first column for GMT compatibility
@@ -753,6 +758,10 @@ _EXPERT_METHOD_FLAGS = {
     "--label-gene-sets-only",
     "--label-include-phenos",
     "--label-individually",
+    "--label-sources",
+    "--label-context",
+    "--label-strategy",
+    "--additional-label-sources",
     "--blockwise-epochs",
     "--blockwise-gene-set-block-size",
     "--blockwise-max-blocks",
@@ -1106,6 +1115,7 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         "Label-only quickstart:\n"
         "  python -m eaggl label --label-gene-set-clusters-in gene_set_clusters.out.gz "
         "--factors-out factors.labeled.out.gz\n\n"
+        "Saved hierarchy labeling: python -m eaggl label-hierarchy --help\n"
         "Cross-trait grouping: python -m eaggl hierarchy --help\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."

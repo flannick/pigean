@@ -24,8 +24,8 @@ def module(name):
 @pytest.mark.parametrize('response', [None, '1. Alone', '2. A\n1. B', '1. A\n1. B',
     'A\nB', '1. One two three four five six\n2. B', '1. \n2. B'])
 def test_invalid_llm_responses_fail(response):
-    with pytest.raises(RuntimeError):
-        module('label_final_factors').check_response(response, 2)
+    from eaggl.labeling import parse_label
+    assert parse_label(response) is None
 
 
 def test_noncontiguous_factors_are_labeled_without_id_loss(tmp_path):
@@ -102,7 +102,7 @@ def test_label_helper_rejects_invalid_raw_loadings(tmp_path, value):
         module('label_final_factors').factor_columns(table)
 
 
-@pytest.mark.parametrize('content', ['1. Insulin secretion', None, '2. Wrong numbering'])
+@pytest.mark.parametrize('content', ['Insulin secretion', None, '2. Wrong numbering'])
 def test_live_label_path_with_mocked_http_is_fail_closed(tmp_path, monkeypatch, content):
     import urllib.request
     helper = module('label_final_factors')
@@ -123,7 +123,7 @@ def test_live_label_path_with_mocked_http_is_fail_closed(tmp_path, monkeypatch, 
     monkeypatch.setenv('EAGGL_LLM_AUTH_KEY', 'TEST_SECRET_NOT_REAL')
     monkeypatch.setattr(sys, 'argv', ['label_helper', '--source', str(ROOT),
         '--gene-loadings', str(genes), '--gene-set-loadings', str(sets), '--out', str(out)])
-    if content == '1. Insulin secretion':
+    if content == 'Insulin secretion':
         helper.main()
         status = 'llm_labels_validated'
     else:

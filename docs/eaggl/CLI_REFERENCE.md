@@ -29,6 +29,7 @@ Common modes:
 - `factor`: canonical EAGGL factor workflow with F1-F4 workflow selection
 - `naive_factor`: simpler baseline factorization path using the same high-level contracts
 - `label`: label precomputed factor loading tables without refitting
+- `label-hierarchy` names the leaves and families of a saved single-trait research hierarchy. [Portable example](LABELING.md#label-a-saved-hierarchy-and-open-it-in-the-dashboard)
 - `hierarchy`: group gene-loading profiles from two or more traits and flag repeated profiles
 
 Typical user workflow:
@@ -589,3 +590,5 @@ GMT collections can require substantial time and memory; joint convergence is
 approximate, especially for strongly overlapping factors.
 
 The full-fit requirements selector is the fresh gene-by-gene default; `--learn-phi --phi-selection-objective requirements` makes it explicit. Its initial grid, bounded extension, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
+
+Gene-set cluster outputs default to fitted coefficients, coverage, fold enrichment, mean member loadings and supporting genes. Use `--gene-set-clusters-format legacy` for cosine and Euclidean columns. The optional labeler uses the same evidence in fresh-fit and saved-table workflows. [Field definitions and labeling commands](LABELING.md)

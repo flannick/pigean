@@ -474,6 +474,9 @@ def _project_gene_set_factors_from_loaded_gene_factors(domain, runtime, loaded_g
         domain.bail("Could not align any genes between --factor-gene-clusters-in and X matrix for gene-set projection")
     basis = np.asarray(loaded_gene_factors, dtype=float)[common_factor_indices, :]
     matrix = runtime.X_orig[common_gene_indices, :]
+    if getattr(runtime, "gene_set_clusters_format", "evidence") == "evidence":
+        from .set_evidence import SetEvidence
+        runtime.supplied_set_evidence = SetEvidence(matrix, basis, np.asarray(loaded_genes)[common_factor_indices])
     mode = getattr(domain.options, "gene_set_projection_mode", "joint")
     if mode in ("joint", "both"):
         runtime.exp_gene_set_factors = runtime._project_H_with_fixed_W(

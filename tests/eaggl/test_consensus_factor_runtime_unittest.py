@@ -44,8 +44,10 @@ class ConsensusFactorRuntimeTest(unittest.TestCase):
         state = _TinyState()
         evidences = [5.0, 1.0, 3.0]
         outputs = [10.0, 20.0, 30.0]
+        labeler = mock.Mock()
 
         def _stub_single(run_state, **kwargs):
+            self.assertIsNone(kwargs["lmm_auth_key"])
             run_index = len([x for x in outputs if x is not None]) - len(evidences)
             value = outputs.pop(0)
             evidence = evidences.pop(0)
@@ -76,9 +78,12 @@ class ConsensusFactorRuntimeTest(unittest.TestCase):
                 info_level=1,
                 debug_level=2,
                 trace_level=3,
-                labeling_module=object(),
+                labeling_module=labeler,
+                lmm_auth_key="env",
             )
 
+        labeler.label_selected.assert_called_once()
+        self.assertIs(labeler.label_selected.call_args.args[0], state)
         np.testing.assert_allclose(state.exp_gene_set_factors, np.array([[20.0]]))
         self.assertEqual(state.consensus_mode, "best_of_n")
         self.assertEqual(state.consensus_reference_run, 1)

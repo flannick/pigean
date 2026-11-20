@@ -27,8 +27,10 @@ class OpenAILabelingProvider(LabelingProvider):
         payload = {
             "model": request.model,
             "messages": [{"role": "user", "content": request.prompt}],
-            "temperature": 0,
         }
+        if request.model == "gpt-6-luna":
+            payload["reasoning_effort"] = "none"
+            payload["max_completion_tokens"] = 32
         http_request = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
