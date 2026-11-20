@@ -3023,17 +3023,22 @@ class EagglState(object):
 
                 if self.factor_top_genes is not None or self.factor_anchor_top_genes is not None:
                     header = "%s\t%s" % (header, "top_genes")
-                if anchors is None and self.factor_labels_genes is not None:
-                    header = "%s\t%s" % (header, "label_genes")
                 header = "%s\t%s" % (header, "top_gene_sets")
-                if anchors is None and self.factor_labels_gene_sets is not None:
-                    header = "%s\t%s" % (header, "label_gene_sets")
 
                 if self.factor_top_phenos is not None or self.factor_anchor_top_phenos is not None:
                     header = "%s\t%s" % (header, "top_phenos")
-                    if anchors is None and self.factor_labels_phenos is not None:
-                        header = "%s\t%s" % (header, "label_phenos")
 
+                source_labels = dict(getattr(self, "factor_labels_by_sources", {}))
+                if anchors is None:
+                    for kind in ("genes", "gene_sets", "phenos"):
+                        labels = getattr(self, "factor_labels_" + kind)
+                        if labels is not None:
+                            source_labels.setdefault("label_" + kind, labels)
+                primary_sources = getattr(self, "factor_label_primary_sources", None)
+                if primary_sources:
+                    header += "\tlabel_sources"
+                for column in source_labels:
+                    header += "\t" + column
                 output_fh.write("%s\n" % (header))
                     
                 num_users = len(anchors) if anchors is not None else 1
@@ -3129,17 +3134,15 @@ class EagglState(object):
                             )
                             if self.factor_top_genes is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_genes[i]))
-                                if self.factor_labels_genes:
-                                    line = "%s\t%s" % (line, self.factor_labels_genes[i])                                   
                             line = "%s\t%s" % (line, ",".join(self.factor_top_gene_sets[i]))
-                            if self.factor_labels_gene_sets:
-                                line = "%s\t%s" % (line, self.factor_labels_gene_sets[i])
                             if self.factor_top_phenos is not None:
                                 line = "%s\t%s" % (line, ",".join(self.factor_top_phenos[i]))
-                                if self.factor_labels_phenos:
-                                    line = "%s\t%s" % (line, self.factor_labels_phenos[i])
 
 
+                        if primary_sources:
+                            line += "\t" + primary_sources
+                        for labels in source_labels.values():
+                            line += "\t" + labels[i]
                         output_fh.write("%s\n" % (line))
 
     def write_trait_factor_links(self, output_file=None, output_detail="main"):

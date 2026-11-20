@@ -6538,7 +6538,10 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     )
 
     def label_final_fit():
-        if lmm_auth_key is not None and state.num_factors() > 0:
+        if getattr(state, "defer_source_labels", False):
+            return
+        if (lmm_auth_key or getattr(state, "primary_label_sources", None)
+                or getattr(state, "extra_label_sources", None) or label_individually) and state.num_factors() > 0:
             labeling_module.label_selected(state, lmm_auth_key=lmm_auth_key, lmm_model=lmm_model,
                 lmm_provider=lmm_provider, label_gene_sets_only=label_gene_sets_only,
                 label_include_phenos=label_include_phenos, label_individually=label_individually,

@@ -129,14 +129,47 @@ without membership evidence, unavailable fields are reported as NA. To obtain
 the previous raw, cosine and Euclidean output columns and gene-set ranking
 policy, use `--gene-set-clusters-format legacy`.
 
-The evidence prompt gives each factor its own request. It lists five leading
-gene sets ranked by raw loading, their coverage and enrichment when available,
-and the genes supporting each. Repeated supporting groups appear once. Genes
-and optional phenotypes provide context. `--label-gene-sets-only` omits gene
-identities from the combined prompt. Automatic phi selection and repeated
-starts contact the provider only for the final selected fit. A failed label
-uses its deterministic fallback in the CLI. The strict portal handoff requires
-a valid provider response for every reported factor.
+## Choose evidence for the primary and additional labels
+
+Both `factor` and `label` use up to five ranked items per selected source. The
+default primary label uses genes and gene sets. Use `--label-sources` to change
+the primary label. Repeat `--additional-label-sources` for each additional
+label you want to compare on the same factors. Each option takes any nonempty
+combination of `genes`, `gene-sets` and `phenotypes`, separated by commas.
+
+For example, this labels the same saved factors three ways. The primary label
+holds phenotypes out, the second uses phenotypes alone and the third uses all
+three sources.
+
+```bash
+python -m eaggl label \
+  --label-gene-clusters-in gene_clusters.out.gz \
+  --label-gene-set-clusters-in gene_set_clusters.out.gz \
+  --label-pheno-clusters-in pheno_clusters.out.gz \
+  --additional-label-sources phenotypes \
+  --additional-label-sources genes,gene-sets,phenotypes \
+  --lmm-auth-key env --factors-out factors.labeled.out.gz
+```
+
+The factor table stores the primary name in `label`, its requested evidence in
+`label_sources` and additional names in columns such as `label_phenos` or
+`label_genes_gene_sets_phenos`. A gene-set prompt includes the set names, fitted
+loadings, coverage and enrichment. Per-set supporting genes can appear only if
+genes are selected and the gene is among that factor's top five. A genes-only
+or phenotypes-only prompt contains just the corresponding names. Gene-set names
+are preserved as supplied and may themselves mention genes or phenotypes.
+Holding a source out of naming tests interpretation of an already fitted factor.
+Inputs used during discovery or projection can still influence its loadings.
+
+Each distinct combination makes at most one request per final factor. Reordering
+or repeating a combination reuses its label. For an explicitly requested
+combination, a factor lacking any selected source receives `NA` and uses zero
+requests. With the implicit default, either available primary source can supply
+a label. Without credentials, or if an ordinary provider call fails, the
+deterministic fallback uses only the requested sources. The strict portal
+handoff requires a valid response for every requested label. The older
+`--label-gene-sets-only`, `--label-include-phenos` and `--label-individually`
+options remain available.
 
 For optional live labeling, set `OPENAI_API_KEY` in the environment running
 EAGGL, then add `--lmm-auth-key env`. The environment variable alone does

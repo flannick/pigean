@@ -354,6 +354,8 @@ parser.add_option("","--lmm-provider",default="openai",type=str) #LLM provider f
 parser.add_option("","--lmm-model",default="gpt-6-luna",type=str) #choose model
 parser.add_option("","--label-gene-sets-only",default=False,action="store_true") #use only gene sets (rather than genes and gene sets) for label
 parser.add_option("","--label-include-phenos",default=False,action="store_true") #add phenos to the labels (if --label-gene-sets-only is specified, the labelling will use just gene sets and phenos but skip genes). When doing phenotype based factoring, this (confusingly) adds genes rather than phenos, since phenotypes are the default thing used to label
+parser.add_option("", "--label-sources", type="string", help="Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination.")
+parser.add_option("", "--additional-label-sources", action="append", type="string", help="Add a separate label using this combination of sources. Repeat for other combinations.")
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately
 parser.add_option("","--gene-sets-for-labeling",action="append",default=None) #file of gene set identifiers to use as candidates for factor labels; may be repeated
 parser.add_option("","--gene-sets-for-labeling-id-col",default=None,type=str) #optional header column name for --gene-sets-for-labeling; defaults to first column for GMT compatibility
@@ -754,6 +756,8 @@ _EXPERT_METHOD_FLAGS = {
     "--label-gene-sets-only",
     "--label-include-phenos",
     "--label-individually",
+    "--label-sources",
+    "--additional-label-sources",
     "--blockwise-epochs",
     "--blockwise-gene-set-block-size",
     "--blockwise-max-blocks",

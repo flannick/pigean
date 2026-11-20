@@ -12,6 +12,8 @@ def run_main_pipeline(domain, options):
     domain._log_runtime_environment_if_requested(options)
 
     state = domain.EagglState(background_prior=options.background_prior, batch_size=options.batch_size)
+    from .labeling import configure_sources
+    configure_sources(state, options, domain.bail)
     state.gene_set_clusters_format = getattr(options, "gene_set_clusters_format", "evidence")
     state.internal_projection_method = getattr(options, 'fixed_basis_projection_method', 'legacy')
     state.internal_projection_max_cycles = getattr(options, 'projection_max_cycles', 2000)
@@ -49,6 +51,13 @@ def run_main_pipeline(domain, options):
         phewas_stage_result = domain._run_main_phewas_stage(state, options)
 
     factor_model_stage_result = domain.FactorStageResult(ran=False, workflow_id=None)
+    requested = [state.primary_label_sources or (), *state.extra_label_sources]
+    phenotype_labels = (any("phenotypes" in group for group in requested)
+                        or getattr(options, "label_include_phenos", False)
+                        or getattr(options, "label_individually", False))
+    state.defer_source_labels = bool(mode_state["run_factor"] and phenotype_labels
+        and not mode_state.get("use_phewas_for_factoring") and not getattr(options, "no_trait_linkage", False)
+        and (getattr(options, "gene_phewas_bfs_in", None) or getattr(options, "gene_set_phewas_stats_in", None)))
     if mode_state["run_factor"]:
         factor_model_stage_result = domain._run_main_factor_stage(state, options, mode_state, factor_input_state)
 
@@ -58,8 +67,21 @@ def run_main_pipeline(domain, options):
         if not mode_state.get('factor_projection_only'):
             domain.bail('--projection-context-in requires supplied factors, not a fresh discovery run')
         restore_context(state, options.projection_context_in, options)
-    if domain._should_run_main_pheno_projection_stage(mode_state, options):
+    if domain._should_run_main_pheno_projection_stage(mode_state, options) or state.defer_source_labels:
         pheno_projection_stage_result = domain._run_main_pheno_projection_stage(state, options)
+
+    if state.defer_source_labels and state.num_factors():
+        from .label import _top_items
+        from .labeling import label_selected
+        # For additional phenotypes the linkage matrix becomes available only after discovery.
+        if state.trait_linkage_nnls is not None:
+            ids = [i for i, name in enumerate(state.phenos) if name != state.default_pheno]
+            state.factor_top_phenos = _top_items([state.phenos[i] for i in ids], state.trait_linkage_nnls[ids],
+                loading_type=options.factor_top_loading_type) if ids else None
+        label_selected(state, lmm_auth_key=options.lmm_auth_key, lmm_model=options.lmm_model,
+            lmm_provider=options.lmm_provider, label_gene_sets_only=options.label_gene_sets_only,
+            label_include_phenos=options.label_include_phenos, label_individually=options.label_individually,
+            bail_fn=domain.bail, log_fn=domain.log, warn_fn=domain.warn)
 
     domain._write_main_factor_outputs(state, options)
     if getattr(options, 'projection_context_out', None) is not None:

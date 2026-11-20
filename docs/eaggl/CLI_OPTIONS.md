@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `322`
+- Total options: `324`
 - `method_required`: `11`
-- `method_optional`: `206`
+- `method_optional`: `208`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `266`
+- visibility `expert`: `268`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -40,6 +40,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--add-ext` | `expert` | `yes` | `expert_help` | `add_ext` | `False` | - |
 | `--add-gene-sets-by-enrichment-p` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_enrichment_p` | `None` | - |
 | `--add-gene-sets-by-fraction` | `expert` | `yes` | `expert_help` | `add_gene_sets_by_fraction` | `None` | - |
+| `--additional-label-sources` | `expert` | `yes` | `advanced_workflows` | `additional_label_sources` | `-` | Add a separate label using this combination of sources. Repeat for other combinations. |
 | `--adjust-priors` | `expert` | `yes` | `expert_help` | `adjust_priors` | `None` | - |
 | `--alpha0` | `normal` | `yes` | `core_help` | `alpha0` | `10` | shape parameter for the ARD factor-precision prior; larger values encourage sparser retained factors |
 | `--anchor-aggregation` | `normal` | `yes` | `core_help` | `anchor_aggregation` | `multi` | combine multiple anchor traits using shared multi-trait mode (`multi`) or noisy-OR union (`any`); with one anchor both reduce exactly to single-trait anchoring |
@@ -119,6 +120,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-include-phenos` | `expert` | `yes` | `advanced_workflows` | `label_include_phenos` | `False` | - |
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
 | `--label-pheno-clusters-in` | `normal` | `yes` | `core_help` | `label_pheno_clusters_in` | `None` | label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table with Factor columns |
+| `--label-sources` | `expert` | `yes` | `advanced_workflows` | `label_sources` | `-` | Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination. |
 | `--label-trait-factor-links-in` | `normal` | `yes` | `core_help` | `label_trait_factor_links_in` | `None` | label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |

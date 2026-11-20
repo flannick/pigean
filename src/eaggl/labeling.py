@@ -63,14 +63,18 @@ def query_lmm(query, auth_key=None, lmm_model=None, lmm_provider="openai", bail_
 
 PROMPT = (
     "Give this gene module ONE short biological process name (1-5 words). "
-    "Use the genes to interpret the shared experimental evidence. "
-    "Prefer a tissue or pathway process over a disease, cohort or drug name. "
-    "Triples: loading, coverage %, fold enrichment. @ marks shared supporting genes."
+    "Infer the process from the supplied evidence. "
+    "Prefer a tissue or pathway process over a disease, cohort or drug name."
 )
 
 
 def mechanism_prompt(payload):
-    return f"{PROMPT}\n{payload}\nProcess name only:"
+    guide = ""
+    if "x)" in payload and "sets: " in payload:
+        guide = " Triples: loading, coverage %, fold enrichment."
+    if " | support: " in payload:
+        guide += " @ marks shared supporting genes."
+    return f"{PROMPT}{guide}\n{payload}\nProcess name only:"
 
 
 def evidence_entry(name, loading, coverage=None, enrichment=None, genes=None):
@@ -93,12 +97,15 @@ def label_payload(sets, genes=(), phenos=(), *, include_support=True):
     supports = {}
     compact = []
     for entry in sets:
-        match = re.search(r" \[([^\]]+)\]$", entry)
+        match = re.search(r"(?<=\)) \[([^\]]+)\]$", entry)
         if match:
             if not include_support:
                 compact.append(entry[:match.start()])
                 continue
-            genes_key = match[1]
+            genes_key = ",".join(g for g in match[1].split(",") if g in genes)
+            if not genes_key:
+                compact.append(entry[:match.start()])
+                continue
             group = supports.setdefault(genes_key, len(supports)+1)
             compact.append(f"{entry[:match.start()]} @{group}")
         else:
@@ -107,6 +114,70 @@ def label_payload(sets, genes=(), phenos=(), *, include_support=True):
     return " | ".join(f"{kind}: " + "; ".join(items)
                       for kind, items in (("genes", genes), ("sets", compact), ("support", support),
                                           ("traits", phenos)) if items)
+
+
+SOURCES = ("genes", "gene-sets", "phenotypes")
+
+
+def parse_sources(value):
+    parts = [item.strip() for item in value.split(",")]
+    if any(item not in SOURCES for item in parts):
+        raise ValueError("Label sources must be a comma-separated combination of genes, gene-sets, phenotypes")
+    return tuple(source for source in SOURCES if source in parts)
+
+
+def configure_sources(state, options, bail):
+    primary = getattr(options, "label_sources", None)
+    extras = getattr(options, "additional_label_sources", None) or []
+    if primary is not None and (getattr(options, "label_gene_sets_only", False)
+                                or getattr(options, "label_include_phenos", False)):
+        bail("--label-sources overrides the legacy source flags; supply only one form")
+    try:
+        state.primary_label_sources = parse_sources(primary) if primary is not None else None
+        state.extra_label_sources = list(dict.fromkeys(parse_sources(item) for item in extras))
+    except ValueError as error:
+        bail(str(error))
+
+
+def label_column(sources):
+    return "label_" + "_".join(s.replace("-", "_").replace("phenotypes", "phenos") for s in sources)
+
+
+def apply_source_labels(state, entries, *, client, sets_only, include_phenos, individually, log, warn):
+    """Assemble each label independently. An explicit combination needs every named source."""
+    selected = getattr(state, "primary_label_sources", None)
+    primary = selected or tuple(s for s in SOURCES if
+        (s != "genes" or not sets_only) and (s != "phenotypes" or include_phenos))
+    extra = list(getattr(state, "extra_label_sources", []) or [])
+    tops = {"genes": state.factor_top_genes, "gene-sets": state.factor_top_gene_sets,
+            "phenotypes": state.factor_top_phenos}
+    if individually:
+        extra.extend((s,) for s in SOURCES if tops[s])
+    state.factor_labels_by_sources = {}
+    state.factor_label_primary_sources = ",".join(primary)
+    for sources in dict.fromkeys([primary, *extra]):
+        payloads, fallback = [], []
+        for i in range(state.num_factors()):
+            items = {s: tops[s][i][:5] if s in sources and tops[s] else [] for s in SOURCES}
+            missing = any(not items[s] for s in sources)
+            if missing and (selected is not None or sources != primary):
+                payloads.append("")
+                fallback.append("NA")
+                continue
+            names = items["gene-sets"] or items["genes"] or items["phenotypes"]
+            original_id = getattr(state, "_factor_output_name", lambda j: f"Factor{j+1}")(i)
+            fallback.append(names[0] if names else original_id)
+            payloads.append(label_payload(entries[i][:5] if items["gene-sets"] else [],
+                                          items["genes"], items["phenotypes"],
+                                          include_support=bool(items["genes"])))
+        labels = assign_labels(fallback, payloads, client, log, warn) if client else fallback
+        if sources == primary:
+            state.factor_labels = labels
+        if sources in extra:
+            column = label_column(sources)
+            state.factor_labels_by_sources[column] = labels
+            if len(sources) == 1:
+                setattr(state, column.replace("label_", "factor_labels_", 1), labels)
 
 
 def parse_label(response):
@@ -213,44 +284,24 @@ def populate_factor_labels(
 
 def label_selected(runtime_state, *, lmm_auth_key, lmm_model, lmm_provider, label_gene_sets_only,
                    label_include_phenos, label_individually, bail_fn, log_fn, warn_fn):
-    genes = runtime_state.factor_top_genes
-    phenos = runtime_state.factor_top_phenos
-    labeling_client = build_labeling_client(
-        auth_key=lmm_auth_key,
-        lmm_model=lmm_model,
-        lmm_provider=lmm_provider,
-        bail_fn=bail_fn,
-    )
     from . import set_evidence
-    enriched = getattr(runtime_state, "gene_set_clusters_format", "evidence") == "evidence"
+    client = (build_labeling_client(auth_key=lmm_auth_key, lmm_model=lmm_model,
+                                    lmm_provider=lmm_provider, bail_fn=bail_fn) if lmm_auth_key else None)
+    enriched = client and getattr(runtime_state, "gene_set_clusters_format", "evidence") == "evidence"
     evidence = set_evidence.from_state(runtime_state) if enriched else None
-    set_entries = []
-    combined = []
-    index = {name:j for j,name in enumerate(runtime_state.gene_sets)}
+    index = {name: j for j, name in enumerate(runtime_state.gene_sets)}
+    all_entries = []
     for i, names in enumerate(runtime_state.factor_top_gene_sets):
         entries = []
         for name in names:
-            j = index[name]
             if enriched:
+                j = index[name]
                 values = set_evidence.metric_values(evidence, j, [i])
                 entries.append(evidence_entry(name, runtime_state.exp_gene_set_factors[j, i],
-                    values[2], values[3], None if label_gene_sets_only else values[5]))
+                                              values[2], values[3], values[5]))
             else:
                 entries.append(name)
-        set_entries.append(label_payload(entries, include_support=False))
-        combined.append(label_payload(entries, [] if label_gene_sets_only else (genes[i] if genes else []),
-            phenos[i] if label_include_phenos and phenos else []))
-
-    def assign(payloads, fallback):
-        return assign_labels(fallback, payloads, labeling_client, log_fn, warn_fn)
-
-    runtime_state.factor_labels = assign(combined, runtime_state.factor_labels)
-    if label_individually:
-        def individual(groups):
-            return [items[0] if items else "" for items in groups]
-        runtime_state.factor_labels_gene_sets = assign(set_entries, individual(runtime_state.factor_top_gene_sets))
-        if genes:
-            runtime_state.factor_labels_genes = assign([label_payload([], items) for items in genes], individual(genes))
-        if phenos is not None:
-            runtime_state.factor_labels_phenos = assign(
-                [label_payload([], [], items) for items in phenos], individual(phenos))
+        all_entries.append(entries)
+    apply_source_labels(runtime_state, all_entries, client=client, sets_only=label_gene_sets_only,
+                        include_phenos=label_include_phenos, individually=label_individually,
+                        log=log_fn, warn=warn_fn)

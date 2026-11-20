@@ -45,7 +45,8 @@ def write_labeled_factors(source, destination, labels):
     if len(ids) != len(set(ids)) or set(ids) != set(labels):
         raise ValueError('Factor summary IDs do not match the final loading tables')
     for row in rows:
-        row['label'] = labels[row['Factor']]
+        row.update(labels[row['Factor']])
+    fields = list(dict.fromkeys([*fields, *next(iter(labels.values()))]))
     with gzip.open(destination, 'wt') as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, delimiter='\t')
         writer.writeheader()
@@ -57,6 +58,9 @@ def main():
     parser.add_argument('--source', required=True)
     parser.add_argument('--gene-loadings', required=True)
     parser.add_argument('--gene-set-loadings', required=True)
+    parser.add_argument('--phenotype-loadings')
+    parser.add_argument('--label-sources')
+    parser.add_argument('--additional-label-sources', action='append', default=[])
     parser.add_argument('--out', required=True)
     parser.add_argument('--factors-in')
     parser.add_argument('--mock', action='store_true')
@@ -71,7 +75,13 @@ def main():
     columns = factor_columns(genes)
     if not columns or columns != factor_columns(sets):
         raise ValueError('Final gene and gene-set factor columns must agree exactly')
-    hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (genes, sets)}
+    inputs = [genes, sets]
+    if args.phenotype_loadings:
+        phenos = Path(args.phenotype_loadings).resolve()
+        if factor_columns(phenos) != columns:
+            raise ValueError('Phenotype factor columns must match the gene loadings')
+        inputs.append(phenos)
+    hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
     model = 'MOCK_NOT_BIOLOGICAL' if args.mock else os.environ.get('EAGGL_LLM_MODEL', 'gpt-6-luna')
     key = 'MOCK' if args.mock else (os.environ.get('EAGGL_LLM_AUTH_KEY')
                                    or os.environ.get('OPENAI_API_KEY'))
@@ -112,6 +122,12 @@ def main():
                '--factor-top-loading-type', 'raw', '--factor-output-scope', 'all',
                '--cluster-row-min-max-loading', '0', '--lmm-provider', 'openai',
                '--lmm-model', model]
+    if args.phenotype_loadings:
+        command.extend(['--label-pheno-clusters-in', str(phenos)])
+    if args.label_sources:
+        command.extend(['--label-sources', args.label_sources])
+    for item in args.additional_label_sources:
+        command.extend(['--additional-label-sources', item])
     if not main_support._bootstrap_cli(command):
         raise RuntimeError('Label-only CLI initialization failed')
     # Keep secrets out of command lines, output metadata and logged arguments.
@@ -123,24 +139,35 @@ def main():
     (out/'labeling_metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')
     try:
         runtime = label.run_label_command(cli.options)
-        if (runtime.num_factors() != len(columns) or len(runtime.factor_labels) != len(columns)
-                or len(calls) != len(columns)):
-            raise RuntimeError('Final factors and generated labels are not aligned')
-        for p in (genes, sets):
+        groups = {"label": runtime.factor_labels}
+        primary_column = labeling.label_column(labeling.parse_sources(runtime.factor_label_primary_sources))
+        groups.update({column: values for column, values in runtime.factor_labels_by_sources.items()
+                       if column != primary_column})
+        if (runtime.num_factors() != len(columns)
+                or any(len(values) != len(columns) for values in groups.values())
+                or len(calls) != len(columns) * len(groups)):
+            raise RuntimeError('Missing evidence or provider label for a requested factor/source combination')
+        for p in inputs:
             if hashlib.sha256(p.read_bytes()).hexdigest() != hashes[str(p)]:
                 raise RuntimeError('Numeric input was modified during labeling')
+        records = {}
+        for i, factor in enumerate(columns):
+            record = {'label': runtime.factor_labels[i], 'label_sources': runtime.factor_label_primary_sources}
+            record.update({column: values[i] for column, values in runtime.factor_labels_by_sources.items()})
+            records[factor] = record
         with (out/'factor_labels.tsv').open('w') as handle:
             writer = csv.writer(handle, delimiter='\t')
-            writer.writerow(['factor', 'label', 'top_genes', 'top_gene_sets', 'label_source'])
+            writer.writerow(['factor', *records[columns[0]], 'top_genes', 'top_gene_sets', 'label_source'])
             for i, factor in enumerate(columns):
-                writer.writerow([factor, runtime.factor_labels[i],
-                    ','.join(runtime.factor_top_genes[i]),
-                    ','.join(runtime.factor_top_gene_sets[i]),
-                    'mock_not_biological' if args.mock else 'llm'])
-        (out/'label_prompt.txt').write_text('\n\n'.join(f'{column}\n{prompt}' for column, prompt in zip(columns,calls))+'\n')
+                writer.writerow([factor, *records[factor].values(), ','.join(runtime.factor_top_genes[i]),
+                    ','.join(runtime.factor_top_gene_sets[i]), 'mock_not_biological' if args.mock else 'llm'])
+        prompt_ids = [(column, field) for field in groups for column in columns]
+        (out/'label_prompt.txt').write_text('\n\n'.join(f'{factor} {field}\n{prompt}'
+            for (factor, field), prompt in zip(prompt_ids, calls))+'\n')
         if args.factors_in:
-            write_labeled_factors(Path(args.factors_in), out/'factors.labeled.out.gz',
-                                  dict(zip(columns, runtime.factor_labels)))
+            write_labeled_factors(Path(args.factors_in), out/'factors.labeled.out.gz', records)
+        metadata.update(primary_sources=runtime.factor_label_primary_sources,
+                        additional_labels=list(runtime.factor_labels_by_sources), requests=len(calls))
         metadata.update(status='mock_alignment_passed' if args.mock else 'llm_labels_validated',
                         factors=len(columns))
     except BaseException:
