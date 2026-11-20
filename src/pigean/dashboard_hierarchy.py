@@ -20,7 +20,7 @@ def _top(names, values, limit=15):
     return [[str(names[i]), float(values[i])] for i in indices if values[i] > 0]
 
 
-def load_hierarchy(directory: Path, source_root: Path, *, anchors=None, reference=None) -> dict:
+def load_hierarchy(directory: Path, source_root: Path, *, anchors=None, reference=None, label_tables=None, include_graph=True) -> dict:
     manifest = json.loads((directory / "hierarchy.json").read_text())
     sources = {}
     for key, entry in manifest["source_files"].items():
@@ -122,7 +122,8 @@ def load_hierarchy(directory: Path, source_root: Path, *, anchors=None, referenc
 
     from .dashboard_node_views import make_views
     views, graph = make_views(hierarchy, W, H, matrix, node_columns, genes, annotations,
-                              (anchors or {}).get(manifest["trait"]), reference)
+                              (anchors or {}).get(manifest["trait"]), reference,
+                              node_labels=(label_tables or {}).get(manifest["trait"]), include_graph=include_graph)
     hierarchy["views"] = views
     hierarchy["graph"] = graph
     return hierarchy

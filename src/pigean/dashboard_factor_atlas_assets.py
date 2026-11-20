@@ -55,11 +55,15 @@ function atlasShell(){
     <div class="factor-view-switch" aria-label="Map zoom"><button type="button" id="atlas-in" aria-label="Zoom in">+</button><button type="button" id="atlas-out" aria-label="Zoom out">−</button><button type="button" id="atlas-fit">Fit all</button></div></div><aside class="atlas-side"><h3>Factor atlas</h3>
     <div class="note" id="atlas-caption"></div><div id="atlas-detail" class="atlas-detail"></div><div class="atlas-list" id="atlas-rank"></div></aside></div>`;
 }
+function atlasFactorTitle(p){
+  const name=DATA.hierarchies[p.trait].leafLabels?.[p.key];
+  return p.factor+(name?" · "+name:"");
+}
 function atlasDetail(p,name){
   if(!p){byId("atlas-detail").textContent="Select a point to inspect its factor.";return;}
   const leaf=DATA.hierarchies[p.trait].leaves.find(l=>"f"+l.id===p.key);
   const value=name?atlasNumber(atlasValue(p,atlasState.kind,name)):null;
-  byId("atlas-detail").innerHTML=`<strong>${esc(p.trait)} · ${esc(p.factor)}</strong><br>Family ${p.family}${p.redundant?" · Repeated profile":""}<br>
+  byId("atlas-detail").innerHTML=`<strong>${esc(p.trait)} · ${esc(atlasFactorTitle(p))}</strong><br>Family ${p.family}${p.redundant?" · Repeated profile":""}<br>
     ${topNames(leaf.genes,4)}${name?`<br>${esc(name)} · ${esc(value)}`:""}`;
 }
 function drawAtlas(){
@@ -110,7 +114,7 @@ function drawAtlas(){
   byId("atlas-map").innerHTML=order.map(i=>{
     const p=pts[i],v=vals[i],missing=name&&v==null, selected=atlasState.pick===i;
     const [x,y]=position(p);
-    const title=p.trait+" · "+p.factor+(name?" · "+name+" · "+atlasNumber(v):"");
+    const title=p.trait+" · "+atlasFactorTitle(p)+(name?" · "+name+" · "+atlasNumber(v):"");
     return `<circle data-point="${i}" tabindex="0" role="button" aria-label="${esc(title)}" cx="${x}" cy="${y}" r="${(selected?7:5)/Math.sqrt(atlasState.zoom)}" fill="${missing?"white":name?color(v):palette(p.trait)}" stroke="${selected?"#1c2733":missing?"#a1acb7":name?"#677786":"white"}" stroke-width="${selected?2.5:1}"><title>${esc(title)}</title></circle>`;
   }).join("");
   const key=byId("atlas-legend"), caption=byId("atlas-caption");
@@ -123,7 +127,7 @@ function drawAtlas(){
     key.innerHTML=traits.filter(t=>anchor===null || t===anchor).map(t=>`<span><i class="atlas-key" style="background:${palette(t)}"></i>${esc(t)}</span>`).join("");
     if(q)caption.textContent+=matches.length?" Choose a matching name.":" No matching name.";
   }
-  byId("atlas-rank").innerHTML=name?(ranked.length?`<strong>${signed?"Largest absolute effects":"Highest loadings"}</strong>`+ranked.slice(0,6).map(({p,v})=>`<button type="button" data-atlas-pick="${p.index}"><span>${esc(p.trait)} · ${esc(p.factor)}</span><b>${atlasNumber(v)}</b></button>`).join(""):"No nonzero values for this selection."):"";
+  byId("atlas-rank").innerHTML=name?(ranked.length?`<strong>${signed?"Largest absolute effects":"Highest loadings"}</strong>`+ranked.slice(0,6).map(({p,v})=>`<button type="button" data-atlas-pick="${p.index}"><span>${esc(p.trait)} · ${esc(atlasFactorTitle(p))}</span><b>${atlasNumber(v)}</b></button>`).join(""):"No nonzero values for this selection."):"";
   const select=i=>{atlasState.pick=i;if(atlasState.zoom>1)zoomTo(atlasState.zoom,position(pts[i]));drawAtlas();};
   svg.onclick=e=>{if(e.target.hasAttribute("data-point"))select(+e.target.dataset.point);};
   svg.onkeydown=e=>{if((e.key==="Enter"||e.key===" ")&&e.target.hasAttribute("data-point")){e.preventDefault();const i=+e.target.dataset.point;select(i);svg.querySelector('[data-point="'+i+'"]').focus();}};

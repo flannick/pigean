@@ -218,3 +218,35 @@ python -m eaggl label \
   --label-gene-clusters-in gene_clusters.out.gz \
   --lmm-auth-key env --factors-out factors.labeled.out.gz
 ```
+
+## Label a saved hierarchy and open it in the dashboard
+
+From the package root, run the following offline example with the repository's
+Python dependencies installed. It creates three fitted leaves and two families.
+
+```bash
+export PYTHONPATH=src
+python research/eaggl_leaf_selection/examples/build_dashboard.py example
+python -m eaggl label-hierarchy --hierarchy example/hierarchy \
+  --hierarchy-source-root example --labels-out example/node_labels.tsv.gz
+python -m pigean.dashboard --eaggl-hierarchy example/hierarchy \
+  --hierarchy-source-root example --hierarchy-labels-in example/node_labels.tsv.gz \
+  --html-out example/labeled.html
+```
+
+Without a provider, names are evidence captions from leading sets or genes.
+For hosted mechanism names, add `--lmm-auth-key env --checkpoint-dir example/label-cache`
+to the labeling command with `OPENAI_API_KEY` set. Checkpoints allow reruns to
+reuse matching requests. To keep existing leaf names, pass `--leaf-labels-in`
+with a same-fit TSV containing `Factor` and `label` (including flagged leaves).
+When holding a source out, use leaf names generated under the same holdout.
+
+The saved single-trait export supplies gene and gene-set loadings. Use
+`--label-sources genes`, `gene-sets`, or the default `genes,gene-sets`.
+Optionally pass `--membership-npz` with a SciPy sparse gene-by-set matrix in
+the export's exact axis order to include coverage, enrichment and supporting
+genes. No disease or study context is required. Families receive both
+children's evidence and descendant names. Flagged leaves retain names in the
+inventory and remain outside the tree. The output binds names to the trait,
+topology, gene and gene-set identifiers and fitted loading profiles. Repeat
+the two dashboard input flags for each additional trait.

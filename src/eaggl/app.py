@@ -16,6 +16,9 @@ def run_main_pipeline(options):
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else list(argv)
+    if args[:1] == ["label-hierarchy"]:
+        from .hierarchy_labels import main as label_hierarchy_main
+        return label_hierarchy_main(args[1:])
     if args[:1] == ["hierarchy"]:
         from .multitrait_hierarchy import main as hierarchy_main
         return hierarchy_main(args[1:])

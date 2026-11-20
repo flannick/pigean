@@ -29,6 +29,7 @@ Common modes:
 - `factor`: canonical EAGGL factor workflow with F1-F4 workflow selection
 - `naive_factor`: simpler baseline factorization path using the same high-level contracts
 - `label`: label precomputed factor loading tables without refitting
+- `label-hierarchy` names the leaves and families of a saved single-trait research hierarchy. [Portable example](LABELING.md#label-a-saved-hierarchy-and-open-it-in-the-dashboard)
 - `hierarchy`: group gene-loading profiles from two or more traits and flag repeated profiles
 
 Typical user workflow:

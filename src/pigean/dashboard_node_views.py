@@ -84,7 +84,7 @@ def leaf_profile_layout(w, anchor_columns):
     return coords
 
 
-def graph_html(keys, labels, names, w, direct, combined, anchor_columns):
+def graph_html(keys, labels, names, w, direct, combined, anchor_columns, *, named=False):
     # Match the native graph's three representative genes per factor. Rank on
     # each node independently, since broad OR parents can dominate a gene row.
     edges = {}
@@ -98,7 +98,7 @@ def graph_html(keys, labels, names, w, direct, combined, anchor_columns):
     genes = [fg.EntityInfo(str(names[i]), str(names[i]), "gene", combined[i], direct[i], weights)
              for i, weights in edges.items()]
     genes = fg._scale_entity_values(genes)
-    factors = [fg.FactorInfo(key, f"{label} · {names[np.argmax(w[:,j])]}", 1.)
+    factors = [fg.FactorInfo(key, label if named else f"{label} · {names[np.argmax(w[:,j])]}", 1.)
                for j, (key, label) in enumerate(zip(keys, labels))]
     graph = fg.build_graph(factors, genes, [], fg.GraphConfig(max_num_factor_nodes=len(keys)))
     xy = leaf_profile_layout(w, anchor_columns)
@@ -108,6 +108,8 @@ def graph_html(keys, labels, names, w, direct, combined, anchor_columns):
     for node in graph["nodes"]:
         if node["kind"] == "factor":
             position = xy[factor_index[node["id"]]]
+            if named:
+                node["display_label"] = node["label"]
         else:
             # Use original fitted loadings even when the graph draws only a few edges.
             weights = w[gene_index[node["id"]], leaf_columns]
@@ -119,7 +121,8 @@ def graph_html(keys, labels, names, w, direct, combined, anchor_columns):
         return path.read_text()
 
 
-def make_views(h, fit_w, fit_h, node_w, node_columns, genes, annotations, anchor_file, reference):
+def make_views(h, fit_w, fit_h, node_w, node_columns, genes, annotations, anchor_file, reference, *,
+               node_labels=None, include_graph=True):
     leaves = h["leaves"]
     keys = ["f"+str(f["id"]) for f in leaves]
     labels = [f"Factor {f['id']}" + (" · flagged" if f["flagged"] else "") for f in leaves]
@@ -135,6 +138,9 @@ def make_views(h, fit_w, fit_h, node_w, node_columns, genes, annotations, anchor
         columns[i] = annotation
         parents_w.append(node_w[:, node_columns[i]])
         parents_h.append(annotation)
+        if node_labels is not None:
+            ranked = np.lexsort((annotations, -annotation))[:15]
+            n["annotations"] = [[str(annotations[j]), float(annotation[j])] for j in ranked if annotation[j] > 0]
         keys.append(f"n{i}")
         labels.append(f"Family {i}")
     w = np.column_stack([fit_w, *parents_w])
@@ -150,10 +156,20 @@ def make_views(h, fit_w, fit_h, node_w, node_columns, genes, annotations, anchor
     out = {"keys": keys, "labels": labels,
            "genes": {"rows": genes.tolist(), "data": packed(w)},
            "gene_sets": {"rows": annotations.tolist(), "data": packed(annotation)}}
+    if node_labels is not None:
+        from eaggl.hierarchy_labels import fit_signature
+        signature = fit_signature(h, out)
+        if node_labels.keys() != set(keys) or any(digest != signature for digest, _ in node_labels.values()):
+            raise ValueError(f"Hierarchy labels do not match the fit and node IDs for {h['trait']}")
+        h["leafLabels"] = {key: name for key, (_, name) in node_labels.items() if key.startswith("f")}
+        h["familyLabels"] = {key: name for key, (_, name) in node_labels.items() if key.startswith("n")}
+        labels = [f"{node_labels[key][1]} · {label}" for key, label in zip(keys, labels)]
+        out["labels"] = labels
     if reference is not None:
         if not anchor_file:
             raise ValueError(f"A matched --pigean-run is required for {h['trait']} anchor adjustment")
         out["phewas"] = marginal_scan(w, genes, direct, reference)
     anchor_columns = [i for i, leaf in enumerate(leaves) if not leaf["flagged"]]
-    graph = graph_html(keys, labels, genes, w, direct, combined, anchor_columns)
+    graph = (graph_html(keys, labels, genes, w, direct, combined, anchor_columns, named=node_labels is not None)
+             if include_graph else None)
     return out, graph

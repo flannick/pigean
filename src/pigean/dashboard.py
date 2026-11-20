@@ -1298,9 +1298,12 @@ def build_payload(args: argparse.Namespace) -> dict:
         from .dashboard_node_views import read_reference
         reference = read_reference(args.hierarchy_phenotype_reference)
     anchors = {spec.run_id: spec.path / "pigean.gene_stats.out.gz" for spec in args.pigean_run}
+    from eaggl.hierarchy_labels import read_label_tables
+    label_tables = read_label_tables(getattr(args, "hierarchy_labels_in", []))
     for directory in getattr(args, "eaggl_hierarchy", []):
         from .dashboard_hierarchy import load_hierarchy
-        hierarchy = load_hierarchy(directory, args.hierarchy_source_root, anchors=anchors, reference=reference)
+        hierarchy = load_hierarchy(directory, args.hierarchy_source_root, anchors=anchors, reference=reference,
+                                   label_tables=label_tables)
         trait = hierarchy["trait"]
         if trait in hierarchies:
             raise ValueError(f"Multiple hierarchy exports for {trait}")
@@ -1316,6 +1319,9 @@ def build_payload(args: argparse.Namespace) -> dict:
                                summary="Consensus factors and OR-combined families from the selected research fit.",
                                paths={"factors":str(directory)}, factor_graph_html=hierarchy.pop("graph"),
                                selected_phi_metrics={"phi":hierarchy["phi"], "num_factors":len(hierarchy["leaves"])}, warnings=[])
+    unknown_traits = label_tables.keys() - hierarchies.keys()
+    if unknown_traits:
+        raise ValueError(f"Label tables include traits without a supplied hierarchy: {sorted(unknown_traits)}")
     atlas = None
     if getattr(args, "factor_atlas", None):
         from .dashboard_factor_atlas import build_factor_atlas
@@ -1426,6 +1432,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eaggl-run", action="append", type=parse_eaggl_spec, default=[], help="EAGGL run as RUN_ID:MODE_ID:DIR; repeat for multiple modes/runs.")
     parser.add_argument("--eaggl-phi-sweep", action="append", type=parse_eaggl_phi_sweep_spec, default=[], help="EAGGL phi sweep bundle as RUN_ID:MODE_ID:DIR. The directory may contain per-phi EAGGL output directories or aggregate factor_phi_* learn-phi output tables.")
     parser.add_argument("--eaggl-hierarchy", action="append", type=Path, default=[], metavar="DIR", help="Include a saved research hierarchy, its factor QC and phi selection. Repeat once per trait. For matched run tables, use the trait name as RUN_ID.")
+    parser.add_argument("--hierarchy-labels-in", action="append", type=Path, default=[], metavar="TSV",
+                        help="Node names from eaggl label-hierarchy. Repeat for additional traits.")
     parser.add_argument("--hierarchy-phenotype-reference", type=Path, help="Gzipped gene PheWAS reference with Trait_Internal, Gene and Combined columns. Requires matched PIGEAN run IDs for direct anchor adjustment.")
     parser.add_argument("--factor-atlas", type=Path, metavar="DIR", help="Add a searchable cross-trait leaf map from an integrated eaggl hierarchy output. Supply the matching per-trait hierarchies.")
     parser.add_argument("--hierarchy-source-root", type=Path, default=Path("."), help="Root for source paths recorded in hierarchy.json (default: current directory).")

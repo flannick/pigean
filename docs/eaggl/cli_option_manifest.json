@@ -3557,7 +3557,7 @@
       "source_line": 359,
       "summary": "Optional study context sent with each model-generated label. Factor evidence determines the name.",
       "type": "string",
-      "usage_references": 7
+      "usage_references": 8
     },
     {
       "action": null,
@@ -3788,7 +3788,7 @@
       "source_line": 357,
       "summary": "Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination.",
       "type": "string",
-      "usage_references": 7
+      "usage_references": 10
     },
     {
       "action": null,
@@ -3809,7 +3809,7 @@
       "source_line": 358,
       "summary": "Compare selected evidence across the fitted leaves when naming each leaf (default), or name each independently.",
       "type": "choice",
-      "usage_references": 6
+      "usage_references": 7
     },
     {
       "action": null,
@@ -4419,7 +4419,7 @@
       "source_line": 352,
       "summary": "enable optional LLM-based factor labeling",
       "type": "str",
-      "usage_references": 16
+      "usage_references": 19
     },
     {
       "action": null,
@@ -4440,7 +4440,7 @@
       "source_line": 354,
       "summary": "choose the LLM model used for optional labeling",
       "type": "str",
-      "usage_references": 10
+      "usage_references": 11
     },
     {
       "action": null,

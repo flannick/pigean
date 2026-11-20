@@ -79,7 +79,7 @@ def bail(message):
     raise CliUsageError(message)
 
 
-usage = "usage: python -m eaggl [factor|naive_factor|label|hierarchy] [options]"
+usage = "usage: python -m eaggl [factor|naive_factor|label|hierarchy|label-hierarchy] [options]"
 
 get_comma_separated_args = pegs_callback_set_comma_separated_args
 get_comma_separated_args_as_set = pegs_callback_set_comma_separated_args_as_set
@@ -1115,6 +1115,7 @@ def _apply_cli_help_layout(_parser, show_expert=False):
         "Label-only quickstart:\n"
         "  python -m eaggl label --label-gene-set-clusters-in gene_set_clusters.out.gz "
         "--factors-out factors.labeled.out.gz\n\n"
+        "Saved hierarchy labeling: python -m eaggl label-hierarchy --help\n"
         "Cross-trait grouping: python -m eaggl hierarchy --help\n\n"
         "Use --help-expert to show projection workflows, optional labeling, "
         "expert tuning, and debug flags."
