@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `321`
+- Total options: `322`
 - `method_required`: `11`
-- `method_optional`: `205`
+- `method_optional`: `206`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `265`
+- visibility `expert`: `266`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -106,6 +106,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-map-in` | `expert` | `yes` | `expert_help` | `gene_map_in` | `None` | - |
 | `--gene-phewas-id-to-X-id` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_id_to_X_id` | `None` | - |
 | `--gene-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_phewas_bfs_in` | `None` | - |
+| `--gene-set-clusters-format` | `expert` | `yes` | `expert_help` | `gene_set_clusters_format` | `evidence` | gene-set output and labeling evidence format (default evidence) |
 | `--gene-set-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_filter_value` | `0.01` | - |
 | `--gene-set-pheno-filter-value` | `expert` | `yes` | `expert_help` | `gene_set_pheno_filter_value` | `0.01` | - |
 | `--gene-set-phewas-stats-in` | `expert` | `yes` | `advanced_workflows` | `gene_set_phewas_stats_in` | `None` | load gene-set phewas statistics for projection and phenotype-input factoring workflows |
@@ -145,7 +146,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |
 | `--linear` | `expert` | `yes` | `expert_help` | `linear` | `None` | - |
 | `--lmm-auth-key` | `expert` | `yes` | `advanced_workflows` | `lmm_auth_key` | `None` | enable optional LLM-based factor labeling |
-| `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-4o-mini` | choose the LLM model used for optional labeling |
+| `--lmm-model` | `expert` | `yes` | `advanced_workflows` | `lmm_model` | `gpt-6-luna` | choose the LLM model used for optional labeling |
 | `--lmm-provider` | `expert` | `yes` | `advanced_workflows` | `lmm_provider` | `openai` | choose the LLM provider used for optional labeling |
 | `--max-for-linear` | `expert` | `yes` | `expert_help` | `max_for_linear` | `None` | - |
 | `--max-frac-sem-betas` | `expert` | `yes` | `expert_help` | `max_frac_sem_betas` | `0.01` | - |

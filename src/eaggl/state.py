@@ -2179,6 +2179,10 @@ class EagglState(object):
         return W, like, evid, lambdak, error
 
     #this code is adapted from https://github.com/gwas-partitioning/bnmf-clustering
+    def _factor_output_name(self, index):
+        names = getattr(self, "label_input_factor_names", None)
+        return names[index] if names is not None else "Factor%d" % (index + 1)
+
     def num_factors(self):
         if self.exp_lambdak is None:
             return 0
@@ -2872,7 +2876,7 @@ class EagglState(object):
                 float(gene_set_overlap.get("max_overlap", 0.0)),
             )
             records.append({
-                "Factor": "Factor%d" % (i + 1),
+                "Factor": self._factor_output_name(i),
                 "label": "" if self.factor_labels is None else str(self.factor_labels[i]),
                 "lambda": "%.6g" % float(self.exp_lambdak[i]) if self.exp_lambdak is not None else "NA",
                 "factor_total_mass": (
@@ -2901,7 +2905,7 @@ class EagglState(object):
                 "gene_max_jaccard": "%.6g" % float(gene_overlap["max_overlap"]),
                 "gene_q90_jaccard": "%.6g" % float(gene_overlap["q90_overlap"]),
                 "gene_mean_jaccard": "%.6g" % float(gene_overlap["mean_overlap"]),
-                "gene_nearest_factor": "" if gene_overlap["nearest_factor_index"] is None else "Factor%d" % (int(gene_overlap["nearest_factor_index"]) + 1),
+                "gene_nearest_factor": "" if gene_overlap["nearest_factor_index"] is None else self._factor_output_name(int(gene_overlap["nearest_factor_index"])),
                 "gene_set_mass": "%.6g" % gene_set_metrics["mass"],
                 "gene_set_mass_fraction": "%.6g" % gene_set_metrics["mass_fraction"],
                 "gene_set_effective_support": "%.6g" % gene_set_metrics["effective_support"],
@@ -2914,7 +2918,7 @@ class EagglState(object):
                 "gene_set_max_jaccard": "%.6g" % float(gene_set_overlap["max_overlap"]),
                 "gene_set_q90_jaccard": "%.6g" % float(gene_set_overlap["q90_overlap"]),
                 "gene_set_mean_jaccard": "%.6g" % float(gene_set_overlap["mean_overlap"]),
-                "gene_set_nearest_factor": "" if gene_set_overlap["nearest_factor_index"] is None else "Factor%d" % (int(gene_set_overlap["nearest_factor_index"]) + 1),
+                "gene_set_nearest_factor": "" if gene_set_overlap["nearest_factor_index"] is None else self._factor_output_name(int(gene_set_overlap["nearest_factor_index"])),
                 "combined_mass": "%.6g" % combined_mass,
                 "combined_mass_fraction": "%.6g" % combined_mass_fraction,
                 "combined_unique_fraction": "%.6g" % combined_unique_fraction,
@@ -3035,7 +3039,7 @@ class EagglState(object):
                 num_users = len(anchors) if anchors is not None else 1
                 for j in range(num_users):
                     for i in ordered_inds:
-                        line = "Factor%d" % (i+1)
+                        line = self._factor_output_name(i)
                         line = "%s\t%s" % (line, self.factor_labels[i])
                         if anchors is not None:
                             line = "%s\t%s" % (line, anchors[j])
@@ -3366,7 +3370,16 @@ class EagglState(object):
                 if anchors is not None:
                     header = "%s\t%s" % (header, "anchor")
 
-                output_fh.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (header, "cluster", "label", "\t".join(["Factor%d" % (i+1) for i in ordered_inds]), "\t".join(["Cosine_Factor%d" % (i+1) for i in ordered_inds]), "\t".join(["Euclidean_Factor%d" % (i+1) for i in ordered_inds])))
+                from . import set_evidence
+                evidence_mode = getattr(self, "gene_set_clusters_format", "evidence") == "evidence"
+                evidence = set_evidence.from_state(self) if evidence_mode else None
+                cumulative = (evidence.cumulative_coverage(values_for_cluster, self.gene_sets)
+                              if evidence is not None else None)
+                factors = ["Factor%d" % (i+1) for i in ordered_inds]
+                extras = (set_evidence.metric_columns(factors) if evidence_mode else
+                          [f"{metric}_{f}" for metric in ("Cosine", "Euclidean") for f in factors])
+                output_fh.write("\t".join([header, "cluster", "label", *factors, *extras]) + "\n")
+
 
                 if master_key_fn is None:
                     master_key_fn = lambda k: k
@@ -3379,9 +3392,6 @@ class EagglState(object):
 
 
                     raw_gene_set_factor_loadings = self.get_factor_loadings(self.exp_gene_set_factors, loading_type='raw')
-                    specific_gene_set_factor_loadings = self.get_factor_loadings(self.exp_gene_set_factors, loading_type='specific')
-                    combined_gene_set_factor_loadings = self.get_factor_loadings(self.exp_gene_set_factors, loading_type='combined')
-
                     for i in sorted(range(values_for_cluster.shape[0]), key=key_fn):
 
                         #THINK WE CAN REMOVE THIS; DOES IT PASS ASSERT?
@@ -3448,7 +3458,16 @@ class EagglState(object):
                             cluster = ordered_inds[int(np.argmax(cluster_scores))]
                             cluster_name, cluster_label = "Factor%d" % (cluster + 1), self.factor_labels[cluster]
 
-                        output_fh.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (line, cluster_name, cluster_label, "\t".join(["%.4g" % value for value in row_raw_loadings]), "\t".join(["%.4g" % value for value in row_cosine_loadings(row_raw_loadings)]), "\t".join(["%.4g" % value for value in row_euclidean_loadings(row_raw_loadings)])))
+                        if evidence_mode:
+                            values = set_evidence.metric_values(evidence, i, ordered_inds)
+                            values.extend(set_evidence.display(cumulative[i, k]) if cumulative is not None
+                                          else "NA" for k in ordered_inds)
+                        else:
+                            values = ["%.4g" % v for profile in (row_cosine_loadings(row_raw_loadings),
+                                      row_euclidean_loadings(row_raw_loadings)) for v in profile]
+                        output_fh.write("\t".join([line, cluster_name, cluster_label,
+                            *("%.4g" % v for v in row_raw_loadings), *values]) + "\n")
+
 
         if gene_clusters_output_file is not None and self.exp_gene_factors is not None:
 

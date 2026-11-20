@@ -90,7 +90,7 @@ integrity. It does not support gene-set-basis reload or continuation of discover
 ## Final-factor labels and handoff
 
 `scripts/eaggl/run_portal_trait.py` requires live LLM labels by default, after
-final consensus and projections are written. Set `EAGGL_LLM_MODEL` and
+final consensus and projections are written. Optionally override the small default with `EAGGL_LLM_MODEL`. Set
 `EAGGL_LLM_AUTH_KEY` (or `OPENAI_API_KEY`) in the environment. OpenAI is the
 implemented provider in this pinned code; no particular model has been validated
 as best. Reuse a known-working supported model for the live smoke test.
@@ -99,7 +99,7 @@ The launcher now inherits the recommended CLI discovery defaults. Optional `--fu
 
 The helper uses top-five raw-loading genes and projected gene sets, without
 phenotype names. It preserves noncontiguous factor IDs and rejects missing,
-misnumbered or oversized responses rather than silently accepting fallback
+multiline or oversized responses rather than silently accepting fallback
 names. It saves model/prompt provenance and an ID-aligned label table. The
 launcher publishes labels consistently into factor and cluster tables, changing
 text only; the original factor summary is retained as `factors.unlabeled.out.gz`.

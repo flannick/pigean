@@ -4461,8 +4461,10 @@ def _top_indices_by_factor(scores, num_top, *, allowed_mask=None, gene_sets=None
         raise ValueError("expected a 2D score matrix")
     num_items, num_factors = scores.shape
     out = np.full((num_top, num_factors), -1, dtype=int)
+    by_name = np.argsort(gene_sets, kind="stable") if gene_sets is not None else None
     for factor_index in range(num_factors):
-        order = np.argsort(-scores[:, factor_index])
+        order = (np.argsort(-scores[:, factor_index]) if by_name is None else
+                 by_name[np.argsort(-scores[by_name, factor_index], kind="stable")])
         if allowed_mask is not None:
             filtered = [idx for idx in order if allowed_mask[idx] and scores[idx, factor_index] > 0]
             if filtered:
@@ -4607,6 +4609,10 @@ def _finalize_factor_outputs(
         exp_pheno_factors_for_top = state.get_factor_loadings(state.exp_pheno_factors, loading_type="euclidean_score")
         exp_gene_set_factors_for_top = state.get_factor_loadings(state.exp_gene_set_factors, loading_type="euclidean_score")
 
+    evidence_labels = getattr(state, "gene_set_clusters_format", "evidence") == "evidence"
+    if evidence_labels:
+        exp_gene_set_factors_for_top = state.exp_gene_set_factors
+
     gene_sets_for_labeling = set(gene_sets_for_labeling or [])
     gene_set_labeling_mask = None
     if gene_sets_for_labeling:
@@ -4697,9 +4703,15 @@ def _finalize_factor_outputs(
     top_gene_set_inds = _top_indices_by_factor(
         exp_gene_set_factors_for_top,
         num_top,
+        gene_sets=state.gene_sets if evidence_labels else None,
         allowed_mask=gene_set_labeling_mask,
         warn_fn=warn,
     )
+
+    if evidence_labels:
+        for k in range(top_gene_set_inds.shape[1]):
+            ids = top_gene_set_inds[:, k]
+            ids[(ids >= 0) & (exp_gene_set_factors_for_top[ids, k] <= 0)] = -1
 
     labeling_module.populate_factor_labels(
         state,
@@ -6339,7 +6351,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         "rel_tol": rel_tol,
         "min_lambda_threshold": min_lambda_threshold,
         "factor_retention": factor_retention,
-        "lmm_auth_key": lmm_auth_key,
+        "lmm_auth_key": None,  # Label only after the final basis has been chosen.
         "lmm_model": lmm_model,
         "lmm_provider": lmm_provider,
         "label_gene_sets_only": label_gene_sets_only,
@@ -6525,6 +6537,13 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         INFO,
     )
 
+    def label_final_fit():
+        if lmm_auth_key is not None and state.num_factors() > 0:
+            labeling_module.label_selected(state, lmm_auth_key=lmm_auth_key, lmm_model=lmm_model,
+                lmm_provider=lmm_provider, label_gene_sets_only=label_gene_sets_only,
+                label_include_phenos=label_include_phenos, label_individually=label_individually,
+                log_fn=log, bail_fn=bail, warn_fn=warn_fn)
+
     if learn_phi and phi_selection_objective == "requirements":
         expected = (learn_phi and phi == .01 and discovery_model == "gene_by_gene"
                     and factor_backend == "full" and factor_runs == 5 and consensus_nmf
@@ -6538,18 +6557,20 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
             bail("Requirements selection requires --learn-phi and the recommended full gene-by-gene recipe (phi0.01,30 initial factors,5 pooled median restarts,verified projection,adaptive projected-gradient solver)")
         if (learn_phi_values is not None or learn_phi_max_num_iterations is not None
                 or learn_phi_target_gene_mass is not None or learn_phi_target_gene_effective_support is not None
-                or learn_phi_only or lmm_auth_key is not None):
-            bail("Requirements selection uses a frozen full-fit grid; custom search/target/learn-only and inline labeling options are unsupported")
+                or learn_phi_only):
+            bail("Requirements selection uses a frozen full-fit grid; custom search/target/learn-only options are unsupported")
         if any(x is not None for x in (factor_phi_metrics_out, factor_phi_factors_out,
                 factor_phi_gene_set_clusters_out, factor_phi_gene_clusters_out,
                 phi_selection_metrics_wide_out, phi_selection_metrics_long_out)):
             bail("Requirements selection reports via --learn-phi-report-out and --numerical-diagnostics-out, not legacy scout tables")
         from .phi_requirements_runtime import run as run_requirements
-        return run_requirements(state, seed=seed, factor_kwargs=factor_kwargs,
+        run_requirements(state, seed=seed, factor_kwargs=factor_kwargs,
                                 consensus_stats_out=consensus_stats_out, report_out=learn_phi_report_out,
                                 consensus_min_run_support=consensus_min_run_support,
                                 consensus_min_factor_cosine=consensus_min_factor_cosine,
                                 search_extension=phi_search_extension, search_max_extra=phi_search_max_extra)
+        label_final_fit()
+        return
 
     if learn_phi:
         weight_floor = 0.01 if learn_phi_weight_floor is None else float(learn_phi_weight_floor)
@@ -6629,6 +6650,7 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
         state.consensus_reference_run = 0
         state.consensus_run_diagnostics = [summary]
         state.consensus_factor_support = []
+        label_final_fit()
         _write_final_factor_gmt(state, factor_kwargs)
         return
 
@@ -6672,4 +6694,5 @@ def run_factor(state, max_num_factors=15, phi=1.0, alpha0=10, beta0=1, seed=None
     state.consensus_stats_out = consensus_stats_out
     state._record_params({'consensus_final_status': state.consensus_mode,
                           'consensus_fallback_to_reference': state.consensus_fallback_to_reference}, overwrite=True)
+    label_final_fit()
     _write_final_factor_gmt(state, factor_kwargs)

@@ -1,6 +1,6 @@
 """Label final factor tables without refitting or modifying numeric outputs.
 
-Live calls require an explicit model and API key in the environment. --mock
+Live calls require an API key in the environment. --mock
 tests alignment without making network calls or producing biological labels.
 """
 import argparse
@@ -31,21 +31,6 @@ def factor_columns(path):
                 if not math.isfinite(value) or value < 0:
                     raise ValueError('Factor loadings must be finite and nonnegative: %s' % path)
     return sorted(found, key=lambda name: int(name[6:]))
-
-
-def check_response(response, count):
-    if response is None:
-        raise RuntimeError('LLM call failed; no validated labels were produced')
-    lines = [line.strip() for line in response.splitlines() if line.strip()]
-    if len(lines) != count:
-        raise RuntimeError('LLM response has the wrong number of labels')
-    for expected, line in enumerate(lines, 1):
-        match = re.fullmatch(r'(\d+)\.\s+(.+)', line)
-        if match is None or int(match.group(1)) != expected:
-            raise RuntimeError('LLM response label numbers are missing, repeated or out of order')
-        if len(match.group(2).split()) > 5:
-            raise RuntimeError('LLM label exceeds the requested five-word limit')
-    return '\n'.join(lines)
 
 
 def write_labeled_factors(source, destination, labels):
@@ -87,11 +72,11 @@ def main():
     if not columns or columns != factor_columns(sets):
         raise ValueError('Final gene and gene-set factor columns must agree exactly')
     hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (genes, sets)}
-    model = 'MOCK_NOT_BIOLOGICAL' if args.mock else os.environ.get('EAGGL_LLM_MODEL')
+    model = 'MOCK_NOT_BIOLOGICAL' if args.mock else os.environ.get('EAGGL_LLM_MODEL', 'gpt-6-luna')
     key = 'MOCK' if args.mock else (os.environ.get('EAGGL_LLM_AUTH_KEY')
                                    or os.environ.get('OPENAI_API_KEY'))
     if not model or not key:
-        raise ValueError('Live labeling requires EAGGL_LLM_MODEL and an API key environment variable')
+        raise ValueError('Live labeling requires an API key environment variable')
     sys.path.insert(0, str(source/'src'))
     from eaggl import cli, label, labeling, main_support
     build_client = labeling.build_labeling_client
@@ -100,18 +85,21 @@ def main():
     class CheckedClient:
         def __init__(self, client):
             self.client = client
+            self.model = model
 
         def query(self, prompt, warn_fn=None):
             calls.append(prompt)
             if args.mock:
-                response = '\n'.join('%d. Mock factor label %d' % (i, i)
-                                     for i in range(1, len(columns)+1))
+                response = 'Mock factor label %d' % len(calls)
             else:
                 def sanitized_warning(message):
                     if warn_fn:
                         warn_fn(str(message).replace(key, '[REDACTED]'))
                 response = self.client.query(prompt, warn_fn=sanitized_warning)
-            return check_response(response, len(columns))
+            value = labeling.parse_label(response)
+            if not value:
+                raise RuntimeError("LLM returned an invalid mechanism label")
+            return value
 
     def checked_builder(**kwargs):
         return CheckedClient(None if args.mock else build_client(**kwargs))
@@ -130,13 +118,13 @@ def main():
     cli.options.lmm_auth_key = key
     metadata = dict(status='started', mock=args.mock, model=model, provider='openai',
                     inputs=hashes, factor_columns=columns, top_loading_type='raw',
-                    evidence='top five genes and gene sets; no phenotype labels',
+                    evidence='five top genes and gene sets with available loading, coverage, enrichment and supporting genes',
                     numeric_inputs_unchanged=True)
     (out/'labeling_metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')
     try:
         runtime = label.run_label_command(cli.options)
         if (runtime.num_factors() != len(columns) or len(runtime.factor_labels) != len(columns)
-                or len(calls) != 1):
+                or len(calls) != len(columns)):
             raise RuntimeError('Final factors and generated labels are not aligned')
         for p in (genes, sets):
             if hashlib.sha256(p.read_bytes()).hexdigest() != hashes[str(p)]:
@@ -149,7 +137,7 @@ def main():
                     ','.join(runtime.factor_top_genes[i]),
                     ','.join(runtime.factor_top_gene_sets[i]),
                     'mock_not_biological' if args.mock else 'llm'])
-        (out/'label_prompt.txt').write_text(calls[0]+'\n')
+        (out/'label_prompt.txt').write_text('\n\n'.join(f'{column}\n{prompt}' for column, prompt in zip(columns,calls))+'\n')
         if args.factors_in:
             write_labeled_factors(Path(args.factors_in), out/'factors.labeled.out.gz',
                                   dict(zip(columns, runtime.factor_labels)))

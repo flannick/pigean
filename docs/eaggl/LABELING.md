@@ -102,3 +102,50 @@ To add a new provider:
 3. add unit tests for provider selection and failure behavior
 4. keep provider-specific request formatting out of `src/eaggl/factor.py`
 5. preserve the rule that factorization remains valid without provider imports
+
+## Gene-set evidence and mechanism names
+
+The default `--gene-set-clusters-format evidence` keeps each raw `FactorN`
+coefficient. For each factor, the table also reports the following quantities.
+
+| Field | Interpretation |
+|---|---|
+| Coverage | Fraction of the factor's total gene loading carried by members of this set |
+| Enrichment | Coverage divided by the fraction of basis genes belonging to the set. One means background coverage |
+| MeanMemberLoading | Average factor loading among set members |
+| CumulativeCoverage | Fraction of factor mass in the union of this set and all preceding positive-loading sets. Sort by descending coefficient, breaking ties by set ID. Genes count once. The value at rank X gives the coverage of the top X sets before row or labeling filters |
+| SupportingGenes | Up to three set members with the largest positive factor loadings |
+| BasisGenes, MemberGenes | Gene universe size and number of set members in that universe |
+
+For discovery fits the universe is the discovery genes. For projection from
+supplied factors it is the genes shared by the input matrix and the supplied
+basis. Positive annotation entries count as membership. An undefined ratio is
+written as NA. The overlap columns describe the basis even in anchor-specific
+output. The fitted coefficients retain the existing anchor multiplier.
+A fitted coefficient describes the strength of the projection, with competition
+between factors in joint mode. Coverage has a sampling interpretation if one
+draws a gene in proportion to its factor loading. In saved label-only inputs
+without membership evidence, unavailable fields are reported as NA. To obtain
+the previous raw, cosine and Euclidean output columns and gene-set ranking
+policy, use `--gene-set-clusters-format legacy`.
+
+The evidence prompt gives each factor its own request. It lists five leading
+gene sets ranked by raw loading, their coverage and enrichment when available,
+and the genes supporting each. Repeated supporting groups appear once. Genes
+and optional phenotypes provide context. `--label-gene-sets-only` omits gene
+identities from the combined prompt. Automatic phi selection and repeated
+starts contact the provider only for the final selected fit. A failed label
+uses its deterministic fallback in the CLI. The strict portal handoff requires
+a valid provider response for every reported factor.
+
+For optional live labeling, set `OPENAI_API_KEY` in the environment running
+EAGGL, then add `--lmm-auth-key env`. The environment variable alone does
+not activate provider calls in the factor or label CLI. The small default
+model is `gpt-6-luna`; use `--lmm-model gpt-6.2-sol` to try a larger model. For example:
+
+```bash
+python -m eaggl label \
+  --label-gene-set-clusters-in gene_set_clusters.out.gz \
+  --label-gene-clusters-in gene_clusters.out.gz \
+  --lmm-auth-key env --factors-out factors.labeled.out.gz
+```

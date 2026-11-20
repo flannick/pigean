@@ -12,6 +12,7 @@ def run_main_pipeline(domain, options):
     domain._log_runtime_environment_if_requested(options)
 
     state = domain.EagglState(background_prior=options.background_prior, batch_size=options.batch_size)
+    state.gene_set_clusters_format = getattr(options, "gene_set_clusters_format", "evidence")
     state.internal_projection_method = getattr(options, 'fixed_basis_projection_method', 'legacy')
     state.internal_projection_max_cycles = getattr(options, 'projection_max_cycles', 2000)
     state.internal_projection_tol = getattr(options, 'projection_stationarity_tol', 1e-8)

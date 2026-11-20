@@ -213,6 +213,7 @@ parser.add_option("","--annotation-bridge-metrics-out",default=None) #gene-by-ge
 parser.add_option("","--annotation-bridge-suggested-exclude-out",default=None) #gene-by-gene mode only: write suggested bridge-exclusion annotation IDs
 parser.add_option("","--gene-factor-annotation-contribs-out",default=None) #gene-by-gene mode only: write top annotation contributions per gene-factor pair
 parser.add_option("","--gene-factor-annotation-contribs-top-n",default=10,type=int) #maximum annotation contribution rows per gene-factor-anchor combination
+parser.add_option("","--gene-set-clusters-format",type="choice",choices=["evidence","legacy"],default="evidence",help="gene-set output and labeling evidence format (default evidence)")
 parser.add_option("","--cluster-row-min-max-loading",default=0.0,type=float) #minimum row-wise maximum raw factor loading required to print a gene/gene-set cluster row
 parser.add_option("","--factor-output-scope",type="choice",choices=["primary","primary_secondary","all"],default="all") #which factor tiers to print in factors and cluster outputs
 parser.add_option("","--trait-factor-links-out",default=None)
@@ -350,7 +351,7 @@ parser.add_option("","--no-adjust-priors",default=None,action='store_false',dest
 #factor parameters
 parser.add_option("","--lmm-auth-key",default=None,type=str) #pass authorization key to enable LLM cluster labelling
 parser.add_option("","--lmm-provider",default="openai",type=str) #LLM provider for labeling: openai (implemented), gemini/claude (reserved)
-parser.add_option("","--lmm-model",default="gpt-4o-mini",type=str) #choose model
+parser.add_option("","--lmm-model",default="gpt-6-luna",type=str) #choose model
 parser.add_option("","--label-gene-sets-only",default=False,action="store_true") #use only gene sets (rather than genes and gene sets) for label
 parser.add_option("","--label-include-phenos",default=False,action="store_true") #add phenos to the labels (if --label-gene-sets-only is specified, the labelling will use just gene sets and phenos but skip genes). When doing phenotype based factoring, this (confusingly) adds genes rather than phenos, since phenotypes are the default thing used to label
 parser.add_option("","--label-individually",default=False,action="store_true") #generate separate labels from genes, phenos, and gene sets separately

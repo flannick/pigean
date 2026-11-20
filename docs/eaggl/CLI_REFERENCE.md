@@ -589,3 +589,5 @@ GMT collections can require substantial time and memory; joint convergence is
 approximate, especially for strongly overlapping factors.
 
 The full-fit requirements selector is the fresh gene-by-gene default; `--learn-phi --phi-selection-objective requirements` makes it explicit. Its initial grid, bounded extension, supported recipe, diagnostics and fallback policy are documented in [REQUIREMENTS_PHI.md](REQUIREMENTS_PHI.md). Legacy scout tables and custom grids do not apply to this method.
+
+Gene-set cluster outputs default to fitted coefficients, coverage, fold enrichment, mean member loadings and supporting genes. Use `--gene-set-clusters-format legacy` for cosine and Euclidean columns. The optional labeler uses the same evidence in fresh-fit and saved-table workflows. [Field definitions and labeling commands](LABELING.md)
