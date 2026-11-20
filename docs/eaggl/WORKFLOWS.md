@@ -415,3 +415,12 @@ loadings. If a matched phenotype reference was supplied, phenotype colors show
 signed marginal Factor PheWAS coefficients adjusted for discovery-trait genetic
 evidence. Hollow points mean the measurement is unavailable. Point details
 include the integrated family, source factor, leading genes and overlay value.
+
+Use **EAGGL anchor trait** to choose the discovery fit independently of the
+PIGEAN evidence panel. **Match PIGEAN run** follows the top selector. An
+explicit trait pins the EAGGL graphs, hierarchy and tables to that fit until
+you select another anchor. In the research atlas, it also limits points and
+rankings to that trait. **All anchor traits (combined atlas)** shows the
+integrated leaves across fits. Single-fit tables and MDS are available by
+selecting a trait. Switching atlas anchors preserves the searched overlay, map
+coordinates and atlas-wide color scale.

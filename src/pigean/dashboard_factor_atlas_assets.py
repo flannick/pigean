@@ -71,10 +71,13 @@ function drawAtlas(){
   const suggestions=matches.slice().sort((a,b)=>Number(!norm(a).startsWith(norm(q)))-Number(!norm(b).startsWith(norm(q)))).slice(0,24);
   byId("atlas-names").innerHTML=suggestions.map(n=>`<option value="${esc(n)}"></option>`).join("");
   const traits=[...new Set(pts.map(p=>p.trait))].sort();
+  const anchor=selectedEagglRunId(state.runId);
+  const visible=pts.map((p,i)=>i).filter(i=>anchor===null || pts[i].trait===anchor);
+  if(atlasState.pick!==null && !visible.includes(atlasState.pick))atlasState.pick=null;
   const palette=t=>atlasPalette[traits.indexOf(t)%atlasPalette.length];
   const vals=pts.map(p=>name?atlasValue(p,kind,name):null);
   const max=vals.reduce((m,v)=>Math.max(m,Math.abs(v??0)),0);
-  const ranked=pts.map((p,i)=>({p,v:vals[i]})).filter(({v})=>v!=null&&v!==0).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+  const ranked=visible.map(i=>({p:pts[i],v:vals[i]})).filter(({v})=>v!=null&&v!==0).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
   const signed=kind==="phewas", units=signed?"Marginal Factor PheWAS β":"Raw loading";
   const color=v=>{
     const base=[236,241,244],end=v<0?[181,78,31]:[14,94,162];
@@ -103,7 +106,7 @@ function drawAtlas(){
   byId("atlas-out").onclick=()=>zoomTo(atlasState.zoom/2,zoomCenter());
   byId("atlas-fit").onclick=()=>zoomTo(1,[390,220]);
   zoomTo(atlasState.zoom,[atlasState.cx,atlasState.cy]);
-  const order=pts.map((p,i)=>i).sort((a,b)=>(Math.abs(vals[a]??0)-Math.abs(vals[b]??0)));
+  const order=visible.slice().sort((a,b)=>(Math.abs(vals[a]??0)-Math.abs(vals[b]??0)));
   byId("atlas-map").innerHTML=order.map(i=>{
     const p=pts[i],v=vals[i],missing=name&&v==null, selected=atlasState.pick===i;
     const [x,y]=position(p);
@@ -111,13 +114,13 @@ function drawAtlas(){
     return `<circle data-point="${i}" tabindex="0" role="button" aria-label="${esc(title)}" cx="${x}" cy="${y}" r="${(selected?7:5)/Math.sqrt(atlasState.zoom)}" fill="${missing?"white":name?color(v):palette(p.trait)}" stroke="${selected?"#1c2733":missing?"#a1acb7":name?"#677786":"white"}" stroke-width="${selected?2.5:1}"><title>${esc(title)}</title></circle>`;
   }).join("");
   const key=byId("atlas-legend"), caption=byId("atlas-caption");
-  caption.textContent=pts.length+" consensus leaves across "+traits.length+" traits · "+atlas.method+".";
+  caption.textContent=visible.length+" consensus leaves · "+(anchor===null?traits.length+" anchor traits":anchor)+" · "+atlas.method+".";
   if(name){
-    const missing=vals.filter(v=>v==null).length;
-    if(!max)key.textContent=missing===pts.length?"No available measurements":units+" · All measured values are zero · "+missing+" unavailable (hollow)";
-    else key.innerHTML=`<strong>${esc(units)}</strong> ${signed?atlasNumber(-max):"0"} <i class="atlas-ramp" style="background:linear-gradient(to right,${signed?"#b54e1f,#ecf1f4":"#ecf1f4"},#0e5ea2)"></i> ${atlasNumber(max)} · ${pts.length-missing} measured · ${missing} unavailable (hollow)`;
+    const missing=visible.filter(i=>vals[i]==null).length;
+    if(!max)key.textContent=missing===visible.length?"No available measurements":units+" · All measured values are zero · "+missing+" unavailable (hollow)";
+    else key.innerHTML=`<strong>${esc(units)}</strong> ${signed?atlasNumber(-max):"0"} <i class="atlas-ramp" style="background:linear-gradient(to right,${signed?"#b54e1f,#ecf1f4":"#ecf1f4"},#0e5ea2)"></i> ${atlasNumber(max)} · ${visible.length-missing} measured · ${missing} unavailable (hollow)`;
   }else{
-    key.innerHTML=traits.map(t=>`<span><i class="atlas-key" style="background:${palette(t)}"></i>${esc(t)}</span>`).join("");
+    key.innerHTML=traits.filter(t=>anchor===null || t===anchor).map(t=>`<span><i class="atlas-key" style="background:${palette(t)}"></i>${esc(t)}</span>`).join("");
     if(q)caption.textContent+=matches.length?" Choose a matching name.":" No matching name.";
   }
   byId("atlas-rank").innerHTML=name?(ranked.length?`<strong>${signed?"Largest absolute effects":"Highest loadings"}</strong>`+ranked.slice(0,6).map(({p,v})=>`<button type="button" data-atlas-pick="${p.index}"><span>${esc(p.trait)} · ${esc(p.factor)}</span><b>${atlasNumber(v)}</b></button>`).join(""):"No nonzero values for this selection."):"";
@@ -138,6 +141,12 @@ function wireAtlas(wrapper){
     wrapper.querySelector(".mds-area").hidden=on;
     toggles.forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.factorView==="atlas")===on)));
     if(!on)return;
+    mountAtlasControls(wrapper);
+  }
+  toggles.forEach(b=>b.onclick=()=>activate(b.dataset.factorView==="atlas"));
+  activate(atlasMode);
+}
+function mountAtlasControls(wrapper){
     if(!byId("atlas-kind"))wrapper.querySelector(".atlas-area").innerHTML=atlasShell();
     const kind=byId("atlas-kind"),search=byId("atlas-search");
     kind.value=atlasState.kind;search.value=atlasState.query;
@@ -145,8 +154,5 @@ function wireAtlas(wrapper){
     search.oninput=()=>{atlasState.query=search.value;atlasState.pick=null;drawAtlas();};
     byId("atlas-clear").onclick=()=>{search.value="";search.oninput();search.focus();};
     drawAtlas();
-  }
-  toggles.forEach(b=>b.onclick=()=>activate(b.dataset.factorView==="atlas"));
-  activate(atlasMode);
 }
 """
