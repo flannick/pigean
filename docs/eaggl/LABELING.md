@@ -50,6 +50,42 @@ PIGEAN. It annotates the supplied factor columns in place. Unless
 `--factor-output-scope` is explicitly supplied, label-only mode reports all
 supplied factors.
 
+## Naming leaves within a fit
+
+With a labeling provider, `--label-strategy cross-factor` (the default on this
+branch) gives the labeler an anonymous roster of leaves from the same fit.
+Each row lists up to five ranked names per selected evidence source. Each
+request identifies one target leaf and supplies its detailed evidence. The
+roster helps distinguish closely related processes, and leaves may share a
+name when their evidence supports the same interpretation. Each additional
+source combination gets its own roster. Leaves missing an explicitly required
+source are omitted from that roster.
+
+Use `--label-strategy independent` for the previous per-leaf prompt, or to
+reduce prompt size for a very large fit. Both strategies work during factor
+finalization and on previously saved loading tables. There is one request
+per eligible leaf and distinct source combination. Requests in cross-factor
+mode repeat the compact roster, so input token use increases with fit size.
+
+The research dashboard's single-trait hierarchy also names internal nodes
+bottom-up. Each parent sees the names of every descendant leaf, grouped by
+immediate child. Identical names within a child carry a count. Counts describe
+how many fitted leaves share a name. The prompt also includes each child's
+name and leading evidence plus the pooled gene and gene-set evidence. Broad
+families can receive umbrella or paired names. Stable node identifiers
+continue to identify leaves or families that share a name.
+
+## Optional study context
+
+Both `eaggl factor` and `eaggl label` accept free text, for example
+`--label-context "Samples are human pancreatic islets"`. Omit this flag to
+use the selected loading evidence alone. The labeler does not infer a disease
+from the run name. Context can clarify terminology when the evidence supports
+more than one interpretation. It applies to every model-generated label in
+the run, including additional source combinations. When holding out a phenotype
+for validation, omit its identity and related clues from the context as well.
+The flag alone does not enable a provider or change the fit.
+
 ## Default Behavior
 
 If `--lmm-auth-key` is not provided, EAGGL does not call any external labeling provider.

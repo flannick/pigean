@@ -64,7 +64,7 @@ def test_strict_handoff_writes_three_independent_labels(tmp_path):
     cmd = [sys.executable, str(root/"scripts/eaggl/label_final_factors.py"), "--mock", "--source", str(root),
            "--gene-loadings", str(genes), "--gene-set-loadings", str(sets), "--phenotype-loadings", str(phenos),
            "--additional-label-sources", "phenotypes", "--additional-label-sources", "genes,phenotypes",
-           "--out", str(out)]
+           "--label-context", "assay context", "--out", str(out)]
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     with (out/"factor_labels.tsv").open() as stream:
@@ -72,13 +72,15 @@ def test_strict_handoff_writes_three_independent_labels(tmp_path):
     assert [row[k] for k in ["label","label_phenos","label_genes_phenos"]] == [
         "Mock factor label 1", "Mock factor label 2", "Mock factor label 3"]
     prompts = (out/"label_prompt.txt").read_text().strip().split("\n\n")
+    assert all("Study context: assay context" in p for p in prompts)
     assert len(prompts) == 3
     assert "Ssecret" in prompts[0] and "Gsecret" in prompts[0] and "Psecret" not in prompts[0]
     assert "Psecret" in prompts[1] and "Ssecret" not in prompts[1] and "Gsecret" not in prompts[1]
     assert "Psecret" in prompts[2] and "Ssecret" not in prompts[2] and "Gsecret" in prompts[2]
 
 
-def test_fresh_fit_uses_final_projected_phenotypes(tmp_path):
+@pytest.mark.parametrize("context", [None, "assay context"])
+def test_fresh_fit_uses_final_projected_phenotypes(tmp_path, monkeypatch, context):
     from eaggl import app, cli, main_support
     genes, sets, x, phenos = (tmp_path / name for name in ("genes", "sets", "x", "phenos"))
     genes.write_text("Gene\tcombined\tlog_bf\tprior\nG1\t5\t3\t2\nG2\t4\t2\t2\nG3\t4\t2\t2\n")
@@ -91,10 +93,62 @@ def test_fresh_fit_uses_final_projected_phenotypes(tmp_path):
            "--discovery-model","gene_by_gene","--seed","7","--max-num-factors","2","--phi",".01",
            "--gene-phewas-bfs-in",str(phenos),"--additional-label-sources","phenotypes",
            "--factor-top-loading-type","raw","--factors-out",str(out)]
+    client = Mock(model="fixture")
+    if context:
+        client.query.return_value = "Mock process"
+        monkeypatch.setattr(labeling, "build_labeling_client", lambda **kwargs: client)
+        cmd += ["--label-context", context, "--lmm-auth-key", "fixture"]
     assert main_support._bootstrap_cli(cmd)
     state = app.run_main_pipeline(cli.options).state
     assert state.num_factors() > 0
     with out.open() as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
+    if context:
+        prompts = [call.args[0] for call in client.query.call_args_list]
+        assert prompts and all("Study context: assay context" in p for p in prompts)
+        assert any("ProjectedTrait" in p for p in prompts)
+        assert any("ProjectedTrait" not in p for p in prompts)
+        assert any(r["label"] == "Mock process" for r in rows)
+        return
     assert any(r["label_phenos"] == "ProjectedTrait" for r in rows)
     assert all(r["label"] != "ProjectedTrait" for r in rows)
+
+
+@pytest.mark.parametrize("strategy", ["independent", "cross-factor"])
+def test_source_holdouts_include_peer_roster(strategy):
+    state = SimpleNamespace(num_factors=lambda: 2, factor_top_genes=[["FirstGene"], ["SecondGene"]],
+        factor_top_gene_sets=[["FirstSet"], ["SecondSet"]], factor_top_phenos=[["FirstTrait"], ["SecondTrait"]])
+    options = SimpleNamespace(label_strategy=strategy, label_sources="genes", additional_label_sources=["phenotypes"])
+    labeling.configure_sources(state, options, pytest.fail)
+    client = Mock(model="fixture")
+    client.query.return_value = "Shared process"
+    labeling.apply_source_labels(state, [["FirstSet"], ["SecondSet"]], client=client, sets_only=False,
+                                 include_phenos=False, individually=False, log=Mock(), warn=Mock())
+    prompts = [call.args[0] for call in client.query.call_args_list]
+    assert len(prompts) == 4
+    assert all("Trait" not in p and "Set" not in p for p in prompts[:2])
+    assert all("Gene" not in p and "Set" not in p for p in prompts[2:])
+    assert ("SecondGene" in prompts[0]) == (strategy == "cross-factor")
+    assert ("SecondTrait" in prompts[2]) == (strategy == "cross-factor")
+    assert state.factor_labels == ["Shared process", "Shared process"]
+
+
+def test_family_prompt_carries_both_children_and_pooled_evidence():
+    p = labeling.family_prompt("pooled genes", [("Hormone secretion","INS and GCK"),
+                                               ("Lipid storage","ADIPOQ and PLIN1")])
+    for term in ["Hormone secretion", "INS and GCK", "Lipid storage", "ADIPOQ and PLIN1", "pooled genes"]:
+        assert term in p
+    assert "Study context:" not in p
+    with pytest.raises(ValueError):
+        labeling.family_prompt("pooled genes", [("Missing", "")])
+
+
+def test_descendant_labels_are_counted_separately_by_branch():
+    children = [("First theme", "G1, G2"), ("Second theme", "G3, G4")]
+    p = labeling.family_prompt("G1, G4", children,
+                               descendant_labels=[["Shared", "Shared", "Other"], ["Shared"]])
+    assert "Descendant leaves (3): Other; Shared (×2)" in p.split("Child 2:")[0]
+    assert "Descendant leaves (1): Shared\n" in p.split("Child 2:")[1]
+    assert "Pooled evidence: G1, G4" in p
+    with pytest.raises(ValueError):
+        labeling.family_prompt("G1", children, descendant_labels=[["Shared"], []])

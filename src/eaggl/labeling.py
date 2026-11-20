@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 import math
 import os
@@ -68,13 +69,66 @@ PROMPT = (
 )
 
 
-def mechanism_prompt(payload):
+def mechanism_prompt(payload, *, context=None):
     guide = ""
     if "x)" in payload and "sets: " in payload:
         guide = " Triples: loading, coverage %, fold enrichment."
     if " | support: " in payload:
         guide += " @ marks shared supporting genes."
+    if context and context.strip():
+        guide += (" Use the study context only to interpret terms supported by the evidence."
+                  f"\nStudy context: {context.strip()}\nFactor evidence:")
     return f"{PROMPT}{guide}\n{payload}\nProcess name only:"
+
+
+def leaf_prompts(payloads, summaries, *, context=None, strategy="cross-factor"):
+    """The roster contains only the sources selected for this label column."""
+    if len(payloads) != len(summaries):
+        raise ValueError("Leaf evidence and summaries differ in length")
+    if strategy not in ("independent", "cross-factor"):
+        raise ValueError(f"Unknown labeling strategy: {strategy}")
+    roster = ""
+    if strategy == "cross-factor" and sum(bool(p) for p in payloads) > 1:
+        roster = ("These modules were fitted together. Use the roster to tell related modules apart. "
+                  "Name the target from its own evidence. Use the same name if the evidence "
+                  "supports no distinction.\n"
+                  + "\n".join(f"M{i+1}: {summary}" for i, summary in enumerate(summaries) if payloads[i]))
+    for i, payload in enumerate(payloads):
+        if not payload:
+            yield None
+            continue
+        prompt = mechanism_prompt(payload, context=context)
+        yield f"{roster}\nTarget M{i+1}. {prompt}" if roster else prompt
+
+
+def family_prompt(payload, children, *, descendant_labels=None, context=None):
+    """Children are (assigned name, selected evidence summary) pairs."""
+    if len(children) != 2 or not all(name and summary for name, summary in children):
+        raise ValueError("A family requires names and evidence for both immediate children")
+    if descendant_labels is not None:
+        if len(descendant_labels) != 2 or not all(descendant_labels):
+            raise ValueError("Both children must include their descendant leaf names")
+        branches = []
+        for i, ((name, summary), leaves) in enumerate(zip(children, descendant_labels), 1):
+            counts = Counter(leaves)
+            roster = "; ".join(f"{label} (×{count})" if count > 1 else label
+                               for label, count in sorted(counts.items()))
+            branches.append(f"Child {i}: {name}. Evidence: {summary}\n"
+                            f"Descendant leaves ({len(leaves)}): {roster}")
+        guide = ("Name this family in 1–5 words. Cover the main themes across BOTH branches, "
+                 "including the smaller branch. Use the descendant leaf names to judge breadth "
+                 "and the gene and set evidence to check interpretation. Counts are numbers of "
+                 "leaves, not evidence strength. For diverse branches use an umbrella or mixed "
+                 "name. Inherit a child's specific name only if it describes both branches.")
+        if context and context.strip():
+            guide += f"\nStudy context: {context.strip()}"
+        return guide + "\n" + "\n".join(branches) + "\nPooled evidence: " + payload + "\nFamily name only:"
+    branches = "\n".join(f"Child {i}: {name}. Evidence: {summary}"
+                         for i, (name, summary) in enumerate(children, 1))
+    return ("Name the family containing both children. Use a shared process supported by both, "
+            "or a short paired name when their strongest evidence differs. The pooled gene "
+            "profile is their probabilistic union; a dominant child can obscure its sibling.\n"
+            + branches + "\nPooled family. " + mechanism_prompt(payload, context=context))
 
 
 def evidence_entry(name, loading, coverage=None, enrichment=None, genes=None):
@@ -127,6 +181,8 @@ def parse_sources(value):
 
 
 def configure_sources(state, options, bail):
+    state.label_strategy = getattr(options, "label_strategy", "cross-factor")
+    state.label_context = getattr(options, "label_context", None)
     primary = getattr(options, "label_sources", None)
     extras = getattr(options, "additional_label_sources", None) or []
     if primary is not None and (getattr(options, "label_gene_sets_only", False)
@@ -156,21 +212,27 @@ def apply_source_labels(state, entries, *, client, sets_only, include_phenos, in
     state.factor_labels_by_sources = {}
     state.factor_label_primary_sources = ",".join(primary)
     for sources in dict.fromkeys([primary, *extra]):
-        payloads, fallback = [], []
+        payloads, summaries, fallback = [], [], []
         for i in range(state.num_factors()):
             items = {s: tops[s][i][:5] if s in sources and tops[s] else [] for s in SOURCES}
             missing = any(not items[s] for s in sources)
             if missing and (selected is not None or sources != primary):
+                summaries.append("")
                 payloads.append("")
                 fallback.append("NA")
                 continue
             names = items["gene-sets"] or items["genes"] or items["phenotypes"]
             original_id = getattr(state, "_factor_output_name", lambda j: f"Factor{j+1}")(i)
             fallback.append(names[0] if names else original_id)
+            summaries.append(label_payload(items["gene-sets"], items["genes"], items["phenotypes"]))
             payloads.append(label_payload(entries[i][:5] if items["gene-sets"] else [],
                                           items["genes"], items["phenotypes"],
                                           include_support=bool(items["genes"])))
-        labels = assign_labels(fallback, payloads, client, log, warn) if client else fallback
+        labels = fallback
+        if client:
+            labels = assign_labels(fallback, payloads, client, log, warn,
+                                   context=getattr(state, "label_context", None), summaries=summaries,
+                                   strategy=getattr(state, "label_strategy", "cross-factor"))
         if sources == primary:
             state.factor_labels = labels
         if sources in extra:
@@ -189,13 +251,15 @@ def parse_label(response):
     return None
 
 
-def assign_labels(fallback, payloads, client, log_fn, warn_fn):
+def assign_labels(fallback, payloads, client, log_fn, warn_fn, *, context=None, summaries=None, strategy="independent"):
     labels = list(fallback)
-    for i, payload in enumerate(payloads):
-        if not payload:
+    prompts = leaf_prompts(payloads, summaries if summaries is not None else payloads,
+                           context=context, strategy=strategy)
+    for i, prompt in enumerate(prompts):
+        if not prompt:
             continue
         log_fn(f"Requesting label for factor {i+1} using {client.model}")
-        response = client.query(mechanism_prompt(payload), warn_fn=warn_fn)
+        response = client.query(prompt, warn_fn=warn_fn)
         label = parse_label(response)
         if label:
             labels[i] = label

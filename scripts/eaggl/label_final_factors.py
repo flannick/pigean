@@ -60,6 +60,8 @@ def main():
     parser.add_argument('--gene-set-loadings', required=True)
     parser.add_argument('--phenotype-loadings')
     parser.add_argument('--label-sources')
+    parser.add_argument('--label-strategy', choices=('cross-factor', 'independent'), default='cross-factor')
+    parser.add_argument('--label-context', help='Optional study context for all requested labels.')
     parser.add_argument('--additional-label-sources', action='append', default=[])
     parser.add_argument('--out', required=True)
     parser.add_argument('--factors-in')
@@ -121,11 +123,13 @@ def main():
                '--factors-out', str(Path(scratch.name)/'label_only_factors.tsv'),
                '--factor-top-loading-type', 'raw', '--factor-output-scope', 'all',
                '--cluster-row-min-max-loading', '0', '--lmm-provider', 'openai',
-               '--lmm-model', model]
+               '--lmm-model', model, '--label-strategy', args.label_strategy]
     if args.phenotype_loadings:
         command.extend(['--label-pheno-clusters-in', str(phenos)])
     if args.label_sources:
         command.extend(['--label-sources', args.label_sources])
+    if args.label_context:
+        command.extend(['--label-context', args.label_context])
     for item in args.additional_label_sources:
         command.extend(['--additional-label-sources', item])
     if not main_support._bootstrap_cli(command):
@@ -133,7 +137,7 @@ def main():
     # Keep secrets out of command lines, output metadata and logged arguments.
     cli.options.lmm_auth_key = key
     metadata = dict(status='started', mock=args.mock, model=model, provider='openai',
-                    inputs=hashes, factor_columns=columns, top_loading_type='raw',
+                    label_context=args.label_context, label_strategy=args.label_strategy, inputs=hashes, factor_columns=columns, top_loading_type='raw',
                     evidence='five top genes and gene sets with available loading, coverage, enrichment and supporting genes',
                     numeric_inputs_unchanged=True)
     (out/'labeling_metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')

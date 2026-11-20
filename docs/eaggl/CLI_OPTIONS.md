@@ -5,13 +5,13 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
 ## Summary
 
-- Total options: `324`
+- Total options: `326`
 - `method_required`: `11`
-- `method_optional`: `208`
+- `method_optional`: `210`
 - `engineering`: `88`
 - `compat_alias`: `11`
 - `debug_only`: `6`
-- visibility `expert`: `268`
+- visibility `expert`: `270`
 - visibility `hidden`: `8`
 - visibility `normal`: `48`
 
@@ -114,6 +114,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--gene-set-projection-mode` | `expert` | `yes` | `expert_help` | `gene_set_projection_mode` | `joint` | supplied-factor gene-set projection: joint (default), marginal, or both; use separate output paths |
 | `--gene-sets-for-labeling` | `expert` | `yes` | `advanced_workflows` | `gene_sets_for_labeling` | `None` | restrict factor-label gene-set candidates to identifiers from one or more files; defaults to first column for GMT compatibility |
 | `--hold-out-chrom` | `expert` | `yes` | `expert_help` | `hold_out_chrom` | `None` | - |
+| `--label-context` | `expert` | `yes` | `advanced_workflows` | `label_context` | `-` | Optional study context sent with each model-generated label. Factor evidence determines the name. |
 | `--label-gene-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_clusters_in` | `None` | label-only mode: read a gene_clusters.out(.gz)-style gene loading table with Factor columns |
 | `--label-gene-set-clusters-in` | `normal` | `yes` | `core_help` | `label_gene_set_clusters_in` | `None` | label-only mode: read a gene_set_clusters.out(.gz)-style gene-set loading table with Factor columns |
 | `--label-gene-sets-only` | `expert` | `yes` | `advanced_workflows` | `label_gene_sets_only` | `False` | - |
@@ -121,6 +122,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-individually` | `expert` | `yes` | `advanced_workflows` | `label_individually` | `False` | - |
 | `--label-pheno-clusters-in` | `normal` | `yes` | `core_help` | `label_pheno_clusters_in` | `None` | label-only mode: read a pheno_clusters.out(.gz)-style phenotype loading table with Factor columns |
 | `--label-sources` | `expert` | `yes` | `advanced_workflows` | `label_sources` | `-` | Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination. |
+| `--label-strategy` | `expert` | `yes` | `advanced_workflows` | `label_strategy` | `cross-factor` | Compare selected evidence across the fitted leaves when naming each leaf (default), or name each independently. |
 | `--label-trait-factor-links-in` | `normal` | `yes` | `core_help` | `label_trait_factor_links_in` | `None` | label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table |
 | `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
