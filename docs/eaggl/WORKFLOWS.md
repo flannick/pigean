@@ -356,3 +356,71 @@ Post-read filtering does not tighten this threshold.
 EAGGL trait-factor linkage is intentionally limited to fixed-W projection loadings. Combined/log-BF phenotype values are converted to probabilities using the run `background_prior`; sparse inputs preserve implicit zeros as zero probability unless dense computation is requested. Factors are exported as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for PIGEAN `multi-y` runs when beta statistics are needed.
 
 Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`; `Euclidean_FactorK` is the Euclidean distance to that same one-hot factor indicator.
+
+## Group independently fitted traits
+
+Pass one gene-by-leaf loading table per trait. Use the research selector's
+`leaf_loadings.tsv.gz` for QC-passing consensus leaves, or a standard discovery
+`--gene-clusters-out` file for the factors reported by production EAGGL.
+Each file needs a unique `Gene` column and raw `Factor1`, `Factor2`, … columns
+bounded between zero and one. Original factor numbers may have gaps. Annotation
+summaries (`--factors-out`), normalized display columns and parent nodes are
+unsuitable as inputs. Use the same gene identifier system and loading type
+throughout, preferably complete tables without display-based row filtering.
+
+```bash
+python -m eaggl hierarchy \
+  --leaf-file T2D runs/T2D/leaf_loadings.tsv.gz \
+  --leaf-file CAD runs/CAD/leaf_loadings.tsv.gz \
+  --output runs/T2D_CAD_hierarchy
+```
+
+Repeat `--leaf-file TRAIT PATH` for additional traits. The command aligns rows
+by gene ID on the union of the input panels. A missing row supplies zero
+observed loading in that trait; absence can reflect discovery-gene selection.
+Different panels can therefore conceal a shared mechanism. The panel-overlap
+table and the per-trait observation mask record which genes were measured.
+
+The tree uses complete linkage on cosine similarity. At the default
+`--min-leaf-cosine 0.50` overview cut, every pair of leaves in a family meets
+the threshold. Parent loadings use the same OR rule as single-trait families.
+These summarize the supplied profiles; repeated observations from related
+traits can increase a parent's loading. Interpret it as a descriptive summary.
+
+The separate redundancy screen lists **cross-trait pairs** with full-profile
+cosine at least `--redundant-cosine 0.90`. Every such pair is flagged as a redundant loading profile, consistent with
+the single-trait QC threshold. A separate comparable-strength flag requires the smaller
+loading-vector norm to be at least `--min-norm-ratio 0.80` times the larger.
+This additional heuristic distinguishes similar patterns at comparable strength
+from much weaker copies. Every qualifying pair is reported, even across different
+overview groups. Both source leaves stay in the tree.
+
+| Output | Contents |
+|---|---|
+| `factor_hierarchy.tsv.gz`, `hierarchy_loadings.npz` | Tree edges, leaf IDs, merge scores, aligned node loadings, gene and node axes, observed-gene mask by trait |
+| `leaf_sources.tsv.gz` | Integrated ID, source trait and factor, redundancy flag and partner count |
+| `overview.tsv.gz` | One row per leaf giving its family at the requested cut |
+| `redundancy_pairs.tsv.gz` | Similar pairs, cosine, norm ratio, fraction of each factor's squared loadings on shared genes, and profile/strength flags |
+| `gene_panel_overlap.tsv.gz`, `hierarchy.json` | Trait-pair coverage and maximum cosine, source file hashes, settings and counts |
+
+To display the integrated leaves in the offline PIGEAN dashboard, add
+`--factor-atlas runs/T2D_CAD_hierarchy` to the dashboard build alongside the
+matching per-trait `--eaggl-hierarchy` inputs. Install the optional
+`umap-learn` dependency in the build environment. The browser needs no network.
+Under **Factor graph**, switch from **MDS graph** to **Cross-trait atlas**.
+One point represents one input leaf. Positions come from a seeded cosine UMAP
+of the aligned gene profiles and stay fixed when coloring by gene, gene set or
+phenotype. A search uses all embedded rows. Gene and gene-set colors show raw
+loadings. If a matched phenotype reference was supplied, phenotype colors show
+signed marginal Factor PheWAS coefficients adjusted for discovery-trait genetic
+evidence. Hollow points mean the measurement is unavailable. Point details
+include the integrated family, source factor, leading genes and overlay value.
+
+Use **EAGGL anchor trait** to choose the discovery fit independently of the
+PIGEAN evidence panel. **Match PIGEAN run** follows the top selector. An
+explicit trait pins the EAGGL graphs, hierarchy and tables to that fit until
+you select another anchor. In the research atlas, it also limits points and
+rankings to that trait. **All anchor traits (combined atlas)** shows the
+integrated leaves across fits. Single-fit tables and MDS are available by
+selecting a trait. Switching atlas anchors preserves the searched overlay, map
+coordinates and atlas-wide color scale.
