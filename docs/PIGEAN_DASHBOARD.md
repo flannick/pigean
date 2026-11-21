@@ -2,6 +2,8 @@
 
 `python -m pigean.dashboard` is a post-processing tool for building a standalone HTML dashboard from existing PIGEAN and optional EAGGL outputs. It does not rerun PIGEAN or EAGGL.
 
+Start with the [single-trait workflow](eaggl/WORKFLOWS.md#analyze-one-trait) to generate the factor, gene and gene-set tables for this dashboard. If you supply a saved union fit, its **Phi selection** tab reports candidate error and leaf QC. Among eligible candidates within the error allowance, the selector chooses the one with the fewest leaves.
+
 ## Basic Usage
 
 ```bash

@@ -1,32 +1,37 @@
-# EAGGL Factor Workflows (F1-F4)
+# EAGGL factor workflows
 
-This document maps each supported factoring workflow to:
+## Analyze one trait
 
-1. required inputs
-2. workflow-selection flags
-3. a minimal runnable command pattern
+Start with a completed PIGEAN run for your trait and the annotation matrix used in that run. The example below assumes an installed package and PIGEAN results in `runs/my_trait/pigean`. Replace the paths with yours. A single run supplies everything needed for factor discovery and its dashboard.
 
-Factor workflows run through `factor` (or `naive_factor`), and the selected workflow ID is visible with `--print-effective-config`.
-Optional labeling can run as part of the same factor command or later with `python -m eaggl label` from saved loading tables. Use `--gene-sets-for-labeling` one or more times to limit factor-label candidates to selected gene-set libraries without changing the fitted loadings.
-Simplified trait linkage is the primary annotation layer. It reports fixed-W projection loadings from probability-transformed trait support vectors onto the factor basis. Factor-as-gene-set regression statistics are produced by exporting factors with `--factor-gmt-out` and running PIGEAN `multi-y`, not by EAGGL.
+```bash
+mkdir -p runs/my_trait/eaggl
+python -m eaggl factor \
+  --X-in annotations.gmt.gz \
+  --gene-stats-in runs/my_trait/pigean/pigean.gene_stats.out.gz \
+  --gene-set-stats-in runs/my_trait/pigean/pigean.gene_set_stats.out.gz \
+  --factors-out runs/my_trait/eaggl/factors.out.gz \
+  --gene-clusters-out runs/my_trait/eaggl/gene_clusters.out.gz \
+  --gene-set-clusters-out runs/my_trait/eaggl/gene_set_clusters.out.gz
 
-Optional LLM/provider-based factor labeling is documented separately in `docs/eaggl/LABELING.md`. Workflow selection and factor execution do not require labeling.
+python -m pigean.dashboard \
+  --pigean-run my_trait:runs/my_trait/pigean \
+  --eaggl-run my_trait:gene_x_gene:runs/my_trait/eaggl \
+  --html-out runs/my_trait/dashboard.html
+```
 
-Related docs:
-- `docs/eaggl/CLI_REFERENCE.md`: curated run manual and main flag guide
-- `docs/eaggl/methods.tex`: theory and model formalization
-- `docs/eaggl/CLI_OPTIONS.md`: exhaustive generated inventory
+Open `runs/my_trait/dashboard.html` to inspect the factors, their leading genes and the gene sets that support each interpretation. Fresh discovery uses the additive gene-pair model, selects phi automatically, and pools reproducible factors across five restarts per candidate. [Effective defaults](RECOMMENDED_DEFAULTS.md) · [Optional mechanism naming](LABELING.md) · [Dashboard inputs and views](../PIGEAN_DASHBOARD.md)
 
-## Recommended defaults
+If you already have qualified union-model fits for this trait, use the [saved-fit guide](../../research/eaggl_leaf_selection/README.md) to select phi, inspect leaf QC and build its hierarchy. Those steps require the discovery capture and fitted candidates. The fresh discovery command above produces additive factor tables.
 
-Fresh `factor` discovery follows [RECOMMENDED_DEFAULTS.md](RECOMMENDED_DEFAULTS.md). The commands below need only inputs and output paths; no extra algorithm flags are needed to obtain the recommendation. Explicit rectangular, supplied-factor and naive modes retain their previous defaults.
+The remaining sections describe alternate inputs, projections, and command options.
 
 ## Common Setup
 
-Use the local venv from the analysis workspace:
+The reference examples below use the Python interpreter where EAGGL is installed:
 
 ```bash
-PYTHON=../../.venv/bin/python
+PYTHON=python
 ```
 
 Useful common outputs:
@@ -73,9 +78,9 @@ Core matrix/stat inputs (direct mode):
 Use `--X-in` for a direct `.gmt` sparse matrix file. Use `--X-list` only for a text file that lists matrix inputs. If a direct `.gmt` is passed to `--X-list`, EAGGL accepts it for compatibility but warns and treats it like `--X-in`.
 
 Fresh gene-by-gene discovery defaults to five restarts and pooled median consensus. Use `--factor-runs 1` for a single fit, `--no-consensus-nmf` for best-of-N selection, or `--consensus-matching reference` for the previous reference-centered matching. Rectangular discovery retains single-run defaults.
-Fixed phi 0.01 is recommended. Automatic phi tuning is an explicit alternative under investigation: add `--learn-phi` to any factor workflow when you want EAGGL to search over candidate `phi` values before the final fit. The default `--phi-selection-objective composite` evaluates each candidate with a weighted score over factor size, non-overlap, entity concentration, high-priority gene/annotation coverage, reconstruction, coherence, factor balance, and annotation bridge QC when available. All component scores are scaled to `[0,1]`, unavailable components are skipped with weight renormalization, and the selected `phi` plus component diagnostics are written to `--params-out`. `--phi-selection-metrics-wide-out` and `--phi-selection-metrics-long-out` write explicit per-candidate audit tables. Use `--phi-selection-objective legacy --learn-phi-target-gene-effective-support S` when you want the previous target-size selector. Use `--learn-phi-values` with a comma-separated list when you want to evaluate a manual candidate grid while keeping the selected objective's scoring and tie-breakers.
+Fresh gene-by-gene discovery chooses phi automatically with the requirements selector. It starts at 0.01, evaluates 0.005 and 0.02, and permits at most two further candidates when a boundary materially improves evidence preservation. The selected fit is reused. Specify `--phi 0.01` for a fixed comparison. The composite and target-size selectors are explicit alternatives. [Selection rules and audit outputs](REQUIREMENTS_PHI.md)
 
-EAGGL now exposes two scalable phi-search backends:
+For the older search objectives, EAGGL also provides two scalable phi-search backends:
 
 1. `--learn-phi-backend sentinel_pruned`
    - the legacy shortcut
@@ -355,13 +360,13 @@ Post-read filtering does not tighten this threshold.
 
 EAGGL trait-factor linkage is intentionally limited to fixed-W projection loadings. Combined/log-BF phenotype values are converted to probabilities using the run `background_prior`; sparse inputs preserve implicit zeros as zero probability unless dense computation is requested. Factors are exported as weighted gene sets after zeroing gene loadings below `--trait-factor-linkage-factor-gene-threshold` (default `0.05`). `--factor-gmt-out` writes those thresholded factor gene sets for PIGEAN `multi-y` runs when beta statistics are needed.
 
-Gene, gene-set, and phenotype cluster tables now include raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`; `Euclidean_FactorK` is the Euclidean distance to that same one-hot factor indicator.
+Gene and phenotype cluster tables, and gene-set tables in legacy format, include raw `Factor*` loadings, `Cosine_Factor*`, and `Euclidean_Factor*` columns. `Cosine_FactorK` is the cosine similarity between the row's factor-loading vector and the indicator vector for factor `K`; `Euclidean_FactorK` is the Euclidean distance to that same one-hot factor indicator.
 
-## Group independently fitted traits
+The default gene-set evidence format retains the raw coefficients and adds coverage, enrichment, mean member loading, cumulative coverage and supporting genes. [Field definitions and naming workflow](LABELING.md#gene-set-evidence-and-mechanism-names)
 
-Pass one gene-by-leaf loading table per trait. Use the research selector's
-`leaf_loadings.tsv.gz` for QC-passing consensus leaves, or a standard discovery
-`--gene-clusters-out` file for the factors reported by production EAGGL.
+## Merge results from multiple runs
+
+If you have independently analyzed two or more traits, you can group their factors in a shared hierarchy. Pass one gene-by-leaf table per trait. For the single-trait workflow above, use the `gene_clusters.out.gz` output from each run. For runs using the saved union-fit workflow, use its `leaf_loadings.tsv.gz` of QC-passing consensus leaves.
 Each file needs a unique `Gene` column and raw `Factor1`, `Factor2`, … columns
 bounded between zero and one. Original factor numbers may have gaps. Annotation
 summaries (`--factors-out`), normalized display columns and parent nodes are
@@ -370,8 +375,8 @@ throughout, preferably complete tables without display-based row filtering.
 
 ```bash
 python -m eaggl hierarchy \
-  --leaf-file T2D runs/T2D/leaf_loadings.tsv.gz \
-  --leaf-file CAD runs/CAD/leaf_loadings.tsv.gz \
+  --leaf-file T2D runs/T2D/eaggl/gene_clusters.out.gz \
+  --leaf-file CAD runs/CAD/eaggl/gene_clusters.out.gz \
   --output runs/T2D_CAD_hierarchy
 ```
 

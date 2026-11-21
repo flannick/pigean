@@ -27,16 +27,29 @@ The output directory must exist. `--eaggl-bundle-in` can replace the three input
 | Support | All pairwise gene-loading cosines at least 0.7; support from at least half the restarts (three of five) | Explicit cosine/support settings |
 | Factor budget | 30 starting factors per restart; final supported pool may exceed 30 | `--max-num-factors` changes the starting budget |
 | Annotation projection | `--fixed-basis-projection-method verified_quadratic`, 2,000 cycles, stationarity tolerance 1e-8 | `--fixed-basis-projection-method legacy` |
+| Gene-set annotation | `--gene-set-clusters-format evidence` reports the fitted coefficient and its gene-overlap evidence | `--gene-set-clusters-format legacy` restores the geometric columns and earlier labeling policy |
 | Output and ranking | All retained consensus factors, row threshold 0, top entities by raw loading | `--factor-output-scope primary`, row threshold and ranking flags |
 | Dashboard gene display | Discovery gene loadings | Explicit full-gene source selector |
 
 Pooling uses deterministic greedy complete-link grouping over all restarts, with at most one factor from each restart in a group. It does not optimize a global clustering objective or reoptimize consensus loadings. If no group meets support, the existing reference-run fallback is retained and recorded in consensus diagnostics; that is not a successful supported consensus.
 
-Explicit CLI or configuration values override defaults. The requirements search supports the qualified recipe below; custom restart, rank, retention, consensus or solver recipes require `--no-learn-phi` or an explicit older selector. Rectangular discovery, `naive_factor`, labeling and supplied-factor projection retain their previous mode-specific defaults. Direct Python state APIs retain their prior defaults. This recommendation does not silently change those APIs.
+Explicit CLI or configuration values override defaults. The requirements search supports the qualified recipe below; custom restart, rank, retention, consensus or solver recipes require `--no-learn-phi` or an explicit older selector. Rectangular discovery and `naive_factor` have separate fitting defaults. For label source selection and cross-factor naming, see the [labeling guide](LABELING.md). Direct Python state APIs retain their prior defaults. This recommendation does not silently change those APIs.
 
 ## Research workflow for hierarchy leaves
 
-For saved union-model candidates, run the separate research selector with a **two-percentage-point relationship-error allowance**. It scores QC before choosing phi and preserves every selected factor and its flags. Use the passing factors as the starting leaves for a hierarchy. The research guide includes the exact command, all defaults and options, troubleshooting order, and the validated four-trait handoff. [Research workflow and CLI](../../research/eaggl_leaf_selection/README.md)
+If you already have qualified union-model fits for a trait, their selector uses different defaults from fresh discovery. Each fit and its hierarchy belong to one trait.
+
+| Stage | Fresh gene-by-gene discovery | Saved union fits for one trait |
+|---|---|---|
+| Model | Additive pair score; each gene's loadings sum to at most one | Independent bounds of 0–1 per loading; combine pair memberships by probabilistic OR |
+| Regularization and fitting | Projected gradient with the backend ARD scale | L-BFGS-B with the ARD scale fixed at the trait's 30-slot reference (120 starting slots in validation) |
+| Consensus | Pool supported groups across five starts and take their median profiles | Jointly refit the pooled profiles under the same union objective |
+| Phi | Requirements-based search; prefer an admissible value near 0.01 | Score supplied fits; choose the fewest fitted leaves within two error points of the best eligible fit |
+| QC and display | Report retained consensus factors | Keep leaf flags in the output; group passing leaves by complete linkage at cosine 0.50 for the overview |
+
+An unused zero column leaves the union prediction and its penalty unchanged. Starting capacity can still limit the number of factors or affect numerical optimization. The validated union fits use ARD alone; the experimental breadth and membership penalties have zero strength.
+
+For saved union-model candidates, run the separate research selector with a **two-percentage-point relationship-error allowance**. It scores QC before choosing phi and preserves every selected factor and its flags. Use the passing factors as the starting leaves for a hierarchy. The research guide includes the exact command, all defaults and options, troubleshooting order, and required input files. [Research workflow and CLI](../../research/eaggl_leaf_selection/README.md)
 
 ## Evidence and limitations
 

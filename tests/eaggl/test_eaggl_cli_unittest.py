@@ -79,7 +79,7 @@ class EagglCliTest(unittest.TestCase):
         proc = self._run("factor", "--help")
         self.assertEqual(proc.returncode, 0)
         self.assertIn("Usage: python -m eaggl", proc.stdout)
-        self.assertIn("[factor|naive_factor|label|hierarchy]", proc.stdout)
+        self.assertIn("[factor|naive_factor|label|hierarchy|label-hierarchy]", proc.stdout)
 
     def test_help_states_label_only_mode(self) -> None:
         proc = self._run("factor", "--help")

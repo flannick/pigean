@@ -280,6 +280,12 @@ def render_doc(manifest: dict):
     )
     lines.append("Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.")
     lines.append("")
+    lines.append("The Default column gives parser values before workflow resolution. "
+                 "See [effective discovery defaults](RECOMMENDED_DEFAULTS.md) for fresh fits, "
+                 "the [research selector](../../research/eaggl_leaf_selection/README.md#complete-selector-controls) "
+                 "for saved union candidates, and the [hierarchy command](WORKFLOWS.md#merge-results-from-multiple-runs) "
+                 "for grouping multiple traits.")
+    lines.append("")
     lines.append("## Summary")
     lines.append("")
     lines.append("- Total options: `%d`" % manifest["num_options"])

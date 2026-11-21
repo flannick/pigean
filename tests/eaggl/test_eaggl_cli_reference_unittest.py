@@ -634,9 +634,16 @@ class EagglCliReferenceTest(unittest.TestCase):
         opts = json.loads(proc.stdout)["options"]
         self.assertEqual(opts["learn_phi_fit_loss_warning_frac"], 0.07)
 
+    def test_saved_union_selector_exposes_two_point_allowance(self) -> None:
+        script = self.repo_root / "research/eaggl_leaf_selection/scripts/select_research_phi_with_qc.py"
+        help_text = subprocess.check_output([sys.executable, str(script), "--help"], text=True)
+        self.assertIn("--phi-error-allowance-points", help_text)
+        self.assertIn("percentage points (default: 2)", " ".join(help_text.split()))
+
     def test_reference_documented_flags_are_mapped_to_real_tests(self) -> None:
         documented_flags = sorted(set(re.findall(r"`(--[A-Za-z0-9-]+)`", self.doc_path.read_text(encoding="utf-8"))))
         flag_to_tests = {
+            "--phi-error-allowance-points": ["test_saved_union_selector_exposes_two_point_allowance"],
             "--phi-search-extension": ["test_extension_options_and_validation"],
             "--phi-search-max-extra": ["test_extension_options_and_validation"],
             "--phi-selection-objective": ["test_phi_selection_composite_flags_round_trip_and_validate", "test_minimal_equals_explicit_recommended"],

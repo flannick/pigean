@@ -2,6 +2,12 @@
 
 Start with automatic phi selection and the default **two-percentage-point error allowance**. Phi controls how strongly fitting regularizes the factors. The allowance controls how much detail the selector may give up in exchange for fewer leaves. If the best eligible fit has 6.5% normalized relationship error, an allowance of 2 admits eligible fits through 8.5%. The selector picks the fewest fitted leaves in that range, breaking ties by lower error and then lower phi.
 
+## Model fitted before selection
+
+Each discovery gene has a loading between zero and one on each leaf and can load strongly on several leaves. The affinity for two distinct genes is one minus the product, across leaves, of one minus their loading product. The per-trait optimizer fits these relationships with L-BFGS-B, with the ARD scale held at its 30-slot reference when starting capacity is increased. At each phi, five starts supply candidate profiles for pooled matching. A joint bounded refit of their medians allows overlapping profiles to share responsibility for pairs. The selector reads qualified results from this procedure; it does not launch these optimizations. [Comparison with fresh package discovery](../../docs/eaggl/RECOMMENDED_DEFAULTS.md#research-workflow-for-hierarchy-leaves)
+
+The upstream four-trait fit driver is `scripts/run_four_trait_leaf_validation.py` in the original `analysis/pigean_optimize` study workspace. The selector and tree builders below ship in this repository. The standalone example exercises the handoff with synthetic data.
+
 ## Recommended workflow
 
 1. Supply the captured discovery inputs and the qualified fits for the same trait. The four-trait research grid used phi **0.005, 0.01, 0.02 and 0.04**, with five starts at each value and a joint consensus refit. The selector scores the candidate directories supplied on the command line. Fitting an additional phi is a separate operation.
@@ -166,4 +172,4 @@ To integrate multiple traits, use the selected fit's `leaf_loadings.tsv.gz`
 (one row per discovery gene, one raw loading column per passing leaf). The
 factor numbers match the original exported fit. Supply these files to
 `python -m eaggl hierarchy` as described in the
-[cross-trait hierarchy workflow](../../docs/eaggl/WORKFLOWS.md#group-independently-fitted-traits).
+[cross-trait hierarchy workflow](../../docs/eaggl/WORKFLOWS.md#merge-results-from-multiple-runs).
