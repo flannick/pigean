@@ -3,6 +3,8 @@
 This document is generated from parser definitions in `src/eaggl/cli.py` and CLI metadata in `eaggl.cli`.
 Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 
+The Default column gives parser values before workflow resolution. See [effective discovery defaults](RECOMMENDED_DEFAULTS.md) for fresh fits, the [research selector](../../research/eaggl_leaf_selection/README.md#complete-selector-controls) for saved union candidates, and the [hierarchy command](WORKFLOWS.md#merge-results-from-multiple-runs) for grouping multiple traits.
+
 ## Summary
 
 - Total options: `326`
@@ -124,7 +126,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--label-sources` | `expert` | `yes` | `advanced_workflows` | `label_sources` | `-` | Sources for the primary label: genes,gene-sets (default), phenotypes, or a comma-separated combination. |
 | `--label-strategy` | `expert` | `yes` | `advanced_workflows` | `label_strategy` | `cross-factor` | Compare selected evidence across the fitted leaves when naming each leaf (default), or name each independently. |
 | `--label-trait-factor-links-in` | `normal` | `yes` | `core_help` | `label_trait_factor_links_in` | `None` | label-only mode: read a long trait_factor_links.out(.gz)-style phenotype loading table |
-| `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | automatically tune phi to a requested primary-factor gene effective support before the final factorization |
+| `--learn-phi` | `normal` | `yes` | `core_help` | `learn_phi` | `False` | select phi automatically; fresh gene-by-gene discovery uses the requirements selector by default |
 | `--learn-phi-backend` | `normal` | `yes` | `core_help` | `learn_phi_backend` | `sentinel_pruned` | choose the phi-search backend: sentinel_pruned or blockwise_global_w over all retained gene sets |
 | `--learn-phi-expand-factor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_expand_factor` | `2.0` | set the multiplicative expansion factor used to bracket phi during automatic phi tuning |
 | `--learn-phi-fit-loss-warning-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_fit_loss_warning_frac` | `0.05` | reconstruction-error warning threshold relative to the best phi-search candidate during automatic phi tuning |
@@ -144,7 +146,7 @@ Do not edit manually; run `scripts/eaggl/generate_cli_manifest.py`.
 | `--learn-phi-prune-genes-num` | `expert` | `yes` | `expert_help` | `learn_phi_prune_genes_num` | `1000` | during automatic phi tuning only, prune the gene axis to at most this many genes before scoring each candidate phi |
 | `--learn-phi-runs-per-step` | `expert` | `yes` | `advanced_workflows` | `learn_phi_runs_per_step` | `1` | number of repeated restarts used to score each candidate phi |
 | `--learn-phi-size-tolerance-frac` | `expert` | `yes` | `advanced_workflows` | `learn_phi_size_tolerance_frac` | `0.25` | fractional tolerance around the requested primary-factor gene effective support |
-| `--learn-phi-target-gene-effective-support` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_effective_support` | `None` | required with --learn-phi; target median effective gene support among primary factors |
+| `--learn-phi-target-gene-effective-support` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_effective_support` | `None` | target median effective gene support for the legacy size selector; can also set the gene-pair prior when it is unspecified |
 | `--learn-phi-target-gene-mass` | `normal` | `yes` | `core_help` | `learn_phi_target_gene_mass` | `None` | optional with --learn-phi; target median primary-factor gene mass used for phi selection |
 | `--learn-phi-values` | `expert` | `yes` | `advanced_workflows` | `learn_phi_values` | `None` | comma-separated explicit phi candidate values for automatic phi tuning; overrides adaptive candidate generation while preserving selection criteria |
 | `--learn-phi-weight-floor` | `expert` | `yes` | `advanced_workflows` | `learn_phi_weight_floor` | `None` | weights below this are treated as zero when measuring factor redundancy during phi tuning |

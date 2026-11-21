@@ -171,12 +171,10 @@ All genes appearing in any retained annotation are then kept in the final factor
 \subsection{Gene-by-gene symmetric mechanism discovery}
 \label{sec:eaggl_gene_gene_symnmf}
 
-The standard gene-by-annotation EAGGL model discovers mechanisms by factorizing a
-weighted gene-by-annotation matrix. This makes annotation rows active observations in
-mechanism discovery. As an alternative, EAGGL can discover mechanisms directly in gene
-space by first constructing a nonnegative gene-by-gene matrix of pairwise
-mechanism-sharing evidence, and then applying a symmetric nonnegative factorization to
-that matrix. In this formulation, the latent mechanisms are functions from genes to
+Fresh EAGGL discovery constructs a nonnegative gene-by-gene matrix of pairwise
+mechanism-sharing evidence and fits a symmetric factorization to that matrix.
+The rectangular workflow described above instead treats annotations as direct
+observations during discovery. In this formulation, the latent mechanisms are functions from genes to
 probabilities of membership, while annotations are used to construct pairwise evidence
 and are projected onto the learned mechanisms afterward.
 
@@ -414,8 +412,8 @@ update,
 C_{\mathrm{sym}} = \frac{N_{\mathrm{active}}}{2}+a_0+1.
 \label{eq:eaggl_gene_gene_lambda_update}
 \end{equation}
-Nonnegativity is enforced throughout. For probability-scale interpretation, the
-implementation can additionally project each row onto the simplex-like constraint
+Nonnegativity is enforced throughout. For probability-scale interpretation, fresh additive
+gene-by-gene discovery projects each row onto the constraint
 \begin{equation}
 0\le W_{ik}\le 1,
 \qquad
@@ -645,9 +643,11 @@ Consequently, the main phenotype labels and top-phenotype annotations for a fact
 
 \subsection{Repeated restarts, consensus factorization, and structural selection of $\phi$}
 
-The EAGGL objective is non-convex, and therefore different random initializations can converge to different local optima. For this reason, EAGGL is typically fit under repeated random restarts. The simplest use of repeated restarts is to retain the fitted solution with the best objective value. A more stringent alternative is consensus factorization, in which factors are first matched across runs and then aggregated only if they are reproduced consistently across restarts. Let $H^{(r)}$ denote the annotation loading matrix from restart $r$ after ARD thresholding. In consensus mode, EAGGL normalizes the factor columns, aligns factors across restarts by maximum total similarity, and aggregates matched factors only when they appear in a sufficient fraction of runs.
+For fresh gene-by-gene discovery with the additive model, EAGGL starts five fits with 30 factor slots each. It pools factors by complete linkage on their gene-loading profiles, requiring cosine similarity of at least 0.70 across every pair in a group, at most one factor from each start and support from at least three starts. Coordinate-wise medians give the consensus profiles. Distinct supported groups can outnumber the starting slots. If no group qualifies, the software records a fallback to the reference-run procedure.
 
-The hyperparameter $\phi$ also affects the effective number and sparsity of retained factors, even though ARD is responsible for pruning irrelevant components. EAGGL therefore treats $\phi$ as a structural model-selection parameter. The default automatic selection objective is a composite score over interpretable candidate-level metrics. For candidate $c$ and component $j$, let $q_{cj} \in [0,1]$ be the component score and let $a_{cj}$ indicate that the component is available. EAGGL selects by
+The default requirements-based search evaluates $\phi=0.01$, 0.005 and 0.02. It assesses preservation of gene-pair relationships and reproducible factor profiles and screens for redundancy. A boundary with a material improvement in evidence preservation can extend the search by up to two additional fits in total. Among admissible fits, the procedure prefers the value closest to 0.01 on a log scale, breaking ties toward lower $\phi$. The selected fit is reused. Section~\ref{sec:union_leaves} describes the separate resolution criterion used with saved union fits.
+
+An optional composite selector scores interpretable candidate-level metrics. For candidate $c$ and component $j$, let $q_{cj} \in [0,1]$ be the component score and let $a_{cj}$ indicate that the component is available. EAGGL selects by
 \begin{equation}
 Q_c = \frac{\sum_j a_{cj}\omega_j q_{cj}}{\sum_j a_{cj}\omega_j},
 \label{eq:eaggl_phi_composite_score}
@@ -662,7 +662,28 @@ and averages this score over factors. Non-overlap uses the 90th percentile of so
 
 A legacy selector remains available. In legacy mode, users specify a target median effective gene support for primary factors, and EAGGL searches for a $\phi$ whose fitted mechanisms have that approximate gene-module size. Within each modal restart, EAGGL measures redundancy on the gene loading matrix when available, with fallback to the gene-set and phenotype loading matrices. These phi-selection metrics are computed over the primary factor set by default so that low-mass ARD-tail columns do not dominate model selection; an audit option can instead score all fitted columns. Candidate values are explored around the initial $\phi$ by target-aware bracketing. The selected $\phi$, candidate diagnostics, component scores, weights, weighted contributions, search thresholds, factor-mass summaries, and convergence diagnostics are written to the run log and parameter output. Per-factor diagnostics for each tested $\phi$ can also be written for audit and review.
 
-EAGGL separates fitted factors from reported factors. Let $m_k$ denote the combined nonnegative gene and annotation loading mass for factor $k$, and let $\pi_k=m_k/\sum_{\ell}m_{\ell}$. A factor is classified as primary when $\pi_k \ge 0.005$, secondary when $0.001 \le \pi_k < 0.005$, and filtered otherwise. The default user-facing factor and cluster outputs print only primary factors, because low-mass secondary and filtered factors usually represent the ARD tail rather than interpretable mechanisms. This reporting scope is controlled separately from the phi-selection metric scope. The exhaustive factor-metrics outputs remain available for auditing all fitted columns. The \texttt{factors.out(.gz)} table records both \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} next to \texttt{lambda}; widening the output scope can include secondary or all factors without changing the fitted model or renumbering factor identifiers.
+EAGGL separates fitted factors from reported factors. Let $m_k$ denote the combined nonnegative gene and annotation loading mass for factor $k$, and let $\pi_k=m_k/\sum_{\ell}m_{\ell}$. A factor is classified as primary when $\pi_k \ge 0.005$, secondary when $0.001 \le \pi_k < 0.005$, and filtered otherwise. Fresh gene-by-gene discovery reports all retained consensus factors together with their tiers. Primary-only output restricts the report to the highest mass tier. This reporting scope is controlled separately from the phi-selection metric scope. The exhaustive factor-metrics outputs remain available for auditing all fitted columns. The \texttt{factors.out(.gz)} table records both \texttt{factor\_tier} and \texttt{combined\_mass\_fraction} next to \texttt{lambda}; widening the output scope can include secondary or all factors without changing the fitted model or renumbering factor identifiers.
+
+\subsection{Overlapping mechanisms within a trait}
+\label{sec:union_leaves}
+
+\paragraph{Pair affinity and estimation.}
+In the union model, a gene can participate strongly in several mechanisms. We evaluated this model independently for type 2 diabetes, coronary artery disease, nonalcoholic fatty liver disease and asthma. We used the same discovery genes and background-adjusted pair affinities as in the matched additive fit. We bounded each loading $W_{ik}$ between zero and one and removed the bound on the sum across a gene's loadings. For distinct genes $i,j$, the fitted affinity was
+\[
+  \widehat M_{ij}=1-\prod_k(1-W_{ik}W_{jk}).
+\]
+Each product represents joint membership in one mechanism. Combining the products this way approximates membership in at least one common mechanism under independence. The loadings therefore have a probability-scale interpretation subject to that approximation.
+
+We minimized squared reconstruction error over off-diagonal gene pairs with an automatic relevance determination penalty proportional to $\sum_k\log(1+\lVert W_{\cdot k}\rVert_2^2/(2b_0))$. We fixed the prior scale at each trait's 30-slot reference value while allocating 120 starting slots. An unused zero column contributes neither pair affinity nor penalty. We fitted the bounded objective with L-BFGS-B and checked the projected gradient and stability under continuation. We used no additional penalty on mechanism breadth or on the number of memberships per gene. At each $\phi$ we pooled matching profiles from five starts and took coordinate-wise medians. We then jointly refitted the pooled columns to the original affinities under the same objective, allowing overlapping columns to account for each other's contributions.
+
+\paragraph{Leaf quality and choice of resolution.}
+We evaluated $\phi=0.005$, 0.01, 0.02 and 0.04. We flagged a refitted leaf if its effective gene count $(\sum_i W_{ik}^2)^2/\sum_i W_{ik}^4$ was below 3, its Hoyer contrast was below 0.20, its cosine similarity with another leaf was at least 0.90, or it matched fewer than three raw starts at cosine similarity of at least 0.70. Among numerically qualified candidates, at most 10\% of leaves and 10\% of squared loading mass could be flagged. We measured relative reconstruction error across all gene pairs and separately for each gene with nonzero input signal, averaging the latter errors across genes. Using the larger of these two errors, we chose the eligible fit with the fewest fitted leaves within two absolute percentage points of the best eligible error. Ties favored lower error and then lower $\phi$. We retained every fitted leaf and its QC reasons in the output and used passing leaves to build the tree.
+
+\paragraph{Families within and across traits.}
+We grouped passing leaves by complete linkage on their discovery-gene loading profiles. At the default cosine cut of 0.50, every pair of leaves within a displayed family met the threshold. A gene with child loadings $a$ and $b$ received parent loading $a+b-ab$. This describes membership at a coarser resolution. For an integrated hierarchy, we aligned independently fitted leaf tables by gene identifier, retained a per-trait observation mask, and used zero at missing entries for the comparison. Differences in discovery panels can therefore reduce apparent overlap. We flagged cross-trait leaf pairs with cosine similarity of at least 0.90 and separately recorded whether the smaller profile norm was at least 80\% of the larger. Both leaves retained their trait identifiers and remained in the tree.
+
+\paragraph{Dashboard readouts.}
+The default overview displays the selected cut. Users can examine individual leaves, flagged factors and internal families. We fitted classical multidimensional scaling to normalized passing-leaf gene profiles and projected families onto those axes using their OR-combined profiles. Each gene's position is the loading-weighted mean of its leaf positions. The optional graph relaxation is a display choice. For each leaf or family and reference phenotype we regressed the indicator of combined gene support greater than one on that node's loading across discovery genes, adjusting for the discovery trait's direct gene log Bayes factor. The coefficient, signed $Z$ and nominal two-sided $P$ value use HC3 uncertainty. This node-wise enrichment can be shared by a parent and its children.
 
 \subsection{Optimizations for scaling EAGGL to large phenotype panels}
 
@@ -696,7 +717,12 @@ L_k = \mathcal{L}(\mathcal{S}_k, \mathcal{G}_k, \mathcal{P}_k).
 \]
 Such labels may be generated deterministically from the top terms or by a separate language-model-based summarization step. In either case, the labeling procedure is downstream of the core statistical model and should be interpreted as an aid to biological interpretation rather than as part of the inference procedure itself. When users provide a designated labeling library, EAGGL restricts the annotation candidates in $\mathcal{S}_k$ to that library before ranking terms for the label; if a factor has no positive-loading annotation in the designated library, the label falls back to the full annotation set so that every factor remains labeled. This filtering changes only the post hoc label summary and not the fitted factors or output loadings.
 
+\paragraph{Gene-set evidence for mechanism names.}
+For gene set $S$ and factor $k$, let $U$ be the gene universe shared by the annotation matrix and factor basis, and let $S$ here contain the members in $U$. The raw annotation coefficient describes the set's projection onto the basis. We report it alongside coverage $c_{Sk}=\sum_{i\in S} W_{ik}/\sum_{i\in U} W_{ik}$, fold enrichment $c_{Sk}/(|S|/|U|)$ and mean member loading $\sum_{i\in S} W_{ik}/|S|$. Coverage is the probability of drawing a member of $S$ when sampling a gene in proportion to its factor loading. Enrichment compares that probability with the set's prevalence. We also report the highest-loading members and cumulative coverage through each positive-coefficient set in descending coefficient order, counting each covered gene once. Undefined ratios are recorded as missing.
+
+By default the primary factor name uses up to five genes and five gene sets. Alternative source combinations can include phenotypes or hold an evidence source out. When a model generates names, it sees the roster of leaves from the same fit so that related mechanisms can be distinguished. In the single-trait hierarchy, families are named from the leaves upwards using the descendant leaf names grouped by child, child summaries and supporting evidence. Naming and display do not enter the discovery or selection objective.
+
 \paragraph{Geometric cluster summaries.}
-Cluster output tables contain the raw factor loading for each row, a cosine column for each factor, and a Euclidean-distance column for each factor. For row loading vector $v_i$, the reported \texttt{Cosine\_Factor}$k$ value is $v_{ik}/\|v_i\|_2$, i.e. the cosine similarity between the row's full factor-loading vector and the one-hot indicator for factor $k$. The reported \texttt{Euclidean\_Factor}$k$ value is $\|v_i-e_k\|_2$, where $e_k$ is the one-hot indicator for factor $k$.
+Gene and phenotype cluster tables, and gene-set tables written in legacy format, contain the raw factor loading for each row, a cosine column for each factor, and a Euclidean-distance column for each factor. For row loading vector $v_i$, the reported \texttt{Cosine\_Factor}$k$ value is $v_{ik}/\|v_i\|_2$, i.e. the cosine similarity between the row's full factor-loading vector and the one-hot indicator for factor $k$. The reported \texttt{Euclidean\_Factor}$k$ value is $\|v_i-e_k\|_2$, where $e_k$ is the one-hot indicator for factor $k$.
 
 \end{document}

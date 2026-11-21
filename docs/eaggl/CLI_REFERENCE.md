@@ -14,8 +14,8 @@ Scope rules for this document:
 - every documented flag in this file should have direct regression coverage or explicit mapping to an existing EAGGL CLI test
 - niche, debug-only, or transitional flags belong in the generated inventory, not in this manual
 
-The separate saved-fit research selector has its own command, ordinary help and expert option reference. [Hierarchy leaf selector CLI](../../research/eaggl_leaf_selection/README.md#complete-selector-controls)
-The `hierarchy` command builds one tree from separately fitted traits. See the [cross-trait workflow and redundancy flags](WORKFLOWS.md#group-independently-fitted-traits).
+Use `python -m eaggl factor` for [fresh discovery on one trait](WORKFLOWS.md#analyze-one-trait). For existing union fits from one trait, the repository entry point `research/eaggl_leaf_selection/scripts/select_research_phi_with_qc.py` takes a matched capture and already fitted, jointly refitted candidates. Its routine resolution control is `--phi-error-allowance-points` (default 2). The selector has its own ordinary help and expert option reference. [Hierarchy leaf selector CLI](../../research/eaggl_leaf_selection/README.md#complete-selector-controls)
+The `hierarchy` command builds one tree from separately fitted traits. See the [cross-trait workflow and redundancy flags](WORKFLOWS.md#merge-results-from-multiple-runs).
 
 ## Entry points and modes
 
@@ -389,7 +389,7 @@ Gene-by-gene expert controls:
 | `--anchor-aggregation` | choose how multiple anchor traits are combined: `multi` is the default shared multi-trait mode, while `any` uses explicit noisy-OR union; with one anchor, both reduce exactly to single-trait anchoring |
 | `--gene-gene-diagonal-weight` | set the diagonal fitting weight in the symmetric objective; the default `0.0` suppresses self-pairs |
 | `--gene-gene-excess-probability` / `--no-gene-gene-excess-probability` | factor excess pairwise probability above the pair prior (default) or the raw calibrated pairwise probability |
-| `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | keep each gene’s mechanism memberships approximately disjoint by capping the row sum of `W` at `1` after each update |
+| `--gene-gene-row-sum-cap` / `--no-gene-gene-row-sum-cap` | fresh additive discovery caps each row sum of `W` at `1`; disabling the cap relaxes that constraint while retaining the additive pair model. The union objective is fitted separately |
 | `--gene-gene-sparsity` | optional L1 penalty on the symmetric gene-by-gene loading matrix |
 | `--gene-gene-profligate-correction` | optional correction for profligate genes before pair-probability calibration; `none` is the default and `linear` subtracts a simple retained-annotation-count effect from raw pair log evidence |
 | `--annotation-bridge-metrics-out` | write per-annotation bridge diagnostics for the retained gene-by-gene evidence kernel, including review candidates and the conservative source-adaptive suggested-exclude flag |
@@ -552,8 +552,7 @@ python -m eaggl factor \
 
 For joint projection, use `--gene-set-clusters-out`. For marginal-only projection,
 use only `--gene-set-clusters-marginal-out`. Mode `both` requires two distinct output
-paths. Both outputs use the existing gene-set cluster schema, including raw factor,
-cosine, and Euclidean columns. Supplied-factor gene-set projection defaults to all factors and retains zero-loading
+paths. Both outputs retain raw factor coefficients. By default, `--gene-set-clusters-format evidence` adds set coverage, enrichment, mean member loading, cumulative coverage, supporting genes and gene counts. Use `--gene-set-clusters-format legacy` for cosine and Euclidean columns. [Interpretation and use in labels](LABELING.md#gene-set-evidence-and-mechanism-names) Supplied-factor gene-set projection defaults to all factors and retains zero-loading
 rows (with `NA` cluster and label). Explicit `--factor-output-scope` and
 `--cluster-row-min-max-loading` options can restrict output; factor discovery keeps
 its existing defaults.

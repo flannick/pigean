@@ -9,19 +9,9 @@ Canonical ownership:
 
 ## Start here
 
-Use these documents in order:
+Start with [Analyze one trait](WORKFLOWS.md#analyze-one-trait) to run EAGGL on a PIGEAN result and view the factor dashboard. Use the [effective defaults](RECOMMENDED_DEFAULTS.md) and [CLI reference](CLI_REFERENCE.md) to change a setting. The [option inventory](CLI_OPTIONS.md) lists every parser option.
 
-1. `docs/eaggl/CLI_REFERENCE.md`
-   - practical manual for running `python -m eaggl`
-   - curated explanation of the main workflows, anchors, factor controls, labeling flags, and outputs
-2. `docs/eaggl/WORKFLOWS.md`
-   - F1-F4 workflow map with minimal runnable command patterns
-3. `docs/eaggl/methods.tex`
-   - theory and mathematical formalization of the EAGGL factor model and workflow families
-4. `docs/eaggl/LABELING.md`
-   - optional factor-labeling behavior and why labeling remains part of `factor`
-5. `docs/eaggl/CLI_OPTIONS.md`
-   - exhaustive machine-generated option inventory
+For interpretation, see [gene-set evidence and optional mechanism names](LABELING.md) and the [supplementary methods](methods.pdf).
 
 ## Related docs
 
