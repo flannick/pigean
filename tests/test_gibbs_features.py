@@ -136,3 +136,29 @@ def test_pipeline_scopes_features_without_changing_sampler_arguments(monkeypatch
     state.run_gibbs.assert_called_once_with(**kwargs)
     assert result.ran
     assert ACTIVE.get() == DEFAULT_FEATURES
+
+
+def test_genetic_gibbs_without_numba(monkeypatch):
+    import sys
+    from pegs_shared.gibbs_features import genetic_gibbs_defaults, resolve_features
+    monkeypatch.setitem(sys.modules, 'numba', None)
+    engine, enable = genetic_gibbs_defaults(None)
+    assert engine == 'cached-inner'
+    assert set(enable) == {'parallel-prefilter', 'inner-matmul', 'inner-cache64',
+                           'static-correlation', 'inner-centered-variance'}
+    assert resolve_features(engine, enable)['inactive'] == {}
+
+
+def test_explicit_genetic_engine_and_feature_precedence():
+    import pytest
+    from pegs_shared.gibbs_features import genetic_gibbs_defaults, resolve_features
+    for engine in ('legacy', 'parallel-prefilter'):
+        assert genetic_gibbs_defaults(engine) == (engine, ['inner-centered-variance'])
+    engine, enable = genetic_gibbs_defaults(None, disable=['inner-matmul,grouped-regression'])
+    features = resolve_features(engine, enable, ['inner-matmul,grouped-regression'])
+    assert 'inner-matmul' not in features['requested']
+    assert 'grouped-regression' not in features['active']
+    assert 'annotation-cache' in features['inactive']
+    engine, enable = genetic_gibbs_defaults(None, ['inner-matmul'], ['inner-matmul'])
+    with pytest.raises(ValueError, match='Cannot both enable and disable'):
+        resolve_features(engine, enable, ['inner-matmul'])

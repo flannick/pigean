@@ -32,7 +32,7 @@ The existing native controller uses an inclusive burn boundary. The fixed schedu
 
 For a normal completed run, actual updates are 1–1250 and retained updates are 251–1250. Reaching that budget does not mean diagnostics passed. The controller implementation and stopping thresholds have not changed.
 
-The independently controlled arithmetic optimizations are described in [Gibbs optimizations](GIBBS_OPTIMIZATIONS.md). Their defaults are not changed here. To reproduce the qualified optimized procedure, add:
+The independently controlled arithmetic optimizations are described in [Gibbs optimizations](GIBBS_OPTIMIZATIONS.md). Genetic-input Gibbs now selects the qualified speed flags automatically when the compiled extra is installed. The explicit equivalent for that installation is:
 
 ```sh
 --use-sampled-betas-in-gibbs --gibbs-schedule retained \

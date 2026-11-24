@@ -37,6 +37,11 @@ DEFAULT_FEATURES = frozenset({'inner-rhat-stable', 'warm-start-layout'})
 # CLI genetic-input Gibbs defaults; deliberately excluded from preprocessing and
 # direct Python contexts. The CLI passes these as ordinary stage enable flags.
 GIBBS_STAGE_DEFAULT_FEATURES = frozenset({'inner-centered-variance'})
+PORTABLE_EXTENSIONS = frozenset({'inner-matmul', 'inner-cache64', 'static-correlation'})
+COMPILED_EXTENSIONS = frozenset({
+    'inner-fused', 'inner-batching', 'compiled-prefilter', 'compiled-moments',
+    'huge-prior-softmax',
+})
 ACTIVE = ContextVar('gibbs_active_features', default=DEFAULT_FEATURES)
 
 
@@ -75,10 +80,27 @@ def resolve_features(preset='legacy', enable=(), disable=()):
             'inactive': {f: sorted(REQUIRES[f] - active) for f in sorted(requested-active)}}
 
 
-def enable_gibbs_stage_defaults(enable=(), disable=()):
+def enable_gibbs_stage_defaults(enable=(), disable=(), *, extensions=()):
     """Add CLI stage defaults while retaining explicit opt-outs and conflicts."""
-    return sorted(_feature_names(enable) |
-                  (GIBBS_STAGE_DEFAULT_FEATURES - _feature_names(disable)))
+    defaults = GIBBS_STAGE_DEFAULT_FEATURES.union(extensions)
+    return sorted(_feature_names(enable) | (defaults - _feature_names(disable)))
+
+
+def genetic_gibbs_defaults(engine, enable=(), disable=()):
+    """Choose the automatic speed features only when no engine was specified."""
+    extensions = frozenset()
+    if engine is None:
+        try:
+            from numba import njit
+        except (ImportError, OSError):
+            # The parallel-prefilter preset includes compiled covariance. Its
+            # threaded NumPy prefilter can also run on the cached-inner preset.
+            engine = 'cached-inner'
+            extensions = PORTABLE_EXTENSIONS | {'parallel-prefilter'}
+        else:
+            engine = 'parallel-prefilter'
+            extensions = PORTABLE_EXTENSIONS | COMPILED_EXTENSIONS
+    return engine, enable_gibbs_stage_defaults(enable, disable, extensions=extensions)
 
 
 def enabled(feature):

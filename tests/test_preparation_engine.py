@@ -17,7 +17,7 @@ def effective(*args):
 def test_cli_independent(engine):
     o=effective('gibbs','--gwas-in','input','--preparation-engine',engine)
     assert o['preparation_engine']==engine
-    assert o['gibbs_engine']=='legacy'
+    assert o['gibbs_engine'] in ('parallel-prefilter', 'cached-inner')
     assert o['use_sampled_betas_in_gibbs']
     assert o['gibbs_schedule_resolved']=='retained'
 
@@ -33,6 +33,7 @@ def test_genetic_gibbs_defaults(input_flag):
 def test_other_workflows_unchanged(args):
     o=effective(*args)
     assert o['preparation_engine']=='legacy'
+    assert o['gibbs_engine']=='legacy'
     assert 'inner-centered-variance' not in (o['gibbs_enable'] or [])
 
 @pytest.mark.parametrize('legacy',[False,True])

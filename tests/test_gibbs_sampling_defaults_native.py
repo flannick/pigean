@@ -42,7 +42,17 @@ def test_default_native_counts_and_explicit_recipe_parity(tmp_path):
     receipt = run_native(implicit, [], observed=True)
     assert receipt['updates'] == 1250
     assert receipt['retained'] == list(range(251, 1251))
+    try:
+        from numba import njit
+    except (ImportError, OSError):
+        engine = 'cached-inner'
+        extensions = 'parallel-prefilter,inner-matmul,inner-cache64,static-correlation'
+    else:
+        engine = 'parallel-prefilter'
+        extensions = ('inner-matmul,inner-fused,inner-batching,compiled-prefilter,'
+                      'inner-cache64,huge-prior-softmax,static-correlation,compiled-moments')
     run_native(explicit, ['--preparation-engine', 'grouped-regression',
+                         '--gibbs-engine', engine, '--gibbs-enable', extensions,
                          '--gibbs-enable', 'inner-centered-variance',
                          '--gibbs-schedule', 'legacy', '--use-sampled-betas-in-gibbs',
                          '--min-num-burn-in', '251', '--max-num-burn-in', '251',
