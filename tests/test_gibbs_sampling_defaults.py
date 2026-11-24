@@ -102,3 +102,20 @@ def test_retained_schedule_rejects_conflicting_budget():
                              '--print-effective-config'], cwd=ROOT, env=env, capture_output=True, text=True)
     assert result.returncode != 0
     assert 'conflicts with explicit controller settings' in result.stderr + result.stdout
+
+
+@pytest.mark.parametrize('source', ['--gwas-in', '--huge-statistics-in'])
+def test_genetic_arithmetic_respects_config_and_explicit_engine(source, tmp_path):
+    options = effective('gibbs', source, 'input', '--gibbs-disable', 'inner-cache64')
+    assert options['gibbs_engine'] in ('parallel-prefilter', 'cached-inner')
+    assert 'inner-matmul' in options['gibbs_enable']
+    assert 'inner-cache64' not in options['gibbs_enable']
+    config = tmp_path / 'engine.json'
+    config.write_text(json.dumps({'gibbs_engine': 'legacy'}))
+    options = effective('gibbs', source, 'input', '--config', str(config))
+    assert options['gibbs_engine'] == 'legacy'
+    assert options['gibbs_enable'] == ['inner-centered-variance']
+    options = effective('gibbs', source, 'input', '--config', str(config),
+                        '--gibbs-engine', 'sparse-regression', '--gibbs-enable', 'inner-matmul')
+    assert options['gibbs_engine'] == 'sparse-regression'
+    assert options['gibbs_enable'] == ['inner-centered-variance', 'inner-matmul']

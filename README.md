@@ -58,7 +58,7 @@ Use this as the index for the repo documentation set.
 - `README.md`: project entrypoint, architecture summary, test tiers, and documentation index
 - `docs/PIGEAN_CLI_REFERENCE.md`: human-written manual for how to run PIGEAN
 - `docs/GIBBS_STOPPING.md`: outer-Gibbs iteration, precision-stopping, and optional stall/restart controls
-- [Gibbs optimizations](docs/GIBBS_OPTIMIZATIONS.md): complete recommended flag suffix, independent feature controls, and performance evidence
+- [Gibbs optimizations](docs/GIBBS_OPTIMIZATIONS.md): automatic fast arithmetic for GWAS and cached-HuGE Gibbs, the legacy opt-out, and performance evidence
 - [Optional preparation arithmetic](docs/PREPARATION_ARITHMETIC.md): startup selector, four-trait runtime/memory measurements, and the unresolved NAFLD trajectory qualification
 - [Preparation defaults](docs/PREPARATION_ARITHMETIC.md): faster genetic-input Gibbs preparation, independent opt-outs and memory limits
 - [Stable inner variance](docs/INNER_CENTERED_VARIANCE.md): numerical stopping correction, NAFLD output changes and EAGGL release review

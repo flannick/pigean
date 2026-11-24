@@ -72,7 +72,7 @@
       "source_line": 90,
       "summary": "load one or more sparse gene-set matrix files directly",
       "type": null,
-      "usage_references": 168
+      "usage_references": 170
     },
     {
       "action": "append",
@@ -744,7 +744,7 @@
       "source_line": 325,
       "summary": "load a JSON config file; explicit CLI flags override config values",
       "type": null,
-      "usage_references": 58
+      "usage_references": 60
     },
     {
       "action": null,
@@ -2676,7 +2676,7 @@
       "source_line": 453,
       "summary": "input gene-phewas BFS table for advanced phewas workflows",
       "type": null,
-      "usage_references": 27
+      "usage_references": 28
     },
     {
       "action": null,
@@ -3159,7 +3159,7 @@
       "source_line": 241,
       "summary": "use precomputed gene-set statistics to bypass beta-tilde recomputation",
       "type": "string",
-      "usage_references": 79
+      "usage_references": 81
     },
     {
       "action": null,
@@ -3306,7 +3306,7 @@
       "source_line": 257,
       "summary": "use precomputed gene-level statistics as input instead of deriving scores from raw sources",
       "type": null,
-      "usage_references": 88
+      "usage_references": 90
     },
     {
       "action": null,
@@ -3570,15 +3570,15 @@
       "flags": [
         "--gibbs-disable"
       ],
-      "help": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "help": "disable Gibbs features from numerical defaults or the selected Gibbs arithmetic (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "primary_flag": "--gibbs-disable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 498,
-      "summary": "disable Gibbs features from numerical defaults or the engine preset (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
+      "summary": "disable Gibbs features from numerical defaults or the selected Gibbs arithmetic (inner-rhat-stable and warm-start-layout default on; inner-centered-variance defaults on for genetic-input Gibbs only); use comma-separated names, repeat the flag, or both; dependent features fall back when prerequisites are absent",
       "type": null,
-      "usage_references": 21
+      "usage_references": 22
     },
     {
       "action": "append",
@@ -3590,35 +3590,35 @@
       "flags": [
         "--gibbs-enable"
       ],
-      "help": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
+      "help": "enable Gibbs features in addition to numerical defaults and the selected Gibbs arithmetic; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "primary_flag": "--gibbs-enable",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 497,
-      "summary": "enable Gibbs features in addition to numerical defaults and the engine preset; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
+      "summary": "enable Gibbs features in addition to numerical defaults and the selected Gibbs arithmetic; use comma-separated names, repeat the flag, or both; see docs/GIBBS_OPTIMIZATIONS.md",
       "type": null,
-      "usage_references": 22
+      "usage_references": 24
     },
     {
       "action": null,
       "category": "method_optional",
-      "default": "legacy",
+      "default": "None",
       "deprecation_timeline": null,
       "dest": "gibbs_engine",
       "documentation_target": "expert_help",
       "flags": [
         "--gibbs-engine"
       ],
-      "help": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks",
+      "help": "Gibbs arithmetic preset. For GWAS or cached-HuGE Gibbs, omission selects the recommended speed features (portable subset without Numba). Other workflows default to legacy. Set an explicit preset to select its features only, or legacy to restore prior arithmetic.",
       "primary_flag": "--gibbs-engine",
       "public_visibility": "expert",
       "replacement": null,
       "scientific_semantic_impact": "yes",
       "source_line": 496,
-      "summary": "inference engine; legacy preserves established arithmetic; sparse-regression uses sparse arithmetic; grouped-regression additionally reuses exact statistics of repeated annotation values; cached-grouped-regression also caches annotation value groups across iterations; compact-covariance additionally accelerates and aggregates covariance edges; lean-regression additionally avoids unused annotation stacks across chains; cached-inner additionally reuses fixed correlation slices within each inner fit; compiled-covariance also compiles edge preparation (optional Numba); parallel-prefilter also uses two threads for independent linear covariance chunks",
+      "summary": "Gibbs arithmetic preset. For GWAS or cached-HuGE Gibbs, omission selects the recommended speed features (portable subset without Numba). Other workflows default to legacy. Set an explicit preset to select its features only, or legacy to restore prior arithmetic.",
       "type": "choice",
-      "usage_references": 8
+      "usage_references": 11
     },
     {
       "action": null,
@@ -3974,7 +3974,7 @@
       "source_line": 143,
       "summary": "load GWAS summary statistics as the primary HuGE input",
       "type": null,
-      "usage_references": 99
+      "usage_references": 101
     },
     {
       "action": null,
@@ -4331,7 +4331,7 @@
       "source_line": 144,
       "summary": "read precomputed HuGE statistics cache instead of raw --gwas-in processing",
       "type": null,
-      "usage_references": 39
+      "usage_references": 41
     },
     {
       "action": null,
@@ -6095,7 +6095,7 @@
       "source_line": 315,
       "summary": "write learned hyperparameters and runtime settings",
       "type": null,
-      "usage_references": 86
+      "usage_references": 85
     },
     {
       "action": "store_true",
@@ -6871,7 +6871,7 @@
       "source_line": 323,
       "summary": "set explicit random seed for deterministic reproducibility checks",
       "type": "int",
-      "usage_references": 42
+      "usage_references": 43
     },
     {
       "action": null,

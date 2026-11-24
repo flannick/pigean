@@ -1,18 +1,20 @@
 # Gibbs arithmetic optimizations
 
-Legacy arithmetic remains the default. The numerical `inner-rhat-stable` stopping fix and `warm-start-layout` row-mapping correction are enabled by default with every engine. For CLI genetic-input Gibbs, grouped preparation and the `inner-centered-variance` numerical correction are also enabled by default; the latter applies only during Gibbs. See [preparation](PREPARATION_ARITHMETIC.md) and [variance qualification](INNER_CENTERED_VARIANCE.md). To enable all recommended Gibbs arithmetic optimizations, append this complete suffix to your existing `pigean gibbs` command:
+For `pigean gibbs` with `--gwas-in` or `--huge-statistics-in`, the recommended arithmetic is automatic. With the optional `compiled` extra (Numba), omitting the speed flags is equivalent to specifying:
 
 ```sh
 --gibbs-engine parallel-prefilter --gibbs-enable inner-matmul,inner-fused,inner-batching,compiled-prefilter,inner-cache64,huge-prior-softmax,static-correlation,compiled-moments
 ```
 
-The full configuration requires the optional `compiled` dependency extra (Numba). The preset enables the first eight features below; the comma-separated list adds the eight later extensions. These change arithmetic, allocation and reuse, preserving the intended inner/outer Gibbs procedure. Floating-point reduction order can change sampled trajectories. They are performance options, not convergence fixes.
+A base installation uses the `cached-inner` preset plus `parallel-prefilter`, `inner-matmul`, `inner-cache64` and `static-correlation`. Use `--print-effective-config` to inspect the resolved engine and active features. Other input types, modes and direct Python calls keep their previous arithmetic defaults.
+
+Use **`--gibbs-engine legacy`** to reproduce the previous CLI arithmetic default. An explicit engine selects its own preset plus any explicitly enabled features. Numerical defaults still apply, including `inner-rhat-stable` and `warm-start-layout` for every engine and `inner-centered-variance` for genetic-input Gibbs. [Preparation](PREPARATION_ARITHMETIC.md), [variance stabilization](INNER_CENTERED_VARIANCE.md) and the [sampling schedule](GIBBS_SAMPLING_DEFAULTS.md) are independently configurable. Faster arithmetic can change floating-point reduction order and individual sampled trajectories.
 
 ## Selecting features
 
 Both `--gibbs-enable` and `--gibbs-disable` accept comma-separated names, repeated flags, or a mixture. For example, `--gibbs-enable inner-matmul,inner-fused` is equivalent to `--gibbs-enable inner-matmul --gibbs-enable inner-fused`. Whitespace within a quoted list is trimmed; duplicates are ignored. Empty names, unknown names, and enabling and disabling the same feature are errors.
 
-Omit an arithmetic extension's enabling flag to leave it off. Remove a preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--preparation-engine legacy --gibbs-engine legacy --gibbs-disable inner-rhat-stable,warm-start-layout,inner-centered-variance` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
+Remove an automatic or preset feature with, for example, `--gibbs-disable annotation-cache,compiled-covariance`. Missing prerequisites make a feature explicitly inactive; they are never silently re-enabled. For the original baseline, use `--preparation-engine legacy --gibbs-engine legacy --gibbs-disable inner-rhat-stable,warm-start-layout,inner-centered-variance` without enabling other flags. Existing arithmetic presets retain their definitions; numerical defaults are applied separately.
 
 | Feature | Change | Prerequisite or limit |
 |---|---|---|
@@ -33,7 +35,7 @@ Omit an arithmetic extension's enabling flag to leave it off. Remove a preset fe
 | `static-correlation` | Reuse fixed full annotation correlations | Unwhitened float64 CSC; 256 MiB cap; content-validated |
 | `compiled-moments` | Combine five grouped moment sums into one traversal | `grouped-regression`; optional Numba |
 
-Guarded optimizations use fallback arithmetic for unsupported inputs. Missing Numba raises an import error when a compiled path is used; to run without it, omit `inner-fused`, `inner-batching`, `compiled-prefilter` and `compiled-moments`, and add `--gibbs-disable compiled-covariance` to the preset. Cache payload limits do not bound total process memory. HuGE normalization must be reconciled separately if future fPS changes touch the same calculation.
+Guarded optimizations use fallback arithmetic for unsupported inputs. Explicitly requesting a compiled feature requires Numba when that code path runs. Cache payload limits do not bound total process memory. HuGE normalization must be reconciled separately if future fPS changes touch the same calculation.
 
 ## Measured performance and limits
 
@@ -85,7 +87,7 @@ previously validated enabled path; the opt-out preserves the historical path.
 
 `--gibbs-enable compiled-moments` optionally combines the five grouped-regression
 moment reductions into one compiled traversal. It requires `grouped-regression`
-and the optional Numba dependency; it is off by default and absent from presets.
+and the optional Numba dependency; the automatic compiled configuration includes it.
 Probability calculations and each output's multiplication/addition order are
 preserved. Five output vectors remain, while intermediate full-group weight
 arrays are avoided. This changes computation only, not sampling or inference.
@@ -95,8 +97,7 @@ log BF, recorded numeric trajectories and every recorded support selection
 exactly. Profiled inference improves 1.071x for T2D and 1.121x for NAFLD
 (1.053x against its earlier control). Peak RSS changes -10.24% and -0.98%
 in the selected pairs; process peaks vary and are not an isolated memory-saving
-guarantee. This option joins the recommended suffix while remaining off by
-default and independently removable. See the [evidence and limits](experiments/compiled-moments/README.md).
+guarantee. Use `--gibbs-disable compiled-moments` to turn it off independently. See the [evidence and limits](experiments/compiled-moments/README.md).
 A bounded synthetic benchmark is available in
 `scripts/experiments/benchmark_compiled_moments.py`.
 
