@@ -5244,6 +5244,7 @@ class PigeanState(object):
             #map the values over from raw values to correlations/covariances
             correlation_m = intercept + slope * correlation_m
             correlation_m[correlation_m <= 0] = 0
+            correlation_m[correlation_m > 1] = 1
             correlation_m[0,:] = 1.0
         else:
             correlation_m[0,:] = 1.0
